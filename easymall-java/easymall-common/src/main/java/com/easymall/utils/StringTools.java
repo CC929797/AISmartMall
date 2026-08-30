@@ -1,9 +1,11 @@
 package com.easymall.utils;
 import com.easymall.exception.BusinessException;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Random;
 
 
 public class StringTools {
@@ -55,5 +57,19 @@ public class StringTools {
 
     public static String encodeByMD5(String originString) {
         return StringTools.isEmpty(originString) ? null : DigestUtils.md5Hex(originString.getBytes());
+    }
+
+    /**
+     * 生成随机的数字
+     */
+    public static String getRandomNumber(int length) {
+        return RandomStringUtils.random(length, false, true);
+    }
+
+    /**
+     * 生成随机的字符串
+     */
+    public static String getRandomString(int length) {
+        return RandomStringUtils.random(length, true, true);
     }
 }

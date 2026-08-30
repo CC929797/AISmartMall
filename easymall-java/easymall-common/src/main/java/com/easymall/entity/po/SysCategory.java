@@ -1,6 +1,10 @@
 package com.easymall.entity.po;
 
+import org.apache.tomcat.util.digester.ArrayStack;
+
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -29,6 +33,15 @@ public class SysCategory implements Serializable {
 	 */
 	private Integer sort;
 
+	private List<SysCategory> children = new ArrayList<>();
+
+	public List<SysCategory> getChildren() {
+		return children;
+	}
+
+	public void setChildren(List<SysCategory> children) {
+		this.children = children;
+	}
 
 	public void setCategoryId(String categoryId){
 		this.categoryId = categoryId;

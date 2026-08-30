@@ -1,7 +1,9 @@
 package com.easymall.service.Impl;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import com.easymall.entity.constants.Constants;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -30,7 +32,25 @@ public class SysCategoryServiceImpl implements SysCategoryService {
 	 */
 	@Override
 	public List<SysCategory> findListByParam(SysCategoryQuery param) {
-		return this.sysCategoryMapper.selectList(param);
+
+		List<SysCategory> sysCategoryList = this.sysCategoryMapper.selectList(param);
+		if (sysCategoryList != null && param.getConvert2Tree()) {
+			sysCategoryList = convertLine2Tree(sysCategoryList, Constants.ZERO_STR);
+		}
+
+		return sysCategoryList;
+	}
+
+	// 递归生成竖式结构
+	private List<SysCategory> convertLine2Tree(List<SysCategory> dataList, String pid) {
+		List<SysCategory> children = new ArrayList<>();
+		for (SysCategory m : dataList) {
+			if (m.getCategoryId() != null && m.getpCategoryId() != null && m.getpCategoryId().equals(pid)){
+				m.setChildren(convertLine2Tree(dataList, m.getCategoryId()));
+				children.add(m);
+			}
+		}
+		return children;
 	}
 
 	/**
@@ -127,4 +147,46 @@ public class SysCategoryServiceImpl implements SysCategoryService {
 	public Integer deleteSysCategoryByCategoryId(String categoryId) {
 		return this.sysCategoryMapper.deleteByCategoryId(categoryId);
 	}
+
+	/**
+	 * 新增或修改分类(如果是新增分类，则要设置分类的排序，设置为最高的权重)
+	 * @param bean
+	 */
+	@Override
+	public void saveCategory(SysCategory bean) {
+		if(bean.getCategoryId() == null){
+			bean.setCategoryId(StringTools.getRandomNumber(Constants.LENGTH_5));
+			Integer maxSort = this.sysCategoryMapper.selectMaxSort(bean.getCategoryId());
+			bean.setSort(maxSort + 1);
+			this.sysCategoryMapper.insert(bean);
+		}else {
+			this.sysCategoryMapper.updateByCategoryId(bean,bean.getCategoryId());
+		}
+		//TODO: 存入缓存
+	}
+
+	@Override
+	public void delCategory(String categoryId) {
+		SysCategoryQuery sysCategoryQuery = new SysCategoryQuery();
+		sysCategoryQuery.setCategoryOrPCategory(categoryId);
+		this.sysCategoryMapper.deleteByParam(sysCategoryQuery);
+		//TODO: 将分类存进缓存
+	}
+
+	@Override
+	public void changeSort(String categoryIds) {
+		String[] categoryIdArr = categoryIds.split(",");
+		List<SysCategory> sysCategoryList  = new ArrayList<>();
+		Integer sort = 1;
+		for (String categoryId : categoryIdArr) {
+			SysCategory sysCategory = new SysCategory();
+			sysCategory.setCategoryId(categoryId);
+			sysCategory.setSort(sort++);
+			sysCategoryList.add(sysCategory);
+		}
+		this.sysCategoryMapper.updateSortBatch(sysCategoryList);
+
+	}
+
+
 }

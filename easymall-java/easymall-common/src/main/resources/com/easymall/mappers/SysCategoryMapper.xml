@@ -49,6 +49,9 @@
 			<if test="query.pCategoryIdFuzzy!= null  and query.pCategoryIdFuzzy!=''">
 				 and  s.p_category_id like concat('%', #{query.pCategoryIdFuzzy}, '%')
 			</if>
+			<if test="query.categoryOrPCategory!=null and query.categoryOrPCategory!=''">
+			     and (s.p_category_id = #{query.categoryOrPCategory} or s.category_id = #{query.categoryOrPCategory})
+			</if>
 	 </where>
 	</sql>
 
@@ -241,6 +244,16 @@
 	<!-- 根据PrimaryKey获取对象-->
 	<select id="selectByCategoryId" resultMap="base_result_map" >
 		select <include refid="base_column_list" /> from sys_category s where category_id=#{categoryId}
+	</select>
+	
+	<select id="selectMaxSort" resultType="java.lang.Integer">
+        select ifnull(max(sort),0) from sys_category where p_category_id=#{pCategoryId}
+	</select>
+
+	<select id="updateSortBatch">
+		<foreach collection="sysCategoryList" separator=";" item="item">
+              update sys_category set sort = ${item.sort} where category_id = #{item.categoryId}
+		</foreach>
 	</select>
 
 </mapper>

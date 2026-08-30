@@ -1,6 +1,10 @@
 package com.easymall.mappers;
 
+import com.easymall.entity.po.SysCategory;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  *  数据库操作接口
@@ -25,4 +29,7 @@ public interface SysCategoryMapper<T,P> extends BaseMapper<T,P> {
 	 T selectByCategoryId(@Param("categoryId") String categoryId);
 
 
+    Integer selectMaxSort(@Param("pCategoryId") String pCategoryId);
+
+	void updateSortBatch(@Param("sysCategoryList") List<SysCategory> sysCategoryList);
 }

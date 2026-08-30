@@ -69,4 +69,9 @@ public interface SysCategoryService {
 	 */
 	Integer deleteSysCategoryByCategoryId(String categoryId);
 
+	void saveCategory(SysCategory bean);
+
+	void delCategory(String categoryId);
+
+	void changeSort(String categoryIds);
 }

@@ -34,6 +34,25 @@ public class SysCategoryQuery extends BaseParam {
 	 */
 	private Integer sort;
 
+	private Boolean convert2Tree;
+
+	private String categoryOrPCategory;
+
+	public String getCategoryOrPCategory() {
+		return categoryOrPCategory;
+	}
+
+	public void setCategoryOrPCategory(String categoryOrPCategory) {
+		this.categoryOrPCategory = categoryOrPCategory;
+	}
+
+	public Boolean getConvert2Tree() {
+		return convert2Tree;
+	}
+
+	public void setConvert2Tree(Boolean convert2Tree) {
+		this.convert2Tree = convert2Tree;
+	}
 
 	public void setCategoryId(String categoryId){
 		this.categoryId = categoryId;

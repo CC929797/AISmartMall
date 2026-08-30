@@ -1,6 +1,12 @@
 package com.easymall.entity.constants;
 
 public class Constants {
+    public static final String ZERO_STR = "0";
+    public static final Integer LENGTH_5 = 5;
+    public static final Integer LENGTH_10 = 10;
+    public static final Integer LENGTH_15 = 15;
+    public static final Integer LENGTH_30 = 30;
+
     private static final String REDIS_KEY_PREFIX = "easymall:";
 
     public static final String REDIS_KEY_CHECK_CODE = REDIS_KEY_PREFIX + "checkCode:";

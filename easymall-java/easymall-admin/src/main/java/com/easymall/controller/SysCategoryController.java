@@ -25,16 +25,21 @@ public class SysCategoryController extends ABaseController{
 	 * 根据条件分页查询
 	 */
 	@RequestMapping("/loadCategory")
-	public ResponseVO loadDataList(SysCategoryQuery query){
+	public ResponseVO loadDataList(){
+
+		SysCategoryQuery query = new SysCategoryQuery();
+		query.setConvert2Tree(true);
+		query.setOrderBy("s.sort asc");
+
 		return getSuccessResponseVO(sysCategoryService.findListByParam(query));
 	}
 
 	/**
 	 * 新增
 	 */
-	@RequestMapping("/add")
-	public ResponseVO add(SysCategory bean) {
-		sysCategoryService.add(bean);
+	@RequestMapping("/saveCategory")
+	public ResponseVO saveCategory(SysCategory bean) {
+		sysCategoryService.saveCategory(bean);
 		return getSuccessResponseVO(null);
 	}
 
@@ -76,9 +81,20 @@ public class SysCategoryController extends ABaseController{
 	/**
 	 * 根据CategoryId删除
 	 */
-	@RequestMapping("/deleteSysCategoryByCategoryId")
-	public ResponseVO deleteSysCategoryByCategoryId(String categoryId) {
-		sysCategoryService.deleteSysCategoryByCategoryId(categoryId);
+	@RequestMapping("/delCategory")
+	public ResponseVO delCategory(String categoryId) {
+		sysCategoryService.delCategory(categoryId);
+		return getSuccessResponseVO(null);
+	}
+
+	/**
+	 * 修改分类排序
+	 * @param categoryIds
+	 * @return
+	 */
+	@RequestMapping("/changeCategorySort")
+	public ResponseVO changeCategorySort(String categoryIds) {
+		sysCategoryService.changeSort(categoryIds);
 		return getSuccessResponseVO(null);
 	}
 }
