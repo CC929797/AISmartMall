@@ -165,6 +165,9 @@ public class SysCategoryServiceImpl implements SysCategoryService {
 		//TODO: 存入缓存
 	}
 
+	/**
+	 * 删除分类(删除分类的时候把该分类下的子分类一起删除)
+	 */
 	@Override
 	public void delCategory(String categoryId) {
 		SysCategoryQuery sysCategoryQuery = new SysCategoryQuery();
@@ -173,6 +176,10 @@ public class SysCategoryServiceImpl implements SysCategoryService {
 		//TODO: 将分类存进缓存
 	}
 
+	/**
+	 * 更改分类排序
+	 * @param categoryIds
+	 */
 	@Override
 	public void changeSort(String categoryIds) {
 		String[] categoryIdArr = categoryIds.split(",");

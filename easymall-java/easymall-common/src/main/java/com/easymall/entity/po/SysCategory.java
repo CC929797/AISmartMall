@@ -35,6 +35,16 @@ public class SysCategory implements Serializable {
 
 	private List<SysCategory> children = new ArrayList<>();
 
+	private List<SysProductProperty> productPropertyList;
+
+	public List<SysProductProperty> getProductPropertyList() {
+		return productPropertyList;
+	}
+
+	public void setProductPropertyList(List<SysProductProperty> productPropertyList) {
+		this.productPropertyList = productPropertyList;
+	}
+
 	public List<SysCategory> getChildren() {
 		return children;
 	}

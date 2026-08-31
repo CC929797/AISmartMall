@@ -38,6 +38,16 @@ public class SysCategoryQuery extends BaseParam {
 
 	private String categoryOrPCategory;
 
+	private Boolean queryProperty;
+
+	public Boolean getQueryProperty() {
+		return queryProperty;
+	}
+
+	public void setQueryProperty(Boolean queryProperty) {
+		this.queryProperty = queryProperty;
+	}
+
 	public String getCategoryOrPCategory() {
 		return categoryOrPCategory;
 	}

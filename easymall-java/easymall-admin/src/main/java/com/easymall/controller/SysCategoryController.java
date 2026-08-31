@@ -2,10 +2,12 @@ package com.easymall.controller;
 
 import java.util.List;
 
+import com.easymall.entity.po.SysProductProperty;
 import com.easymall.entity.query.SysCategoryQuery;
 import com.easymall.entity.po.SysCategory;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.service.SysCategoryService;
+import com.easymall.service.SysProductPropertyService;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,16 +23,21 @@ public class SysCategoryController extends ABaseController{
 
 	@Resource
 	private SysCategoryService sysCategoryService;
+	@Resource
+	private SysProductPropertyService sysProductPropertyService;
 	/**
 	 * 根据条件分页查询
 	 */
 	@RequestMapping("/loadCategory")
-	public ResponseVO loadDataList(){
+	public ResponseVO loadDataList(Boolean queryProperty){
 
 		SysCategoryQuery query = new SysCategoryQuery();
 		query.setConvert2Tree(true);
 		query.setOrderBy("s.sort asc");
-
+		if(queryProperty != null && queryProperty){
+			query.setOrderBy("s.sort asc,sp.property_sort asc");
+		}
+		query.setQueryProperty(queryProperty);
 		return getSuccessResponseVO(sysCategoryService.findListByParam(query));
 	}
 
@@ -95,6 +102,18 @@ public class SysCategoryController extends ABaseController{
 	@RequestMapping("/changeCategorySort")
 	public ResponseVO changeCategorySort(String categoryIds) {
 		sysCategoryService.changeSort(categoryIds);
+		return getSuccessResponseVO(null);
+	}
+
+	@RequestMapping("/saveProductProperty")
+	public ResponseVO saveProductProperty(SysProductProperty sysProductProperty) {
+		sysProductPropertyService.saveProductProperty(sysProductProperty);
+		return getSuccessResponseVO(null);
+	}
+
+	@RequestMapping("/delProductProperty")
+	public ResponseVO delProductProperty(String propertyId) {
+		sysProductPropertyService.deleteSysProductPropertyByPropertyId(propertyId);
 		return getSuccessResponseVO(null);
 	}
 }

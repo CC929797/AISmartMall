@@ -29,7 +29,16 @@ public interface SysCategoryMapper<T,P> extends BaseMapper<T,P> {
 	 T selectByCategoryId(@Param("categoryId") String categoryId);
 
 
+	/**
+	 * 根据父级分类下获取最大排序
+	 * @param pCategoryId
+	 * @return
+	 */
     Integer selectMaxSort(@Param("pCategoryId") String pCategoryId);
 
+	/**
+	 * 批量更新排序
+	 * @param sysCategoryList
+	 */
 	void updateSortBatch(@Param("sysCategoryList") List<SysCategory> sysCategoryList);
 }
