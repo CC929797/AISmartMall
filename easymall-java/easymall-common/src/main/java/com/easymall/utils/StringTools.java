@@ -3,6 +3,7 @@ import com.easymall.exception.BusinessException;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Random;
@@ -71,5 +72,22 @@ public class StringTools {
      */
     public static String getRandomString(int length) {
         return RandomStringUtils.random(length, true, true);
+    }
+
+    /**
+     * 获取到上传文件的后缀
+     */
+    public static String getFileSuffix(String fileName) {
+        return fileName.substring(fileName.lastIndexOf("."));
+    }
+
+    public static boolean pathIsOk(String path) {
+        if(StringTools.isEmpty(path)) {
+            return true;
+        }
+        if (path.contains("../") || path.contains("..\\")) {
+            return false;
+        }
+        return true;
     }
 }

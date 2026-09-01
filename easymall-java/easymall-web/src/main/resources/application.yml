@@ -34,7 +34,7 @@ mybatis:
     map-underscore-to-camel-case: true
 #项目目录
 project:
-  folder: D:\java\java24\wokspach-teach\runtime\easymall
+  folder: D:/java/java24/wokspach-teach/runtime/easymall/
 #日志级别
 log:
   root:

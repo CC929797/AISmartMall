@@ -4,6 +4,7 @@ import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
 
 
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -30,7 +31,7 @@ public class AGlobalExceptionHandlerController extends ABaseController {
             responseVO.setCode(ResponseCodeEnum.CODE_404.getCode());
             responseVO.setInfo(ResponseCodeEnum.CODE_404.getMsg());
             responseVO.setStatus(STATUC_ERROR);
-        } else if (e instanceof BusinessException) {
+        } else if (e instanceof BusinessException || e instanceof ConstraintViolationException) {
             //业务错误
             BusinessException biz = (BusinessException) e;
             responseVO.setCode(biz.getCode() == null ? ResponseCodeEnum.CODE_600.getCode() : biz.getCode());
