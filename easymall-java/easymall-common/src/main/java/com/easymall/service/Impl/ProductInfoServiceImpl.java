@@ -226,7 +226,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 		List<ProductListVO> productListVOList = productInfoList.stream().map(item -> {
 			ProductListVO productListVO = CopyTools.copy(item, ProductListVO.class);
 			// 查询此商品的categoryId和pCategoryId对应的分类名称
-			productListVO.setCategoryName(categoryMap.get(item.getpCategoryId()).getCategoryName() + "/" + categoryMap.get(item.getpCategoryId()).getCategoryName());
+			productListVO.setCategoryName(categoryMap.get(item.getpCategoryId()).getCategoryName() + "/" + categoryMap.get(item.getCategoryId()).getCategoryName());
 			// 利用productId查询此商品所有的sku
 			List<ProductSku> skuList = skuMap.get(item.getProductId());
 			// 获取sku数量
