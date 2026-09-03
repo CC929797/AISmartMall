@@ -60,6 +60,12 @@
 			<if test="query.propertyValueIdsFuzzy!= null  and query.propertyValueIdsFuzzy!=''">
 				 and  p.property_value_ids like concat('%', #{query.propertyValueIdsFuzzy}, '%')
 			</if>
+			<if test="query.productIdList!=null and query.productIdList.size>0">
+			     and p.product_id in
+			     <foreach item="item" collection="query.productIdList" separator="," open="(" close=")">
+					 #{item}
+			     </foreach>
+			</if>
 	 </where>
 	</sql>
 

@@ -1,27 +1,27 @@
 package com.easymall.service.Impl;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.ProductSaveDTO;
 import com.easymall.entity.enums.ProductStatusEnum;
 import com.easymall.entity.po.ProductPropertyValue;
 import com.easymall.entity.po.ProductSku;
-import com.easymall.entity.query.ProductPropertyValueQuery;
-import com.easymall.entity.query.ProductSkuQuery;
+import com.easymall.entity.po.SysCategory;
+import com.easymall.entity.query.*;
+import com.easymall.entity.vo.ProductListVO;
 import com.easymall.mappers.ProductPropertyValueMapper;
 import com.easymall.mappers.ProductSkuMapper;
+import com.easymall.service.SysCategoryService;
+import com.easymall.utils.CopyTools;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
 
 import com.easymall.entity.enums.PageSize;
-import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.entity.po.ProductInfo;
 import com.easymall.entity.vo.PaginationResultVO;
-import com.easymall.entity.query.SimplePage;
 import com.easymall.mappers.ProductInfoMapper;
 import com.easymall.service.ProductInfoService;
 import com.easymall.utils.StringTools;
@@ -40,6 +40,9 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 	private ProductPropertyValueMapper<ProductPropertyValue, ProductPropertyValueQuery> productPropertyValueMapper;
 	@Resource
 	private ProductSkuMapper<ProductSku, ProductSkuQuery> productSkuMapper;
+	@Resource
+	private SysCategoryService sysCategoryService;
+
 
 	/**
 	 * 根据条件查询列表
@@ -187,5 +190,52 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 			productPropertyValueMapper.insertBatch(productPropertyList);
 			productSkuMapper.insertBatch(skuList);
 		}
+	}
+
+	/**
+	 * 分页查询更详细的商品信息
+	 * @param param
+	 * @return
+	 */
+	@Override
+	public PaginationResultVO<ProductListVO> findListByPageListVO(ProductInfoQuery param) {
+		//先查询ProductInfo中的基本信息
+		PaginationResultVO<ProductInfo> paginationResultVO = findListByPage(param);
+		//判断是否查到
+		if(paginationResultVO.getPageTotal() == 0) {
+			return new PaginationResultVO<>(new ArrayList<>());
+		}
+		List<ProductInfo> productInfoList = paginationResultVO.getList();
+
+		//查询分类
+		SysCategoryQuery sysCategoryQuery = new SysCategoryQuery();
+		sysCategoryQuery.setConvert2Tree(false);
+		List<SysCategory> categoryList = sysCategoryService.findListByParam(sysCategoryQuery);
+		Map<String, SysCategory> categoryMap = categoryList.stream().collect(Collectors.toMap(SysCategory::getCategoryId, c -> c));
+
+		//查询SKU
+		List<String> productIdList = productInfoList.stream().map(ProductInfo::getProductId).collect(Collectors.toList());
+
+		ProductSkuQuery skuQuery = new ProductSkuQuery();
+		skuQuery.setProductIdList(productIdList);
+		List<ProductSku> allSkuList = productSkuMapper.selectList(skuQuery);
+		//一对多，一个商品的id对应多个sku
+		Map<String, List<ProductSku>> skuMap = allSkuList.stream().collect(Collectors.groupingBy(ProductSku::getProductId));
+
+		//把以上所查询到的所有信息进行处理
+		List<ProductListVO> productListVOList = productInfoList.stream().map(item -> {
+			ProductListVO productListVO = CopyTools.copy(item, ProductListVO.class);
+			// 查询此商品的categoryId和pCategoryId对应的分类名称
+			productListVO.setCategoryName(categoryMap.get(item.getpCategoryId()).getCategoryName() + "/" + categoryMap.get(item.getpCategoryId()).getCategoryName());
+			// 利用productId查询此商品所有的sku
+			List<ProductSku> skuList = skuMap.get(item.getProductId());
+			// 获取sku数量
+			productListVO.setSkuCount(skuList.size());
+			// 获取总库存
+			productListVO.setTotalStock(skuList.stream().mapToInt(ProductSku::getStock).sum());
+			return productListVO;
+		}).collect(Collectors.toList());
+
+		return new PaginationResultVO<>(paginationResultVO.getTotalCount(), paginationResultVO.getPageSize(), paginationResultVO.getPageNo(), paginationResultVO.getPageTotal(), productListVOList);
 	}
 }

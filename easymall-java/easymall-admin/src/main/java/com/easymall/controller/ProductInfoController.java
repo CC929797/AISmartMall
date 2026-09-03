@@ -28,9 +28,16 @@ public class ProductInfoController extends ABaseController{
 	/**
 	 * 根据条件分页查询
 	 */
-	@RequestMapping("/loadDataList")
-	public ResponseVO loadDataList(ProductInfoQuery query){
-		return getSuccessResponseVO(productInfoService.findListByPage(query));
+	@RequestMapping("/loadProduct")
+	public ResponseVO loadProductList(String productNameFuzzy, Integer pageNo, String categoryIdOrPCategoryId, Integer commendType) {
+		ProductInfoQuery query = new ProductInfoQuery();
+		query.setPageNo(pageNo);
+		query.setProductNameFuzzy(productNameFuzzy);
+		query.setCommendType(commendType);
+		query.setOrderBy("p.create_time desc");
+		query.setCategoryIdOrPCategoryId(categoryIdOrPCategoryId);
+
+		return getSuccessResponseVO(productInfoService.findListByPageListVO(query));
 	}
 
 	/**

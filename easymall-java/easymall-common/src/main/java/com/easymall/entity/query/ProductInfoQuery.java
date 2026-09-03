@@ -86,6 +86,21 @@ public class ProductInfoQuery extends BaseParam {
 	 */
 	private Integer commendType;
 
+	/**
+	 * 类别ID或者父类别ID
+	 */
+	private String categoryIdOrPCategoryId;
+
+	public String getCategoryIdOrPCategoryId() {
+		return categoryIdOrPCategoryId;
+	}
+
+	public void setCategoryIdOrPCategoryId(String categoryIdOrPCategoryId) {
+		this.categoryIdOrPCategoryId = categoryIdOrPCategoryId;
+	}
+
+
+
 
 	public void setProductId(String productId){
 		this.productId = productId;

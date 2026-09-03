@@ -1,6 +1,7 @@
 package com.easymall.entity.query;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 
 /**
@@ -45,6 +46,19 @@ public class ProductSkuQuery extends BaseParam {
 	 */
 	private Integer sort;
 
+	/**
+	 * 商品ID列表
+	 * 批量查询productId的sku信息
+	 */
+	private List<String> productIdList;
+
+	public List<String> getProductIdList() {
+		return productIdList;
+	}
+
+	public void setProductIdList(List<String> productIdList) {
+		this.productIdList = productIdList;
+	}
 
 	public void setProductId(String productId){
 		this.productId = productId;
