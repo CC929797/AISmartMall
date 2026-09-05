@@ -5,10 +5,12 @@ import java.util.List;
 import com.easymall.entity.dto.ProductSaveDTO;
 import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.entity.po.ProductInfo;
+import com.easymall.entity.vo.ProductInfoDetailVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.service.ProductInfoService;
 import com.easymall.valid.createGroup;
 import com.easymall.valid.updateGroup;
+import jakarta.validation.constraints.NotEmpty;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,6 +49,11 @@ public class ProductInfoController extends ABaseController{
 	public ResponseVO addProduct(@RequestBody @Validated(createGroup.class) ProductSaveDTO productSaveDTO) {
 		productInfoService.saveProduct(productSaveDTO);
 		return getSuccessResponseVO(null);
+	}
+
+	@RequestMapping("/getProductInfo")
+	public ResponseVO getProductInfo(@NotEmpty String productId) {
+		return getSuccessResponseVO(productInfoService.getProductInfo(productId));
 	}
 
 	/**

@@ -6,11 +6,13 @@ import java.util.stream.Collectors;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.ProductSaveDTO;
 import com.easymall.entity.enums.ProductStatusEnum;
+import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.po.ProductPropertyValue;
 import com.easymall.entity.po.ProductSku;
 import com.easymall.entity.po.SysCategory;
 import com.easymall.entity.query.*;
-import com.easymall.entity.vo.ProductListVO;
+import com.easymall.entity.vo.*;
+import com.easymall.exception.BusinessException;
 import com.easymall.mappers.ProductPropertyValueMapper;
 import com.easymall.mappers.ProductSkuMapper;
 import com.easymall.service.SysCategoryService;
@@ -21,7 +23,6 @@ import org.springframework.stereotype.Service;
 
 import com.easymall.entity.enums.PageSize;
 import com.easymall.entity.po.ProductInfo;
-import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.mappers.ProductInfoMapper;
 import com.easymall.service.ProductInfoService;
 import com.easymall.utils.StringTools;
@@ -237,5 +238,108 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 		}).collect(Collectors.toList());
 
 		return new PaginationResultVO<>(paginationResultVO.getTotalCount(), paginationResultVO.getPageSize(), paginationResultVO.getPageNo(), paginationResultVO.getPageTotal(), productListVOList);
+	}
+
+	/**
+	 * 获取到商品详细信息
+	 * @param productId
+	 * @return
+	 */
+	@Override
+	public ProductInfoDetailVO getProductInfo(String productId) {
+		// 根据productId查询到商品信息
+		ProductInfo productInfo = productInfoMapper.selectByProductId(productId);
+		if(productInfo == null) {
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
+		// 新增ProductPropertyValueQuery对象
+		ProductPropertyValueQuery propertyValueQuery = new ProductPropertyValueQuery();
+		propertyValueQuery.setProductId(productId);
+		propertyValueQuery.setOrderBy("property_sort asc");
+		//查询到具体的属性值
+		/**
+		 * | propertyId | propertyName | propertyValueId | propertyValue |
+		 * 				|---|---|---|---|
+		 * 				| color | 颜色 | red | 红色 |
+		 * 				| color | 颜色 | black | 黑色 |
+		 * 				| storage | 内存 | 128 | 128G |
+		 * 				| storage | 内存 | 256 | 256G |
+		 * 		这样的方式
+		 */
+		List<ProductPropertyValue> propertyValueList = productPropertyValueMapper.selectList(propertyValueQuery);
+
+		//设置临时的属性集合
+		List<ProductPropertyVO> productPropertyVOS = new ArrayList<>();
+		//设置临时的属性对象的map
+		Map<String,ProductPropertyVO> tempMap = new HashMap<>();
+		for (ProductPropertyValue productPropertyValue : propertyValueList) {
+			// 在Map集合当中根据属性Id获取到对应的属性对象ProductPropertyValue
+			ProductPropertyVO productPropertyVO = tempMap.get(productPropertyValue.getPropertyId());
+			// 新建此属性值的对象ProductPropertyValueVO
+			ProductPropertyValueVO productPropertyValueVO = new ProductPropertyValueVO(productPropertyValue.getPropertyValueId(),
+					productPropertyValue.getPropertyCover(),
+					productPropertyValue.getPropertyValue(),
+					productPropertyValue.getPropertyRemark()
+			);
+
+			if(productPropertyVO == null){
+				//如果在map集合当中获取到的属性对象是null
+				//则新建一个属性对象productPropertyVO，把基础的信息设置进去
+				productPropertyVO = new ProductPropertyVO(productPropertyValue.getPropertyId(),
+						productPropertyValue.getPropertyName(),
+						productPropertyValue.getPropertySort(),
+						productPropertyValue.getCoverType()
+						);
+				// 把此属性对象productPropertyVO放入map集合当中
+				tempMap.put(productPropertyValue.getPropertyId(), productPropertyVO);
+				// 创建productPropertyVO中的属性List<ProductPropertyValueVO>
+				List<ProductPropertyValueVO> productPropertyValueVOS = new ArrayList<>();
+				//把此属性的属性值对象给添加进集合当中
+				productPropertyValueVOS.add(productPropertyValueVO);
+				//把此集合给添加进属性对象productPropertyVO当中
+				productPropertyVO.setPropertyValues(productPropertyValueVOS);
+				//把属性对象添加进属性对象集合当中
+				productPropertyVOS.add(productPropertyVO);
+			}else {
+				//如果根据遍历到的属性值所属的属性id在map集合当中获取到的属性对象不是null，说明属性已经存在
+				//只需要在属性对象的属性值集合当中添加此属性值对象即可
+				productPropertyVO.getPropertyValues().add(productPropertyValueVO);
+			}
+		}
+		/**
+		 * 最终成果类似于这样
+		 * [
+		 *   {
+		 *     "propertyId": "color",
+		 *     "propertyName": "颜色",
+		 *     "propertyValues": [
+		 *       {"propertyValueId": "red", "propertyValue": "红色"},
+		 *       {"propertyValueId": "black", "propertyValue": "黑色"}
+		 *     ]
+		 *   },
+		 *   {
+		 *     "propertyId": "storage",
+		 *     "propertyName": "内存",
+		 *     "propertyValues": [
+		 *       {"propertyValueId": "128", "propertyValue": "128G"},
+		 *       {"propertyValueId": "256", "propertyValue": "256G"}
+		 *     ]
+		 *   }
+		 * ]
+		 */
+
+		// 查询商品sku信息
+		ProductSkuQuery skuQuery = new ProductSkuQuery();
+		skuQuery.setProductId(productId);
+		skuQuery.setOrderBy("sort asc");
+		List<ProductSku> skuList = this.productSkuMapper.selectList(skuQuery);
+
+		// 把商品的信息、商品属性和属性值、商品sku一起封装到商品详细信息VO中
+		ProductInfoDetailVO productInfoDetailVO = new ProductInfoDetailVO();
+		productInfoDetailVO.setProductInfo(productInfo);
+		productInfoDetailVO.setProductPropertyList(productPropertyVOS);
+		productInfoDetailVO.setSkuList(skuList);
+
+		return productInfoDetailVO;
 	}
 }

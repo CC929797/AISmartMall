@@ -6,6 +6,7 @@ import com.easymall.entity.dto.ProductSaveDTO;
 import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.entity.po.ProductInfo;
 import com.easymall.entity.vo.PaginationResultVO;
+import com.easymall.entity.vo.ProductInfoDetailVO;
 import com.easymall.entity.vo.ProductListVO;
 
 
@@ -81,5 +82,10 @@ public interface ProductInfoService {
 	 * 分页查询更加详细的信息
 	 */
 	PaginationResultVO<ProductListVO> findListByPageListVO(ProductInfoQuery param);
+
+	/**
+	 * 获取到商品详细信息
+	 */
+	ProductInfoDetailVO getProductInfo(String productId);
 
 }
