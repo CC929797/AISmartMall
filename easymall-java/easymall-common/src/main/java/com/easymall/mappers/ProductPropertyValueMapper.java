@@ -2,6 +2,8 @@ package com.easymall.mappers;
 
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  *  数据库操作接口
  */
@@ -24,5 +26,13 @@ public interface ProductPropertyValueMapper<T,P> extends BaseMapper<T,P> {
 	 */
 	 T selectByProductIdAndPropertyValueId(@Param("productId") String productId,@Param("propertyValueId") String propertyValueId);
 
+	/**
+	 * 批量修改属性值
+	 */
+	void updateBatch(@Param("productId") String productId,@Param("dataList") List<T> dataList);
 
+	/**
+	 * 批量删除属性值
+	 */
+	void deleteBatch(@Param("productId") String productId,@Param("dataList") List<T> dataList);
 }

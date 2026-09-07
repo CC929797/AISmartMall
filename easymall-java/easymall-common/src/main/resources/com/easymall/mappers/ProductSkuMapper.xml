@@ -309,4 +309,18 @@
 		select <include refid="base_column_list" /> from product_sku p where product_id=#{productId} and property_value_id_hash=#{propertyValueIdHash}
 	</select>
 
+	<update id="updateBatch">
+		<foreach collection="dataList" item="item" separator=";">
+			update product_sku set
+			price = #{item.price}
+			where product_id = #{productId} and property_value_id_hash = #{item.propertyValueIdHash}
+		</foreach>
+	</update>
+
+	<delete id="deleteBatch">
+		delete from product_sku where product_id = #{productId} and property_value_id_hash in (
+		<foreach collection="dataList" item="item" separator=",">#{item.propertyValueIdHash}</foreach>
+		)
+	</delete>
+
 </mapper>

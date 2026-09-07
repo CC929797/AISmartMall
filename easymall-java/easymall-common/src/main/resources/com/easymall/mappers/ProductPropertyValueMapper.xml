@@ -440,4 +440,20 @@
 		select <include refid="base_column_list" /> from product_property_value p where product_id=#{productId} and property_value_id=#{propertyValueId}
 	</select>
 
+	<update id="updateBatch">
+        <foreach collection="dataList" item="item" separator=";">
+			update product_property_value set
+			property_cover = #{item.propertyCover},
+            property_value = #{item.propertyValue},
+			property_remark = #{item.propertyRemark}
+			where product_id = #{productId} and property_value_id = #{item.propertyValueId}
+		</foreach>
+	</update>
+
+	<delete id="deleteBatch">
+         delete from product_property_value where product_id = #{productId} and property_value_id in (
+        <foreach collection="dataList" item="item" separator=",">property_value_id = #{item.propertyValueId}</foreach>
+        )
+	</delete>
+
 </mapper>

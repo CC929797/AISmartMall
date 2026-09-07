@@ -158,7 +158,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 		//获取商品信息
 		ProductInfo productInfo = productSaveDTO.getProductInfo();
 		//获取商品属性
-		List<ProductPropertyValue> productPropertyList = productSaveDTO.getProductPropertyList();
+		List<ProductPropertyValue> productPropertyValueList = productSaveDTO.getProductPropertyList();
 		//获取商品的sku信息
 		List<ProductSku> skuList = productSaveDTO.getSkuList();
 		//判断是新增还是修改
@@ -167,7 +167,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 			productInfo.setProductId(StringTools.getRandomString(Constants.LENGTH_15));
 		}
 		//设置商品属性的productId
-		productPropertyList.forEach(p -> {
+		productPropertyValueList.forEach(p -> {
 			p.setProductId(productInfo.getProductId());
 		});
 		//设置商品sku的productId
@@ -188,9 +188,108 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 			productInfo.setStatus(ProductStatusEnum.OFF_SALE.getStatus());
 
 			productInfoMapper.insert(productInfo);
-			productPropertyValueMapper.insertBatch(productPropertyList);
+			productPropertyValueMapper.insertBatch(productPropertyValueList);
 			productSkuMapper.insertBatch(skuList);
+		}else{
+			ProductPropertyValueQuery productPropertyValueQuery = new ProductPropertyValueQuery();
+			productPropertyValueQuery.setProductId(productInfo.getProductId());
+			List<ProductPropertyValue> dbProductPropertyValueList = productPropertyValueMapper.selectList(productPropertyValueQuery);
+
+			Map<String, ProductPropertyValue> dbProductPropertyValueMap = dbProductPropertyValueList.stream().
+					collect(Collectors.toMap(ProductPropertyValue::getPropertyValueId, p -> p));
+
+			List<ProductPropertyValue> productPropertyValueAddList = new ArrayList<>();
+			List<ProductPropertyValue> productPropertyValueUpdateList = new ArrayList<>();
+			List<ProductPropertyValue> productPropertyValueDeleteList = new ArrayList<>();
+
+			//参数里有，数据库里没有的，为新增，两个都有为修改
+			for (ProductPropertyValue item : productPropertyValueList) {
+				if (dbProductPropertyValueMap.get(item.getPropertyValueId()) == null) {
+					productPropertyValueAddList.add(item);
+				}else {
+					productPropertyValueUpdateList.add(item);
+				}
+			}
+			//数据库里有，参数里没有的，为删除
+			Map<String,ProductPropertyValue> propertyValueMap = productPropertyValueList.stream().
+					collect(Collectors.toMap(ProductPropertyValue::getPropertyValueId, p -> p));
+
+			for (ProductPropertyValue item : dbProductPropertyValueList) {
+				if(propertyValueMap.get(item.getPropertyValueId()) == null){
+					productPropertyValueDeleteList.add(item);
+				}
+			}
+
+			//sku的新增，修改、删除
+			List<ProductSku> productSkuAddList = new ArrayList<>();
+			List<ProductSku> productSkuUpdateList = new ArrayList<>();
+			List<ProductSku> productSkuDeleteList = new ArrayList<>();
+
+			ProductSkuQuery productSkuQuery = new ProductSkuQuery();
+			productSkuQuery.setProductId(productInfo.getProductId());
+			List<ProductSku> dbProductSkuList = productSkuMapper.selectList(productSkuQuery);
+			Map<String,ProductSku> dbSkuMap = dbProductSkuList.stream().
+					collect(Collectors.toMap(ProductSku::getPropertyValueIdHash, p -> p));
+
+			for (ProductSku item : skuList) {
+				if(dbSkuMap.get(item.getPropertyValueIdHash()) == null){
+					//新增
+					productSkuAddList.add(item);
+				}else {
+					//修改
+					productSkuUpdateList.add(item);
+				}
+			}
+
+			//数据库里有，参数里没有的，为删除
+			Map<String, ProductSku> skuMap = skuList.stream().
+					collect(Collectors.toMap(ProductSku::getPropertyValueIdHash, p -> p));
+			for (ProductSku item : dbProductSkuList) {
+				if(skuMap.get(item.getPropertyValueIdHash()) == null){
+					productSkuDeleteList.add(item);
+				}
+			}
+
+			//修改不能修改的内容
+			productInfo.setCategoryId(null);
+			productInfo.setpCategoryId(null);
+			productInfo.setStatus(null);
+
+			productInfoMapper.updateByProductId(productInfo,productInfo.getProductId());
+
+			//属性值操作
+			//执行属性值的批量增加
+			if(!productPropertyValueAddList.isEmpty()){
+				productPropertyValueMapper.insertBatch(productPropertyValueAddList);
+			}
+			//执行属性值的批量修改
+			if(!productPropertyValueUpdateList.isEmpty()){
+				productPropertyValueMapper.updateBatch(productInfo.getProductId(),productPropertyValueUpdateList);
+			}
+			//执行属性值的批量删除
+			if(!productPropertyValueDeleteList.isEmpty()){
+				productPropertyValueMapper.deleteBatch(productInfo.getProductId(),productPropertyValueDeleteList);
+			}
+
+			//sku操作
+			//sku的批量信息
+			if(!productSkuAddList.isEmpty()){
+				productSkuMapper.insertBatch(productSkuAddList);
+			}
+			/**
+			 * sku的批量修改
+			 */
+			if(!productSkuUpdateList.isEmpty()){
+				productSkuMapper.updateBatch(productInfo.getProductId(),productSkuUpdateList);
+			}
+			/**
+			 * sku的批量删除
+			 */
+			if(!productSkuDeleteList.isEmpty()){
+				productSkuMapper.deleteBatch(productInfo.getProductId(),productSkuDeleteList);
+			}
 		}
+		//TODO:1. 将数据库信息写进es 2.将商品数据向量化
 	}
 
 	/**

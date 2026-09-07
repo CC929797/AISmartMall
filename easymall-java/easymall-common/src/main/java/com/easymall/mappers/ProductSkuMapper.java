@@ -2,6 +2,8 @@ package com.easymall.mappers;
 
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  *  数据库操作接口
  */
@@ -24,5 +26,18 @@ public interface ProductSkuMapper<T,P> extends BaseMapper<T,P> {
 	 */
 	 T selectByProductIdAndPropertyValueIdHash(@Param("productId") String productId,@Param("propertyValueIdHash") String propertyValueIdHash);
 
+	/**
+	 * 批量修改sku信息
+	 * @param productId
+	 * @param dataList
+	 */
+	 void updateBatch(@Param("productId") String productId,@Param("dataList") List<T> dataList);
+
+	/**
+	 * 批量删除sku信息
+	 * @param productId
+	 * @param dataList
+	 */
+	void deleteBatch(@Param("productId") String productId,@Param("dataList") List<T> dataList);
 
 }
