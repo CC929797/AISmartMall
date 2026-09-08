@@ -58,4 +58,13 @@ public class RedisComponent {
     public void cleanTokenInfoAdmin(String token) {
         redisUtils.delete(Constants.REDIS_KEY_TOKEN_ADMIN + token);
     }
+
+    /**
+     * 从 Redis 当中获取 token
+     * @param token
+     * @return
+     */
+    public String getLoginInfo4Admin(String token) {
+        return (String) redisUtils.get(Constants.REDIS_KEY_TOKEN_ADMIN + token);
+    }
 }
