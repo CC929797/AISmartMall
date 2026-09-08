@@ -88,4 +88,15 @@ public interface ProductInfoService {
 	 */
 	ProductInfoDetailVO getProductInfo(String productId);
 
+	/**
+	 * 修改商品的上架和下架状态
+	 */
+	void updateProductStatus(String productId, Integer status);
+
+	/**
+	 * 逻辑删除商品
+	 * @param productId 商品Id
+	 */
+	void deleteProduct(String productId);
+
 }

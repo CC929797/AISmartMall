@@ -1,5 +1,6 @@
 package com.easymall.entity.vo;
 
+import com.easymall.entity.enums.ProductStatusEnum;
 import com.easymall.valid.updateGroup;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotEmpty;
@@ -91,6 +92,20 @@ public class ProductListVO {
      * 总库存
      */
     private Integer totalStock;
+
+    /**
+     * 状态名称
+     */
+    private String statusName;
+
+    public String getStatusName() {
+        ProductStatusEnum statusEnum = ProductStatusEnum.getByStatus(status);
+        return statusEnum == null ? "" : statusEnum.getDesc() ;
+    }
+
+    public void setStatusName(String statusName) {
+        this.statusName = statusName;
+    }
 
     public String getProductId() {
         return productId;

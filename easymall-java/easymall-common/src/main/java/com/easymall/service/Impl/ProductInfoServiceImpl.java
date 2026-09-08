@@ -453,4 +453,40 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 
 		return productInfoDetailVO;
 	}
+
+	/**
+	 * 修改商品的上架和下架状态
+	 */
+	@Override
+	public void updateProductStatus(String productId, Integer status) {
+		ProductStatusEnum productStatusEnum = ProductStatusEnum.getByStatus(status);
+		if(productStatusEnum == null || productStatusEnum == ProductStatusEnum.DELETE){
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
+
+		ProductInfo dbInfo = this.productInfoMapper.selectByProductId(productId);
+		if(ProductStatusEnum.DELETE.getStatus().equals(dbInfo.getStatus())) {
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
+
+		ProductInfo productInfo = new ProductInfo();
+		productInfo.setStatus(status);
+		this.updateProductInfoByProductId(productInfo,productId);
+
+		//TODO: 1.将数据库信息写入 es 2.将商品数据向量化
+
+	}
+
+	/**
+	 * 逻辑删除商品
+	 * @param productId 商品Id
+	 */
+	@Override
+	public void deleteProduct(String productId) {
+		ProductInfo productInfo = new ProductInfo();
+		productInfo.setStatus(ProductStatusEnum.DELETE.getStatus());
+		this.updateProductInfoByProductId(productInfo,productId);
+
+		//TODO: 1.将数据库信息写入 es 2.将商品数据向量化
+	}
 }

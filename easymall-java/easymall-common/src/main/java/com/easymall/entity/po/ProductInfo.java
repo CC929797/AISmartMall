@@ -3,6 +3,7 @@ package com.easymall.entity.po;
 import java.math.BigDecimal;
 import java.util.Date;
 import com.easymall.entity.enums.DateTimePatternEnum;
+import com.easymall.entity.enums.ProductStatusEnum;
 import com.easymall.utils.DateUtil;
 import com.easymall.valid.createGroup;
 import com.easymall.valid.updateGroup;
@@ -86,7 +87,6 @@ public class ProductInfo implements Serializable {
 	 * 0:未推荐 1:已经推荐
 	 */
 	private Integer commendType;
-
 
 	public void setProductId(String productId){
 		this.productId = productId;
