@@ -16,6 +16,7 @@ import com.easymall.exception.BusinessException;
 import com.easymall.mappers.ProductPropertyValueMapper;
 import com.easymall.mappers.ProductSkuMapper;
 import com.easymall.service.SysCategoryService;
+import com.easymall.utils.CollectionComparator;
 import com.easymall.utils.CopyTools;
 import jakarta.annotation.Resource;
 
@@ -187,6 +188,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 			productInfo.setCreateTime(new Date());
 			productInfo.setStatus(ProductStatusEnum.OFF_SALE.getStatus());
 
+			//如果是新增，则新增商品信息、商品属性值、商品sku
 			productInfoMapper.insert(productInfo);
 			productPropertyValueMapper.insertBatch(productPropertyValueList);
 			productSkuMapper.insertBatch(skuList);
@@ -195,7 +197,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 			productPropertyValueQuery.setProductId(productInfo.getProductId());
 			List<ProductPropertyValue> dbProductPropertyValueList = productPropertyValueMapper.selectList(productPropertyValueQuery);
 
-			Map<String, ProductPropertyValue> dbProductPropertyValueMap = dbProductPropertyValueList.stream().
+			/*Map<String, ProductPropertyValue> dbProductPropertyValueMap = dbProductPropertyValueList.stream().
 					collect(Collectors.toMap(ProductPropertyValue::getPropertyValueId, p -> p));
 
 			List<ProductPropertyValue> productPropertyValueAddList = new ArrayList<>();
@@ -248,45 +250,55 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 				if(skuMap.get(item.getPropertyValueIdHash()) == null){
 					productSkuDeleteList.add(item);
 				}
-			}
+			}*/
 
 			//修改不能修改的内容
 			productInfo.setCategoryId(null);
 			productInfo.setpCategoryId(null);
 			productInfo.setStatus(null);
 
+			// 利用新写的CollectionComparator工具类进行判断是否是新增/修改/删除
+			CollectionComparator.DiffResult<ProductPropertyValue> propertyValueDiffResult =
+					new CollectionComparator<ProductPropertyValue>().
+							compare(productPropertyValueList,dbProductPropertyValueList,ProductPropertyValue::getPropertyValueId);
+
 			productInfoMapper.updateByProductId(productInfo,productInfo.getProductId());
 
 			//属性值操作
 			//执行属性值的批量增加
-			if(!productPropertyValueAddList.isEmpty()){
-				productPropertyValueMapper.insertBatch(productPropertyValueAddList);
+			if(!propertyValueDiffResult.addList.isEmpty()){
+				productPropertyValueMapper.insertBatch(propertyValueDiffResult.addList);
 			}
 			//执行属性值的批量修改
-			if(!productPropertyValueUpdateList.isEmpty()){
-				productPropertyValueMapper.updateBatch(productInfo.getProductId(),productPropertyValueUpdateList);
+			if(!propertyValueDiffResult.updateList.isEmpty()){
+				productPropertyValueMapper.updateBatch(productInfo.getProductId(),propertyValueDiffResult.updateList);
 			}
 			//执行属性值的批量删除
-			if(!productPropertyValueDeleteList.isEmpty()){
-				productPropertyValueMapper.deleteBatch(productInfo.getProductId(),productPropertyValueDeleteList);
+			if(!propertyValueDiffResult.deleteList.isEmpty()){
+				productPropertyValueMapper.deleteBatch(productInfo.getProductId(),propertyValueDiffResult.deleteList);
 			}
+
+			ProductSkuQuery productSkuQuery = new ProductSkuQuery();
+			productSkuQuery.setProductId(productInfo.getProductId());
+			List<ProductSku> dbProductSkuList = productSkuMapper.selectList(productSkuQuery);
+
+			// 利用新写的CollectionComparator工具类进行判断是否是新增/修改/删除
+			CollectionComparator.DiffResult<ProductSku> productSkuDiffResult =
+					new CollectionComparator<ProductSku>().
+							compare(skuList,dbProductSkuList,ProductSku::getPropertyValueIdHash);
 
 			//sku操作
 			//sku的批量信息
-			if(!productSkuAddList.isEmpty()){
-				productSkuMapper.insertBatch(productSkuAddList);
+			if(!productSkuDiffResult.addList.isEmpty()){
+				productSkuMapper.insertBatch(productSkuDiffResult.addList);
 			}
-			/**
-			 * sku的批量修改
-			 */
-			if(!productSkuUpdateList.isEmpty()){
-				productSkuMapper.updateBatch(productInfo.getProductId(),productSkuUpdateList);
+			//sku的批量修改
+			if(!productSkuDiffResult.updateList.isEmpty()){
+				productSkuMapper.updateBatch(productInfo.getProductId(),productSkuDiffResult.updateList);
 			}
-			/**
-			 * sku的批量删除
-			 */
-			if(!productSkuDeleteList.isEmpty()){
-				productSkuMapper.deleteBatch(productInfo.getProductId(),productSkuDeleteList);
+			//sku的批量删除
+			if(!productSkuDiffResult.deleteList.isEmpty()){
+				productSkuMapper.deleteBatch(productInfo.getProductId(),productSkuDiffResult.deleteList);
 			}
 		}
 		//TODO:1. 将数据库信息写进es 2.将商品数据向量化

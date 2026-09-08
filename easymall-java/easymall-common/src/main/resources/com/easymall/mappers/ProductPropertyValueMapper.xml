@@ -452,7 +452,7 @@
 
 	<delete id="deleteBatch">
          delete from product_property_value where product_id = #{productId} and property_value_id in (
-        <foreach collection="dataList" item="item" separator=",">property_value_id = #{item.propertyValueId}</foreach>
+        <foreach collection="dataList" item="item" separator=",">#{item.propertyValueId}</foreach>
         )
 	</delete>
 
