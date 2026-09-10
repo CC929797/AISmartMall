@@ -69,9 +69,23 @@ public interface SysCategoryService {
 	 */
 	Integer deleteSysCategoryByCategoryId(String categoryId);
 
+	/**
+	 * 新增分类
+	 */
 	void saveCategory(SysCategory bean);
 
+	/**
+	 * 删除分类
+	 */
 	void delCategory(String categoryId);
 
+	/**
+	 * 更改分类的顺序
+	 */
 	void changeSort(String categoryIds);
+
+	/**
+	 * 获取分类缓存
+	 */
+	public List<SysCategory> getAllCategoryList();
 }

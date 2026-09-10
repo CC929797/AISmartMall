@@ -3,7 +3,9 @@ package com.easymall.service.Impl;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
+import com.easymall.entity.query.ProductPropertyValueQuery;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -26,6 +28,8 @@ public class SysCategoryServiceImpl implements SysCategoryService {
 
 	@Resource
 	private SysCategoryMapper<SysCategory, SysCategoryQuery> sysCategoryMapper;
+	@Resource
+	private RedisComponent redisComponent;
 
 	/**
 	 * 根据条件查询列表
@@ -162,7 +166,7 @@ public class SysCategoryServiceImpl implements SysCategoryService {
 		}else {
 			this.sysCategoryMapper.updateByCategoryId(bean,bean.getCategoryId());
 		}
-		//TODO: 存入缓存
+		save2Redis();
 	}
 
 	/**
@@ -173,7 +177,7 @@ public class SysCategoryServiceImpl implements SysCategoryService {
 		SysCategoryQuery sysCategoryQuery = new SysCategoryQuery();
 		sysCategoryQuery.setCategoryOrPCategory(categoryId);
 		this.sysCategoryMapper.deleteByParam(sysCategoryQuery);
-		//TODO: 将分类存进缓存
+		save2Redis();
 	}
 
 	/**
@@ -193,6 +197,35 @@ public class SysCategoryServiceImpl implements SysCategoryService {
 		}
 		this.sysCategoryMapper.updateSortBatch(sysCategoryList);
 
+		save2Redis();
+
+	}
+
+	/**
+	 * 分类存入缓存
+	 */
+	private void save2Redis(){
+		SysCategoryQuery sysCategoryQuery = new SysCategoryQuery();
+		sysCategoryQuery.setOrderBy("sort asc");
+		sysCategoryQuery.setConvert2Tree(true);
+		List<SysCategory> sysCategoryList = findListByParam(sysCategoryQuery);
+		redisComponent.saveCategory(sysCategoryList);
+	}
+
+	/**
+	 * 获取 Redis 当中所有的缓存分类
+	 * @return
+	 */
+	@Override
+	public List<SysCategory> getAllCategoryList() {
+		List<SysCategory> sysCategoryList = redisComponent.getCategoryList();
+		if (sysCategoryList == null || sysCategoryList.isEmpty()) {
+			// 如果没有缓存那就重新放入缓存
+			save2Redis();
+		}
+		// 重新放入缓存后再次获取
+		sysCategoryList = redisComponent.getCategoryList();
+		return sysCategoryList;
 	}
 
 

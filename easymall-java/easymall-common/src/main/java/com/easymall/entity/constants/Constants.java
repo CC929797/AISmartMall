@@ -13,6 +13,8 @@ public class Constants {
 
     public static final String REDIS_KEY_TOKEN_ADMIN = REDIS_KEY_PREFIX + "token:admin:";
 
+    public static final String REDIS_KEY_CATEGORY_LIST = REDIS_KEY_PREFIX + "category:list:";
+
     public static final Long REDIS_KEY_EXPIRES_ONE_MIN = 60L;
 
     public static final Long REDIS_KEY_EXPIRES_ONE_DAY = REDIS_KEY_EXPIRES_ONE_MIN * 60 * 24;

@@ -1,11 +1,14 @@
 package com.easymall.commonent;
 
 import com.easymall.entity.constants.Constants;
+import com.easymall.entity.po.SysCategory;
 import com.easymall.redis.RedisUtils;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotEmpty;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -66,5 +69,20 @@ public class RedisComponent {
      */
     public String getLoginInfo4Admin(String token) {
         return (String) redisUtils.get(Constants.REDIS_KEY_TOKEN_ADMIN + token);
+    }
+
+    /**
+     * Redis当中存入分类缓存
+     */
+    public void saveCategory(List<SysCategory> categoryList) {
+        redisUtils.set(Constants.REDIS_KEY_CATEGORY_LIST,categoryList);
+    }
+
+    /**
+     * 从 Redis 当中获取分类缓存
+     */
+    public List<SysCategory> getCategoryList() {
+        List<SysCategory> categoryList = (List<SysCategory>) redisUtils.get(Constants.REDIS_KEY_CATEGORY_LIST);
+        return categoryList == null ? new ArrayList<>() : categoryList;
     }
 }
