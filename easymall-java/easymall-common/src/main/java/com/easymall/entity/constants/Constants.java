@@ -1,6 +1,8 @@
 package com.easymall.entity.constants;
 
 public class Constants {
+    public static final String REGEX_PASSWORD = "^(?=.*\\d)(?=.*[a-zA-Z])[\\da-zA-Z~!@#$%^&*_]{8,18}$";
+
     public static final String ZERO_STR = "0";
     public static final Integer LENGTH_5 = 5;
     public static final Integer LENGTH_10 = 10;
@@ -15,9 +17,13 @@ public class Constants {
 
     public static final String REDIS_KEY_CATEGORY_LIST = REDIS_KEY_PREFIX + "category:list:";
 
+    public static final String REDIS_KEY_TOKEN_WEB = REDIS_KEY_PREFIX + "token:web:";
+
+    public static final String REDIS_KEY_TOKEN_USERID_WEB = REDIS_KEY_PREFIX + "token:web:userId:";
+
     public static final Long REDIS_KEY_EXPIRES_ONE_MIN = 60L;
 
-    public static final Long REDIS_KEY_EXPIRES_ONE_DAY = REDIS_KEY_EXPIRES_ONE_MIN * 60 * 24;
+    public static final Long REDIS_KEY_EXPIRES_DAY = REDIS_KEY_EXPIRES_ONE_MIN * 60 * 24;
 
     public static final String TOKEN_ADMIN = "adminToken";
 
