@@ -112,4 +112,31 @@ public class RedisComponent {
 
         redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
     }
+
+    /**
+     * 用户退出登录时清除该用户所有的token信息
+     * @param token
+     */
+    public void cleanToken(String token) {
+        if (StringTools.isEmpty(token)) {
+            return;
+        }
+
+        redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
+        TokenUserInfoDTO tokenUserInfoDTO = getTokenInfo(token);
+        if (tokenUserInfoDTO != null) {
+            redisUtils.delete(Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId());
+        }
+    }
+
+    /**
+     * 根据token获取到登录信息(包含token)
+     * @param token
+     * @return
+     */
+    public TokenUserInfoDTO getTokenInfo(String token) {
+        return (TokenUserInfoDTO) redisUtils.get(Constants.REDIS_KEY_TOKEN_WEB + token);
+    }
+
+
 }

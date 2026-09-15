@@ -27,6 +27,8 @@ public class Constants {
 
     public static final String TOKEN_ADMIN = "adminToken";
 
+    public static final String TOKEN_WEB = "token";
+
     public static final String FILE_FOLDER_FILE = "file/";
 
     public static final String IMAGE_THUMBNAIL_SUFFIX = "_thumbnail";

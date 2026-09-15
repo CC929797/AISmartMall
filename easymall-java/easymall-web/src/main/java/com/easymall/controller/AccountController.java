@@ -14,6 +14,7 @@ import jakarta.validation.constraints.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.annotations.Param;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,9 +28,17 @@ public class AccountController extends ABaseController{
     @Resource
     private UserInfoService userInfoService;
 
+    /**
+     * 自动登录
+     */
     @RequestMapping("/autoLogin")
     public ResponseVO autoLogin(){
-        return getSuccessResponseVO(null);
+        TokenUserInfoDTO tokenUserInfoDTO = getTokenUserInfo();
+        if(tokenUserInfoDTO == null){
+            return getSuccessResponseVO(null);
+        }
+        redisComponent.saveTokenInfo(tokenUserInfoDTO);
+        return getSuccessResponseVO(tokenUserInfoDTO);
     }
 
     /**
@@ -88,6 +97,12 @@ public class AccountController extends ABaseController{
             // 无论是登录成功还是失败都会删除旧的验证码的Redis中的key，重新生成验证码和验证码的key
             redisComponent.deleteCheckCode(checkCodeKey);
         }
+    }
+
+    @RequestMapping("/logout")
+    public ResponseVO logout(@RequestHeader("token") String token){
+        redisComponent.cleanToken(token);
+        return getSuccessResponseVO(null);
     }
 
 

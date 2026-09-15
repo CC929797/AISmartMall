@@ -1,13 +1,20 @@
 package com.easymall.controller;
+import com.easymall.commonent.RedisComponent;
+import com.easymall.entity.constants.Constants;
+import com.easymall.entity.dto.TokenUserInfoDTO;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
+import com.easymall.utils.StringTools;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 
 public class ABaseController {
+    @Resource
+    private RedisComponent redisComponent;
 
     protected static final String STATUC_SUCCESS = "success";
 
@@ -42,6 +49,24 @@ public class ABaseController {
         vo.setInfo(ResponseCodeEnum.CODE_500.getMsg());
         vo.setData(t);
         return vo;
+    }
+
+    protected TokenUserInfoDTO getTokenUserInfo(){
+        if(System.getProperty("dev")!=null){
+            TokenUserInfoDTO tokenUserInfoDTO = new TokenUserInfoDTO();
+            tokenUserInfoDTO = new TokenUserInfoDTO();
+            tokenUserInfoDTO.setUserId("5336131822");
+            tokenUserInfoDTO.setNickName("test001");
+            tokenUserInfoDTO.setToken("test");
+            return tokenUserInfoDTO;
+        }
+
+        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+        String token = request.getHeader(Constants.TOKEN_WEB);
+        if(StringTools.isEmpty(token)){
+            return null;
+        }
+        return redisComponent.getTokenInfo(token);
     }
 
     protected String getIpAddr() {
