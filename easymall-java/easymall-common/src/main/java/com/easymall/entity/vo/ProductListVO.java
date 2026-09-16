@@ -1,7 +1,7 @@
 package com.easymall.entity.vo;
 
 import com.easymall.entity.enums.ProductStatusEnum;
-import com.easymall.valid.updateGroup;
+import com.easymall.valid.UpdateGroup;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotEmpty;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -13,7 +13,7 @@ public class ProductListVO {
     /**
      * 商品ID
      */
-    @NotEmpty(groups = {updateGroup.class})
+    @NotEmpty(groups = {UpdateGroup.class})
     private String productId;
 
     /**

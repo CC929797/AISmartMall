@@ -3,10 +3,8 @@ package com.easymall.entity.po;
 import java.math.BigDecimal;
 import java.util.Date;
 import com.easymall.entity.enums.DateTimePatternEnum;
-import com.easymall.entity.enums.ProductStatusEnum;
 import com.easymall.utils.DateUtil;
-import com.easymall.valid.createGroup;
-import com.easymall.valid.updateGroup;
+import com.easymall.valid.UpdateGroup;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotEmpty;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,7 +21,7 @@ public class ProductInfo implements Serializable {
 	/**
 	 * 商品ID
 	 */
-	@NotEmpty(groups = {updateGroup.class})
+	@NotEmpty(groups = {UpdateGroup.class})
 	private String productId;
 
 	/**

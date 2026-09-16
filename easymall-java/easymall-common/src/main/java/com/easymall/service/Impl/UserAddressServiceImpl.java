@@ -2,6 +2,8 @@ package com.easymall.service.Impl;
 
 import java.util.List;
 
+import com.easymall.entity.constants.Constants;
+import com.easymall.entity.enums.DefaultTypeEnum;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -14,6 +16,8 @@ import com.easymall.entity.query.SimplePage;
 import com.easymall.mappers.UserAddressMapper;
 import com.easymall.service.UserAddressService;
 import com.easymall.utils.StringTools;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 
 /**
@@ -127,4 +131,62 @@ public class UserAddressServiceImpl implements UserAddressService {
 	public Integer deleteUserAddressByAddressId(String addressId) {
 		return this.userAddressMapper.deleteByAddressId(addressId);
 	}
+
+	/**
+	 * 修改地址为默认地址
+	 * @param addressId 修改的地址Id
+	 * @param userId 修改的用户Id
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void updateDefaultAddress(String addressId, String userId) {
+		restDefault(userId);
+
+		UserAddress userAddress = new UserAddress();
+		userAddress.setDefaultType(DefaultTypeEnum.DEFAULT.getType());
+
+		UserAddressQuery userAddressQuery = new UserAddressQuery();
+		userAddressQuery.setUserId(userId);
+		userAddressQuery.setAddressId(addressId);
+
+		this.userAddressMapper.updateByParam(userAddress, userAddressQuery);
+	}
+
+	/**
+	 * 新增或修改地址信息(与上面add/update不同的是上面的在新增或修改时选择默认时，会出现地址薄有两个默认地址)
+	 * @param userAddress 新增/修改的地址
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void saveAddress(UserAddress userAddress) {
+		//如果新增或修改的时候选择了默认地址，则要把数据库里的默认地址先给设置为未默认状态
+		if (DefaultTypeEnum.DEFAULT.getType().equals(userAddress.getDefaultType())) {
+			//把数据库里的默认地址变为未默认状态
+			restDefault(userAddress.getUserId());
+		}
+		// 判断是新增或修改地址(addressId为null则是新增，反之则是修改)
+		if (StringTools.isEmpty(userAddress.getAddressId())) {
+			userAddress.setAddressId(StringTools.getRandomNumber(Constants.LENGTH_15));
+			this.userAddressMapper.insert(userAddress);
+		}else {
+			UserAddressQuery userAddressQuery = new UserAddressQuery();
+			userAddressQuery.setAddressId(userAddress.getAddressId());
+			userAddressQuery.setUserId(userAddress.getUserId());
+
+			this.userAddressMapper.updateByParam(userAddress, userAddressQuery);
+		}
+	}
+
+	/**
+	 * 把数据库里的默认地址变为未默认状态
+	 */
+	private void restDefault(String userId) {
+		UserAddress updateAddress = new UserAddress();
+		updateAddress.setDefaultType(DefaultTypeEnum.NOT_DEFAULT.getType());
+
+		UserAddressQuery query = new UserAddressQuery();
+		query.setUserId(userId);
+		this.userAddressMapper.updateByParam(updateAddress, query);
+	}
+
 }

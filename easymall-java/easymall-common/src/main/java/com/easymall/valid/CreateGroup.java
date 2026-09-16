@@ -1,4 +1,4 @@
 package com.easymall.valid;
 
-public interface createGroup {
+public interface CreateGroup {
 }

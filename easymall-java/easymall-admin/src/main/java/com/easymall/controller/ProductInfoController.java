@@ -1,15 +1,12 @@
 package com.easymall.controller;
 
-import java.util.List;
-
 import com.easymall.entity.dto.ProductSaveDTO;
 import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.entity.po.ProductInfo;
-import com.easymall.entity.vo.ProductInfoDetailVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.service.ProductInfoService;
-import com.easymall.valid.createGroup;
-import com.easymall.valid.updateGroup;
+import com.easymall.valid.CreateGroup;
+import com.easymall.valid.UpdateGroup;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.validation.annotation.Validated;
@@ -48,7 +45,7 @@ public class ProductInfoController extends ABaseController{
 	 * 新增商品
 	 */
 	@RequestMapping("/addProduct")
-	public ResponseVO addProduct(@RequestBody @Validated(createGroup.class) ProductSaveDTO productSaveDTO) {
+	public ResponseVO addProduct(@RequestBody @Validated(CreateGroup.class) ProductSaveDTO productSaveDTO) {
 		productInfoService.saveProduct(productSaveDTO);
 		return getSuccessResponseVO(null);
 	}
@@ -62,7 +59,7 @@ public class ProductInfoController extends ABaseController{
 	 * 修改商品
 	 */
 	@RequestMapping("/updateProduct")
-	public ResponseVO updateProduct(@RequestBody @Validated(updateGroup.class) ProductSaveDTO productSaveDTO) {
+	public ResponseVO updateProduct(@RequestBody @Validated(UpdateGroup.class) ProductSaveDTO productSaveDTO) {
 		productInfoService.saveProduct(productSaveDTO);
 		return getSuccessResponseVO(null);
 	}

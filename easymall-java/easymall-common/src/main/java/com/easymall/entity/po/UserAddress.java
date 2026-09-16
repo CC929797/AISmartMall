@@ -1,5 +1,8 @@
 package com.easymall.entity.po;
 
+import com.easymall.valid.UpdateGroup;
+import jakarta.validation.constraints.NotEmpty;
+
 import java.io.Serializable;
 
 
@@ -12,6 +15,7 @@ public class UserAddress implements Serializable {
 	/**
 	 * 地址ID
 	 */
+	@NotEmpty(groups = UpdateGroup.class)
 	private String addressId;
 
 	/**
@@ -22,16 +26,19 @@ public class UserAddress implements Serializable {
 	/**
 	 * 详细地址
 	 */
+	@NotEmpty
 	private String address;
 
 	/**
 	 * 收货人
 	 */
+	@NotEmpty
 	private String addressee;
 
 	/**
 	 * 手机号码
 	 */
+	@NotEmpty
 	private String phone;
 
 	/**

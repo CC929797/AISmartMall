@@ -69,4 +69,16 @@ public interface UserAddressService {
 	 */
 	Integer deleteUserAddressByAddressId(String addressId);
 
+	/**
+	 * 修改地址为默认地址
+	 * @param addressId 修改的地址Id
+	 * @param userId 修改的用户Id
+	 */
+	void updateDefaultAddress(String addressId,String userId);
+
+	/**
+	 * 新增或修改地址信息
+	 * @param userAddress
+	 */
+	void saveAddress(UserAddress userAddress);
 }
