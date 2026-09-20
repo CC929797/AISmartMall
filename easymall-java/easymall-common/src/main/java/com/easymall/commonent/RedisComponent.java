@@ -122,8 +122,9 @@ public class RedisComponent {
             return;
         }
 
-        redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
         TokenUserInfoDTO tokenUserInfoDTO = getTokenInfo(token);
+        redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
+
         if (tokenUserInfoDTO != null) {
             redisUtils.delete(Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId());
         }
