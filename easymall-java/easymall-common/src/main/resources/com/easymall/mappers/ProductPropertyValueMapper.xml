@@ -93,6 +93,12 @@
 			<if test="query.propertyRemarkFuzzy!= null  and query.propertyRemarkFuzzy!=''">
 				 and  p.property_remark like concat('%', #{query.propertyRemarkFuzzy}, '%')
 			</if>
+		    <if test="query.productIdList != null and query.productIdList.size() > 0">
+			    and p.product_id in
+			    <foreach item="item" index="index" collection="query.productIdList" open="(" separator="," close=")">
+				    #{item}
+			    </foreach>
+		    </if>
 	 </where>
 	</sql>
 

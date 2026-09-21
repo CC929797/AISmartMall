@@ -106,6 +106,12 @@
 			<if test="query.pCategoryIdFuzzy!= null  and query.pCategoryIdFuzzy!=''">
 				 and  p.p_category_id like concat('%', #{query.pCategoryIdFuzzy}, '%')
 			</if>
+			<if test="query.productIdList != null and query.productIdList.size() > 0">
+			     and p.product_id in
+			     <foreach item="item" index="index" collection="query.productIdList" open="(" separator="," close=")">
+					 #{item}
+				 </foreach>
+			</if>
 	 </where>
 	</sql>
 

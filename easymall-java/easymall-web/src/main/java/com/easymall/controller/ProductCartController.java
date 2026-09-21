@@ -5,6 +5,7 @@ import java.util.List;
 import com.easymall.annotation.GlobalInterceptor;
 import com.easymall.entity.query.ProductCartQuery;
 import com.easymall.entity.po.ProductCart;
+import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.service.ProductCartService;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,6 +23,17 @@ public class ProductCartController extends ABaseController{
 
 	@Resource
 	private ProductCartService productCartService;
+
+	@RequestMapping("/loadProductCart")
+	@GlobalInterceptor(checkLogin = true)
+	public ResponseVO loadProductCart(Integer pageNo) {
+		ProductCartQuery query = new ProductCartQuery();
+		query.setUserId(getTokenUserInfo().getUserId());
+		query.setPageNo(pageNo);
+		query.setOrderBy("p.last_update_time desc");
+		PaginationResultVO resultVO = productCartService.loadProductCart(query);
+		return getSuccessResponseVO(resultVO);
+	}
 
 	/**
 	 * 添加商品进购物车

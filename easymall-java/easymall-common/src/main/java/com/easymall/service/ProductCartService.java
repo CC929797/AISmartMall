@@ -5,6 +5,7 @@ import java.util.List;
 import com.easymall.entity.query.ProductCartQuery;
 import com.easymall.entity.po.ProductCart;
 import com.easymall.entity.vo.PaginationResultVO;
+import com.easymall.entity.vo.ProductSkuVO;
 
 
 /**
@@ -92,4 +93,11 @@ public interface ProductCartService {
 	 * @param productCart 商品购物车对象
 	 */
     void add2Cart(ProductCart productCart);
+
+	/**
+	 * 分页查询购物车商品信息
+	 * @param query
+	 * @return
+	 */
+    PaginationResultVO<ProductSkuVO> loadProductCart(ProductCartQuery query);
 }

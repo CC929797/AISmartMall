@@ -2,6 +2,7 @@ package com.easymall.entity.query;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 
 
 /**
@@ -90,6 +91,19 @@ public class ProductInfoQuery extends BaseParam {
 	 * 类别ID或者父类别ID
 	 */
 	private String categoryIdOrPCategoryId;
+
+	/**
+	 * 多个的商品id集合
+	 */
+	private List<String> productIdList;
+
+	public List<String> getProductIdList() {
+		return productIdList;
+	}
+
+	public void setProductIdList(List<String> productIdList) {
+		this.productIdList = productIdList;
+	}
 
 	public String getCategoryIdOrPCategoryId() {
 		return categoryIdOrPCategoryId;

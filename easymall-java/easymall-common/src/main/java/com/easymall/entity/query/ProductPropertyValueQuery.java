@@ -1,6 +1,7 @@
 package com.easymall.entity.query;
 
 
+import java.util.List;
 
 /**
  * 参数
@@ -72,6 +73,18 @@ public class ProductPropertyValueQuery extends BaseParam {
 	 */
 	private Integer sort;
 
+	/**
+	 * 商品id集合
+	 */
+	private List<String> productIdList;
+
+	public List<String> getProductIdList() {
+		return productIdList;
+	}
+
+	public void setProductIdList(List<String> productIdList) {
+		this.productIdList = productIdList;
+	}
 
 	public void setProductId(String productId){
 		this.productId = productId;
