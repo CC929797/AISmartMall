@@ -8,6 +8,7 @@ import com.easymall.entity.po.ProductCart;
 import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.service.ProductCartService;
+import jakarta.validation.constraints.NotEmpty;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,6 +46,21 @@ public class ProductCartController extends ABaseController{
 	public ResponseVO add2Cart(ProductCart productCart) {
 		productCart.setUserId(getTokenUserInfo().getUserId());
 		productCartService.add2Cart(productCart);
+		return getSuccessResponseVO(null);
+	}
+
+	/**
+	 * 删除购物车当中的商品
+	 * @param cartId
+	 * @return
+	 */
+	@RequestMapping("/deleteCart")
+	@GlobalInterceptor(checkLogin = true)
+	public ResponseVO deleteCart(@NotEmpty String cartId) {
+		ProductCartQuery productCartQuery = new ProductCartQuery();
+		productCartQuery.setUserId(getTokenUserInfo().getUserId());
+		productCartQuery.setCartId(cartId);
+		productCartService.deleteByParam(productCartQuery);
 		return getSuccessResponseVO(null);
 	}
 }
