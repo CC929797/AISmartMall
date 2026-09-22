@@ -423,4 +423,10 @@
 		update product_cart set buy_count = buy_count + #{buyCount}, last_update_time = now() where cart_id = #{cartId}
 	</update>
 
+	<delete id="deleteBatch">
+        <foreach collection="cartList" item="item" separator=";">
+			delete from product_cart where product_id = #{item.productId} and property_value_id_hash = #{item.propertyValueIdHash} and user_id = #{item.userId}
+		</foreach>
+	</delete>
+
 </mapper>

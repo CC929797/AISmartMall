@@ -323,4 +323,17 @@
 		)
 	</delete>
 
+	<update id="updateStockBatch">
+		update product_sku ps JOIN(
+		    <foreach collection="orderItemList" item="item" separator="union all">
+				select
+		        #{item.productId} as product_id,
+		        #{item.propertyValueIdHash} as property_value_id_hash,
+		        #{item.buyCount} as buy_count
+			</foreach>
+			) as tem on ps.product_id = tem.product_id and ps.property_value_id_hash = tem.property_value_id_hash
+		    set ps.stock = ps.stock - tem.buy_count
+		    where ps.product_id = tem.product_id and ps.property_value_id_hash = tem.property_value_id_hash and ps.stock >= tem.buy_count
+	</update>
+
 </mapper>

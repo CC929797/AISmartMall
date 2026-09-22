@@ -1,6 +1,9 @@
 package com.easymall.mappers;
 
+import com.easymall.entity.po.ProductCart;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * 购物车 数据库操作接口
@@ -48,4 +51,9 @@ public interface ProductCartMapper<T,P> extends BaseMapper<T,P> {
 	 * @param buyCount
 	 */
 	 void updateCartBuyCount(@Param("cartId") String cartId,@Param("buyCount") Integer buyCount);
+
+	/**
+	 * 生成订单后需要删除购物车当中的商品信息
+	 */
+	void deleteBatch(@Param("cartList") List<ProductCart> cartList);
 }

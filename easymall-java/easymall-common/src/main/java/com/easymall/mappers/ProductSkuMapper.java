@@ -1,5 +1,6 @@
 package com.easymall.mappers;
 
+import com.easymall.entity.po.OrderItem;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -40,4 +41,8 @@ public interface ProductSkuMapper<T,P> extends BaseMapper<T,P> {
 	 */
 	void deleteBatch(@Param("productId") String productId,@Param("dataList") List<T> dataList);
 
+	/**
+	 * 扣减库存
+	 */
+	Integer updateStockBatch(@Param("orderItemList") List<OrderItem> orderItemList);
 }

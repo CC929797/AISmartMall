@@ -1,4 +1,6 @@
 package com.easymall.utils;
+import com.easymall.entity.constants.Constants;
+import com.easymall.entity.enums.DateTimePatternEnum;
 import com.easymall.exception.BusinessException;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -6,6 +8,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Date;
 import java.util.Random;
 
 
@@ -89,5 +92,13 @@ public class StringTools {
             return false;
         }
         return true;
+    }
+
+    public static final String createProductOrderId(){
+        return DateUtil.format(new Date(), DateTimePatternEnum.YYYYMMDDHHMMSS.getPattern()) + getRandomString(16).toUpperCase();
+    }
+
+    public static final String createPayOrderId(){
+        return StringTools.getRandomNumber(Constants.LENGTH_30);
     }
 }
