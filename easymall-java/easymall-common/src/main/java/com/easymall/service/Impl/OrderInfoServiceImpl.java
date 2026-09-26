@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.easymall.commonent.SpringContext;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.PayInfoDTO;
 import com.easymall.entity.dto.PostOrderDTO;
@@ -14,6 +15,7 @@ import com.easymall.entity.po.*;
 import com.easymall.entity.query.*;
 import com.easymall.exception.BusinessException;
 import com.easymall.mappers.*;
+import com.easymall.service.PayChannel;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -312,7 +314,17 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 			this.productCartMapper.deleteBatch(productCartList);
 		}
 
-		//TODO: 获取支付信息
-		return new PayInfoDTO();
+		//调用支付宝支付服务
+		//获取到PayChannel接口
+		PayChannel payChannel = (PayChannel) SpringContext.getBean(payChannelEnum.getBeanName());
+		//判断是购物车购买还是手动单个商品购买
+		String subject = OrderFromTypeEnum.CART == orderFromTypeEnum ? String.format(Constants.CART_PAY_NAME,orderInfoList.size()) : orderInfoList.get(0).getOrderItemList().
+				get(0).getProductName();
+		//计算支付总价(所有主订单的金额相加)
+		BigDecimal amount = orderInfoList.stream().map(OrderInfo::getAmount).reduce(BigDecimal::add).get();
+		//返回支付信息
+		PayInfoDTO payInfoDTO = payChannel.getPayUrl(payChannelEnum, payOrderId, subject, amount);
+
+		return payInfoDTO;
 	}
 }

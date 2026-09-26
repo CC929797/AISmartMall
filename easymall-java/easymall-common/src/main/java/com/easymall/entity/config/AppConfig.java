@@ -16,6 +16,65 @@ public class AppConfig {
     @Value("${project.folder:}")
     private String projectFolder;
 
+    @Value("${project.domain:}")
+    private String projectDomain;
+
+    //支付宝应用私钥
+    @Value("${alipay.appPrivateKey:}")
+    private String alipayAppPrivateKey;
+
+    @Value("${alipay.appid:}")
+    private String alipayAppid;
+
+    @Value("${alipay.appCertPath:}")
+    private String alipayAppCertPath;
+
+    @Value("${alipay.alipayPublicCertPath:}")
+    private String alipayPublicCertPath;
+
+    @Value("${alipay.alipayRootCertPath:}")
+    private String alipayRootCertPath;
+
+
+    @Value("${alipay.serverUrl:}")
+    private String alipayServerUrl;
+
+    //订单超时
+    @Value("${order.expire.minute:5}")
+    private Integer orderExpireMinute;
+
+    public String getProjectDomain() {
+        return projectDomain;
+    }
+
+    public Integer getOrderExpireMinute() {
+        return orderExpireMinute;
+    }
+
+    public String getAlipayAppPrivateKey() {
+        return alipayAppPrivateKey;
+    }
+
+    public String getAlipayAppid() {
+        return alipayAppid;
+    }
+
+    public String getAlipayAppCertPath() {
+        return alipayAppCertPath;
+    }
+
+    public String getAlipayPublicCertPath() {
+        return alipayPublicCertPath;
+    }
+
+    public String getAlipayRootCertPath() {
+        return alipayRootCertPath;
+    }
+
+    public String getAlipayServerUrl() {
+        return alipayServerUrl;
+    }
+
     public String getProjectFolder() {
         if(!StringTools.isEmpty(projectFolder) && !projectFolder.endsWith("/")) {
             projectFolder += "/";

@@ -35,6 +35,19 @@ mybatis:
 #项目目录
 project:
   folder: D:/java/java24/wokspach-teach/runtime/easymall/
+  domain: http://xxx.xxxx.com
+#订单过期时间
+order:
+  expire:
+    minute: 10
+#支付宝
+alipay:
+  appid: xxxx   # 沙箱
+  appPrivateKey: xxx
+  appCertPath: xxx
+  alipayPublicCertPath: xxx
+  alipayRootCertPath: xxx
+  serverUrl: xxx
 #日志级别
 log:
   root:

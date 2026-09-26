@@ -32,4 +32,6 @@ public class Constants {
     public static final String FILE_FOLDER_FILE = "file/";
 
     public static final String IMAGE_THUMBNAIL_SUFFIX = "_thumbnail";
+
+    public static final String CART_PAY_NAME = "购物车支付-%d件商品";
 }
