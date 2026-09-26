@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -138,6 +139,37 @@ public class RedisComponent {
     public TokenUserInfoDTO getTokenInfo(String token) {
         return (TokenUserInfoDTO) redisUtils.get(Constants.REDIS_KEY_TOKEN_WEB + token);
     }
+
+    /**
+     * 添加订单到延时队列
+     * @param queueName
+     * @param delayMin
+     * @param orderId
+     */
+    public void addOrder2DelayQueue(String queueName,Integer delayMin,String orderId) {
+        long expireTime = System.currentTimeMillis() + delayMin * 60 * 1000;
+        redisUtils.zsetAdd(queueName,orderId,expireTime);
+    }
+
+    /**
+     * 获取到超时订单
+     * @param queueName
+     * @return
+     */
+    public Set<String> getTimeOutOrder(String queueName) {
+        return redisUtils.zsetRangeByScore(queueName, 0, System.currentTimeMillis());
+    }
+
+    /**
+     * 删除到超时订单
+     * @param queueName
+     * @return
+     */
+    public Long removeTimeOutOrder(String queueName,String orderId) {
+        return redisUtils.zsetAddRemove(queueName,orderId);
+    }
+
+
 
 
 }

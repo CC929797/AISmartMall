@@ -332,8 +332,8 @@
 		        #{item.buyCount} as buy_count
 			</foreach>
 			) as tem on ps.product_id = tem.product_id and ps.property_value_id_hash = tem.property_value_id_hash
-		    set ps.stock = ps.stock - tem.buy_count
-		    where ps.product_id = tem.product_id and ps.property_value_id_hash = tem.property_value_id_hash and ps.stock >= tem.buy_count
+		    set ps.stock = ps.stock + tem.buy_count
+		    where ps.product_id = tem.product_id and ps.property_value_id_hash = tem.property_value_id_hash and ps.stock + tem.buy_count >= 0
 	</update>
 
 </mapper>

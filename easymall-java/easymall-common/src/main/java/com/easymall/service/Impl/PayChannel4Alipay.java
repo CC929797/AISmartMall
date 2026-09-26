@@ -3,15 +3,10 @@ package com.easymall.service.Impl;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.AlipayConfig;
 import com.alipay.api.DefaultAlipayClient;
-import com.alipay.api.domain.AlipayTradePagePayModel;
-import com.alipay.api.domain.AlipayTradePayModel;
-import com.alipay.api.domain.AlipayTradeWapPayModel;
-import com.alipay.api.request.AlipayTradePagePayRequest;
-import com.alipay.api.request.AlipayTradePayRequest;
-import com.alipay.api.request.AlipayTradeWapPayRequest;
-import com.alipay.api.response.AlipayTradePagePayResponse;
-import com.alipay.api.response.AlipayTradePayResponse;
-import com.alipay.api.response.AlipayTradeWapPayResponse;
+import com.alipay.api.domain.*;
+import com.alipay.api.internal.util.AlipaySignature;
+import com.alipay.api.request.*;
+import com.alipay.api.response.*;
 import com.easymall.entity.config.AppConfig;
 import com.easymall.entity.dto.PayInfoDTO;
 import com.easymall.entity.dto.PayOrderNotifyDTO;
@@ -106,28 +101,132 @@ public class PayChannel4Alipay implements PayChannel {
         alipayConfig.setRootCertPath(appConfig.getProjectFolder() + appConfig.getAlipayRootCertPath());
         alipayConfig.setAppCertPath(appConfig.getProjectFolder() + appConfig.getAlipayAppCertPath());
 
-        alipayConfig.setCharset("UTF-8");
+        alipayConfig.setCharset("UTF8");
         alipayConfig.setSignType("RSA2");
         return alipayConfig;
     }
 
+    /**
+     * 异步通知
+     * @param requestParams 请求参数
+     * @param jsonBody json对象
+     */
     @Override
     public PayOrderNotifyDTO payNotify(Map<String, String> requestParams, String jsonBody) {
-        return null;
+
+        try {
+            requestParams.remove("sign_type");
+            //验签
+            Boolean signCheckResult = AlipaySignature.rsaCertCheckV2(requestParams, appConfig.getAlipayAppCertPath(), "UTF-8", "RSA2");
+            if (!signCheckResult) {
+                throw new BusinessException("支付宝回调验签失败");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        String payOrderId = requestParams.get("out_trade_no");
+        String channelOrderId = requestParams.get("trade_no");
+        String status = String.valueOf(requestParams.get("trade_status"));
+
+        if (!TRADE_SUCCESS.equalsIgnoreCase(status)) {
+            log.error("支付宝回调地址状态不为success,不做处理，订单号L{}",payOrderId);
+            return null;
+        }
+
+        return new PayOrderNotifyDTO(payOrderId,channelOrderId);
     }
 
+    /**
+     * 查询
+     * @param payOrderId
+     * @return
+     */
     @Override
     public PayOrderNotifyDTO queryOrder(String payOrderId) {
-        return null;
+
+        try {
+            AlipayClient alipayClient = new DefaultAlipayClient(getAlipayConfig());
+
+            //构造调用的接口
+            AlipayTradeQueryRequest request = new AlipayTradeQueryRequest();
+            AlipayTradeQueryModel model = new AlipayTradeQueryModel();
+            model.setOutTradeNo(payOrderId);
+
+            request.setBizModel(model);
+
+            AlipayTradeQueryResponse response = alipayClient.certificateExecute(request);
+            if(!response.isSuccess() || !TRADE_SUCCESS.equals(response.getTradeStatus())){
+                return null;
+            }
+            log.info("查询支付宝订单：{},返回结果：{}",payOrderId,response.getBody());
+            return new PayOrderNotifyDTO(payOrderId,response.getTradeNo());
+
+        }catch (BusinessException e){
+            throw e;
+        } catch (Exception e) {
+            log.error("查询支付宝订单失败",e);
+            throw new BusinessException("查询支付宝订单失败");
+        }
     }
 
+    /**
+     * 退款
+     * @param sourcePayOrderId 要退款的订单支付Id
+     * @param payOrderId 退款时生成的Id
+     * @param refundAmount 退款金额
+     */
     @Override
     public void refund(String sourcePayOrderId, String payOrderId, BigDecimal refundAmount) {
+        try {
+            AlipayClient alipayClient = new DefaultAlipayClient(getAlipayConfig());
 
+            //构造调用的接口
+            AlipayTradeRefundRequest request = new AlipayTradeRefundRequest();
+            AlipayTradeRefundModel model = new AlipayTradeRefundModel();
+            model.setOutTradeNo(sourcePayOrderId);
+            model.setOutRequestNo(payOrderId);
+            model.setRefundAmount(refundAmount.toString());
+
+            request.setBizModel(model);
+
+            AlipayTradeRefundResponse response = alipayClient.certificateExecute(request);
+            if(!response.isSuccess()){
+                throw new BusinessException("退款失败");
+            }
+        }catch (BusinessException e){
+            throw e;
+        } catch (Exception e) {
+            log.error("查询支付宝订单失败",e);
+            throw new BusinessException("查询支付宝订单失败");
+        }
     }
 
+    /**
+     * 关闭订单
+     * @param payOrderId
+     */
     @Override
     public void closeOrder(String payOrderId) {
+        try {
+            AlipayClient alipayClient = new DefaultAlipayClient(getAlipayConfig());
 
+            //构造调用的接口
+            AlipayTradeCloseRequest request = new AlipayTradeCloseRequest();
+            AlipayTradeCloseModel model = new AlipayTradeCloseModel();
+            model.setOutTradeNo(payOrderId);
+
+            request.setBizModel(model);
+
+            AlipayTradeCloseResponse response = alipayClient.certificateExecute(request);
+            if(!response.isSuccess() && !TRADE_NOT_EXIST.equalsIgnoreCase(response.getSubCode())){
+                throw new BusinessException("关闭订单失败");
+            }
+        }catch (BusinessException e){
+            throw e;
+        } catch (Exception e) {
+            log.error("查询支付宝订单失败",e);
+            throw new BusinessException("查询支付宝订单失败");
+        }
     }
 }

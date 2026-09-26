@@ -21,6 +21,9 @@ public class Constants {
 
     public static final String REDIS_KEY_TOKEN_USERID_WEB = REDIS_KEY_PREFIX + "token:web:userId:";
 
+    //支付订单延时队列
+    public static final String REDIS_KEY_ORDER_DELAY_QUEUE = REDIS_KEY_PREFIX + "order:delay:queue:";
+
     public static final Long REDIS_KEY_EXPIRES_ONE_MIN = 60L;
 
     public static final Long REDIS_KEY_EXPIRES_DAY = REDIS_KEY_EXPIRES_ONE_MIN * 60 * 24;

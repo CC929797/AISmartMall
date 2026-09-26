@@ -40,7 +40,7 @@ public class AppConfig {
     private String alipayServerUrl;
 
     //订单超时
-    @Value("${order.expire.minute:5}")
+    @Value("${order.expire.minute:2}")
     private Integer orderExpireMinute;
 
     public String getProjectDomain() {

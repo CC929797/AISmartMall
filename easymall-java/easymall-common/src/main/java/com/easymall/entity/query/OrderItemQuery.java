@@ -1,6 +1,7 @@
 package com.easymall.entity.query;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 
 /**
@@ -87,6 +88,18 @@ public class OrderItemQuery extends BaseParam {
 
 	private String refundOrderIdFuzzy;
 
+	/**
+	 * 订单ID列表
+	 */
+	private List<String> orderIdList;
+
+	public List<String> getOrderIdList() {
+		return orderIdList;
+	}
+
+	public void setOrderIdList(List<String> orderIdList) {
+		this.orderIdList = orderIdList;
+	}
 
 	public void setOrderItemId(String orderItemId){
 		this.orderItemId = orderItemId;

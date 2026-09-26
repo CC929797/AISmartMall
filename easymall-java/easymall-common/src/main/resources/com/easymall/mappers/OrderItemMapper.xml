@@ -109,6 +109,12 @@
 			<if test="query.refundOrderIdFuzzy!= null  and query.refundOrderIdFuzzy!=''">
 				 and  o.refund_order_id like concat('%', #{query.refundOrderIdFuzzy}, '%')
 			</if>
+			<if test="query.orderIdList != null and query.orderIdList.size() > 0">
+			     and o.order_id in
+			     <foreach item="item" collection="query.orderIdList" separator="," open="(" close=")">
+					 #{item}
+			     </foreach>
+			</if>
 	 </where>
 	</sql>
 

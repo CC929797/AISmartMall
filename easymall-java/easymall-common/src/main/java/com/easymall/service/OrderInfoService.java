@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.easymall.entity.dto.PayInfoDTO;
 import com.easymall.entity.dto.PostOrderDTO;
+import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.query.OrderInfoQuery;
 import com.easymall.entity.po.OrderInfo;
 import com.easymall.entity.vo.PaginationResultVO;
@@ -78,4 +79,8 @@ public interface OrderInfoService {
 	 */
 	PayInfoDTO postOrder(String userId, PostOrderDTO postOrder);
 
+	/**
+	 * 取消订单
+	 */
+    void cancelOrder(String userId, String orderId, OrderStatusEnum orderStatusEnum);
 }

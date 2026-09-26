@@ -5,7 +5,9 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.easymall.commonent.RedisComponent;
 import com.easymall.commonent.SpringContext;
+import com.easymall.entity.config.AppConfig;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.PayInfoDTO;
 import com.easymall.entity.dto.PostOrderDTO;
@@ -46,6 +48,10 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 	private OrderItemMapper<OrderItem,OrderItemQuery> orderItemMapper;
 	@Resource
 	private ProductCartMapper<ProductCart,ProductCartQuery> productCartMapper;
+	@Resource
+	private RedisComponent redisComponent;
+	@Resource
+	private AppConfig appConfig;
 
 	/**
 	 * 根据条件查询列表
@@ -293,19 +299,23 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 				ProductCart productCart = new ProductCart();
 				productCart.setUserId(userId);
 				productCart.setProductId(itemDTO.getProductId());
-				productCart.setPropertyValueIds(itemDTO.getPropertyValueIds());
 				productCart.setPropertyValueIdHash(StringTools.encodeByMD5(propertyValueIds));
 				productCartList.add(productCart);
 			}
 		}
 
+		this.orderInfoMapper.insertBatch(orderInfoList);
+		this.orderItemMapper.insertBatch(orderItemList);
+
 		//扣减库存
+		orderItemList.forEach(item -> {
+			item.setBuyCount(-item.getBuyCount());
+		});
 		Integer updateCount = this.productSkuMapper.updateStockBatch(orderItemList);
 		if (updateCount != orderItemList.size()) {
 			throw new BusinessException("库存不足");
 		}
-		this.orderInfoMapper.insertBatch(orderInfoList);
-		this.orderItemMapper.insertBatch(orderItemList);
+
 
 		// TODO:记录物流信息
 
@@ -325,6 +335,60 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		//返回支付信息
 		PayInfoDTO payInfoDTO = payChannel.getPayUrl(payChannelEnum, payOrderId, subject, amount);
 
+		//将订单放入延时队列
+		for (OrderInfo orderInfo : orderInfoList) {
+			redisComponent.addOrder2DelayQueue(Constants.REDIS_KEY_ORDER_DELAY_QUEUE,appConfig.getOrderExpireMinute(),orderInfo.getOrderId());
+		}
+
 		return payInfoDTO;
+	}
+
+	/**
+	 * 取消订单
+	 * @param userId
+	 * @param orderId
+	 * @param orderStatusEnum
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void cancelOrder(String userId, String orderId, OrderStatusEnum orderStatusEnum) {
+		//退款的逻辑：退款任何一件商品，那么它所属的订单也一并退款和还原库存
+		OrderInfo orderInfo = orderInfoMapper.selectByOrderId(orderId);
+		if(orderInfo == null){
+			throw new BusinessException("订单不存在");
+		}
+
+		if (!OrderStatusEnum.WAIT_PAYMENT.getStatus().equals(orderInfo.getOrderStatus())) {
+			throw new BusinessException("订单已支付无法取消");
+		}
+
+		if (userId != null && !orderInfo.getUserId().equals(userId)) {
+			throw new BusinessException("订单不存在");
+		}
+
+		//取消所有的订单
+		OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+		orderInfoQuery.setPayOrderId(orderInfo.getPayOrderId());
+		List<OrderInfo> orderList = orderInfoMapper.selectList(orderInfoQuery);
+		List<String> orderIdList = orderList.stream().map(OrderInfo::getOrderId).collect(Collectors.toList());
+		Integer updateCount = orderInfoMapper.updateOrderStatusBatch(OrderStatusEnum.CLOSED.getStatus(), OrderStatusEnum.WAIT_PAYMENT.getStatus(), orderIdList);
+		if (updateCount != orderList.size()) {
+			throw new BusinessException("订单已经支付无法取消");
+		}
+
+		//获取订单详情，然后还原库存
+		OrderItemQuery orderItemQuery = new OrderItemQuery();
+		orderItemQuery.setOrderIdList(orderIdList);
+		List<OrderItem> orderItemList = orderItemMapper.selectList(orderItemQuery);
+		// 退库存
+		productSkuMapper.updateStockBatch(orderItemList);
+
+		cancelOrder4Channel(orderInfo);
+	}
+
+	private void cancelOrder4Channel(OrderInfo orderInfo) {
+		PayChannelEnum payChannelEnum = PayChannelEnum.getByPayScene(orderInfo.getPayScene());
+		PayChannel payChannel = (PayChannel)SpringContext.getBean(payChannelEnum.getBeanName());
+		payChannel.closeOrder(orderInfo.getPayOrderId());
 	}
 }
