@@ -1,6 +1,7 @@
 package com.easymall.commonent;
 
 import com.easymall.entity.constants.Constants;
+import com.easymall.entity.dto.LogisticsSendDTO;
 import com.easymall.entity.dto.TokenUserInfoDTO;
 import com.easymall.entity.po.SysCategory;
 import com.easymall.redis.RedisUtils;
@@ -169,7 +170,18 @@ public class RedisComponent {
         return redisUtils.zsetAddRemove(queueName,orderId);
     }
 
+    /**
+     * 保存物流信息到 Redis
+     * @param logisticsSendDTO 物流信息
+     */
+    public void saveLogistics(LogisticsSendDTO logisticsSendDTO) {
+        redisUtils.set(Constants.REDIS_KEY_SETTING_LOGISTICS,logisticsSendDTO);
+    }
 
-
-
+    /**
+     * 获取物流信息
+     */
+    public LogisticsSendDTO getLogisticsInfo() {
+        return (LogisticsSendDTO) redisUtils.get(Constants.REDIS_KEY_SETTING_LOGISTICS);
+    }
 }

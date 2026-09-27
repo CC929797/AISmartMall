@@ -104,4 +104,28 @@ public class PayOrderTask {
         });
         log.info("定时任务开始启动");
     }
+
+    /**
+     * 自动发货
+     */
+//    @PostConstruct
+//    public void consumeDeliveryOrder() {
+//        ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
+//            while (true) {
+//                try {
+//                    Set<String> queueDeliveryList = redisComponent.getTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY);
+//
+//
+//
+//                } catch (Exception e) {
+//                    log.error("自动发货任务出错！错误信息：" + e.getMessage());
+//                    try {
+//                        Thread.sleep(5000);
+//                    } catch (Exception ex) {
+//                        log.error("休眠失败" + ex.getMessage());
+//                    }
+//                }
+//            }
+//        });
+//    }
 }

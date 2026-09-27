@@ -9,10 +9,7 @@ import com.easymall.commonent.RedisComponent;
 import com.easymall.commonent.SpringContext;
 import com.easymall.entity.config.AppConfig;
 import com.easymall.entity.constants.Constants;
-import com.easymall.entity.dto.PayInfoDTO;
-import com.easymall.entity.dto.PayOrderNotifyDTO;
-import com.easymall.entity.dto.PostOrderDTO;
-import com.easymall.entity.dto.PostOrderItemDTO;
+import com.easymall.entity.dto.*;
 import com.easymall.entity.enums.*;
 import com.easymall.entity.po.*;
 import com.easymall.entity.query.*;
@@ -53,6 +50,8 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 	private RedisComponent redisComponent;
 	@Resource
 	private AppConfig appConfig;
+	@Resource
+	private OrderLogisticsInfoMapper<OrderLogisticsInfo,OrderLogisticsInfoQuery> orderLogisticsInfoMapper;
 
 	/**
 	 * 根据条件查询列表
@@ -213,11 +212,15 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		List<ProductCart> productCartList = new ArrayList<>();
 		//订单物流信息
 		//TODO: 物流信息
+		List<OrderLogisticsInfo> orderLogisticsInfoList = new ArrayList<>();
 
 		Map<String,OrderInfo> orderInfoMap = new HashMap<>();
 
-
+		//生成支付订单号
 		String payOrderId = StringTools.createPayOrderId();
+
+		//从Redis当中获取到发货地址
+		LogisticsSendDTO sendDTO = redisComponent.getLogisticsInfo();
 
 		for (PostOrderItemDTO itemDTO : itemDTOList) {
 			ProductInfo productInfo = tempProductInfoMap.get(itemDTO.getProductId());
@@ -268,9 +271,22 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 				List<OrderItem> orderItems = new ArrayList<>();
 				orderInfo.setOrderItemList(orderItems);
 
-				//TODO: 记录地址信息
+				//记录地址信息
+				OrderLogisticsInfo orderLogisticsInfo = new OrderLogisticsInfo();
+				orderLogisticsInfo.setOrderId(orderInfo.getOrderId());
+				orderLogisticsInfo.setUserId(userId);
+				orderLogisticsInfo.setLogisticsStatus(LogisticsStatusEnum.PENDING_SHIPMENT.getStatus());
+				orderLogisticsInfo.setReceiverName(userAddress.getAddressee());
+				orderLogisticsInfo.setReceiverPhone(userAddress.getPhone());
+				orderLogisticsInfo.setReceiverAddress(userAddress.getAddress());
 
-				//TODO:设置默认的发货信息
+				//设置默认的发货信息
+				if (sendDTO != null){
+					orderLogisticsInfo.setSenderName(sendDTO.getSenderName());
+					orderLogisticsInfo.setSenderPhone(sendDTO.getSenderPhone());
+					orderLogisticsInfo.setSenderAddress(sendDTO.getSenderAddress());
+				}
+				orderLogisticsInfoList.add(orderLogisticsInfo);
 
 			}
 
@@ -306,7 +322,10 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		}
 
 		this.orderInfoMapper.insertBatch(orderInfoList);
+
 		this.orderItemMapper.insertBatch(orderItemList);
+
+		this.orderLogisticsInfoMapper.insertBatch(orderLogisticsInfoList);
 
 		//扣减库存
 		orderItemList.forEach(item -> {
@@ -409,7 +428,7 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		orderInfoQuery.setOrderStatus(OrderStatusEnum.WAIT_PAYMENT.getStatus());
 		orderInfoMapper.updateByParam(orderInfo, orderInfoQuery);
 
-		//TODO: 支付成功，自动发货,这里是为了发货，避免管理后台手动发货
+		//支付成功，自动发货,这里是为了发货，避免管理后台手动发货
 		//redisComponent.addOrder2DelayQueue(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY,1,orderInfo.getOrderId());
 
 	}

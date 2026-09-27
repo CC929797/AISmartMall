@@ -26,6 +26,8 @@ public class Constants {
     //自动发货队列
     public static final String REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY = REDIS_KEY_PREFIX + "order:delay:queue:delivery:";
 
+    public static final String REDIS_KEY_SETTING_LOGISTICS = REDIS_KEY_PREFIX + "setting:logistics:";
+
     public static final Long REDIS_KEY_EXPIRES_ONE_MIN = 60L;
 
     public static final Long REDIS_KEY_EXPIRES_DAY = REDIS_KEY_EXPIRES_ONE_MIN * 60 * 24;
