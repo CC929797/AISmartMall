@@ -31,7 +31,7 @@ public class PayChannel4Alipay implements PayChannel {
         System.setProperty("jdk.tls.client.protocols", "TLSv1.2");
     }
 
-    private static final String TRADE_SUCCESS = "TRADE_SUCCESS";
+    private static final String TRADE_STATE_SUCCESS = "TRADE_SUCCESS";
 
     private static final String TRADE_NOT_EXIST = "ACQ.TRADE_NOT_EXIST";
 
@@ -129,7 +129,7 @@ public class PayChannel4Alipay implements PayChannel {
         String channelOrderId = requestParams.get("trade_no");
         String status = String.valueOf(requestParams.get("trade_status"));
 
-        if (!TRADE_SUCCESS.equalsIgnoreCase(status)) {
+        if (!TRADE_STATE_SUCCESS.equalsIgnoreCase(status)) {
             log.error("支付宝回调地址状态不为success,不做处理，订单号L{}",payOrderId);
             return null;
         }
@@ -156,7 +156,7 @@ public class PayChannel4Alipay implements PayChannel {
             request.setBizModel(model);
 
             AlipayTradeQueryResponse response = alipayClient.certificateExecute(request);
-            if(!response.isSuccess() || !TRADE_SUCCESS.equals(response.getTradeStatus())){
+            if(!response.isSuccess() || !TRADE_STATE_SUCCESS.equals(response.getTradeStatus())){
                 return null;
             }
             log.info("查询支付宝订单：{},返回结果：{}",payOrderId,response.getBody());

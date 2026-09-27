@@ -40,8 +40,15 @@ public class AppConfig {
     private String alipayServerUrl;
 
     //订单超时
-    @Value("${order.expire.minute:2}")
+    @Value("${order.expire.minute:5}")
     private Integer orderExpireMinute;
+
+    @Value("${project.auto-checkpay}")
+    private Boolean autoCheckPay;
+
+    public Boolean getAutoCheckPay() {
+        return autoCheckPay;
+    }
 
     public String getProjectDomain() {
         return projectDomain;

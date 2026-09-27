@@ -10,6 +10,7 @@ import com.easymall.commonent.SpringContext;
 import com.easymall.entity.config.AppConfig;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.PayInfoDTO;
+import com.easymall.entity.dto.PayOrderNotifyDTO;
 import com.easymall.entity.dto.PostOrderDTO;
 import com.easymall.entity.dto.PostOrderItemDTO;
 import com.easymall.entity.enums.*;
@@ -390,5 +391,26 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		PayChannelEnum payChannelEnum = PayChannelEnum.getByPayScene(orderInfo.getPayScene());
 		PayChannel payChannel = (PayChannel)SpringContext.getBean(payChannelEnum.getBeanName());
 		payChannel.closeOrder(orderInfo.getPayOrderId());
+	}
+
+	/**
+	 * 订单成功
+	 * @param payOrderNotifyDTO
+	 */
+	@Override
+	public void payOrderSuccess(PayOrderNotifyDTO payOrderNotifyDTO) {
+		//更新订单状态
+		OrderInfo orderInfo = new OrderInfo();
+		orderInfo.setOrderStatus(OrderStatusEnum.PAID.getStatus());
+		orderInfo.setChannelOrderId(payOrderNotifyDTO.getChannelOrderId());
+
+		OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+		orderInfoQuery.setPayOrderId(payOrderNotifyDTO.getPayOrderId());
+		orderInfoQuery.setOrderStatus(OrderStatusEnum.WAIT_PAYMENT.getStatus());
+		orderInfoMapper.updateByParam(orderInfo, orderInfoQuery);
+
+		//TODO: 支付成功，自动发货,这里是为了发货，避免管理后台手动发货
+		//redisComponent.addOrder2DelayQueue(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY,1,orderInfo.getOrderId());
+
 	}
 }

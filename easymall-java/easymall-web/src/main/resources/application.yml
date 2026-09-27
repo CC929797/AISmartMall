@@ -35,6 +35,7 @@ mybatis:
 #项目目录
 project:
   folder: D:/java/java24/wokspach-teach/runtime/easymall/
+  auto-checkpay: true #自动检查支付订单
   domain: http://xxx.xxxx.com
 #订单过期时间
 order:

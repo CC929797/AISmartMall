@@ -3,6 +3,7 @@ package com.easymall.service;
 import java.util.List;
 
 import com.easymall.entity.dto.PayInfoDTO;
+import com.easymall.entity.dto.PayOrderNotifyDTO;
 import com.easymall.entity.dto.PostOrderDTO;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.query.OrderInfoQuery;
@@ -83,4 +84,10 @@ public interface OrderInfoService {
 	 * 取消订单
 	 */
     void cancelOrder(String userId, String orderId, OrderStatusEnum orderStatusEnum);
+
+	/**
+	 * 订单支付成功
+	 * @param payOrderNotifyDTO
+	 */
+	void payOrderSuccess(PayOrderNotifyDTO payOrderNotifyDTO);
 }
