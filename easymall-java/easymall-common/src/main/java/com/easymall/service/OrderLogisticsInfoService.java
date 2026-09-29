@@ -79,4 +79,12 @@ public interface OrderLogisticsInfoService {
 	 * @param orderId
 	 */
     void mockOrderLogistics(String orderId);
+
+	/**
+	 * 获取订单物流信息
+	 * @param userId
+	 * @param orderId
+	 * @return
+	 */
+	OrderLogisticsInfo getOrderLogisticsRecords(String userId,String orderId);
 }

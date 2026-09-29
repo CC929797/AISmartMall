@@ -12,10 +12,10 @@ import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.service.OrderInfoService;
+import com.easymall.service.OrderLogisticsInfoService;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,6 +30,8 @@ import java.util.List;
 public class OrderController extends ABaseController{
     @Resource
     private OrderInfoService orderInfoService;
+    @Resource
+    private OrderLogisticsInfoService orderLogisticsInfoService;
 
     /**]
      * 提交订单
@@ -80,6 +82,7 @@ public class OrderController extends ABaseController{
         orderInfoQuery.setUserId(getTokenUserInfo().getUserId());
         orderInfoQuery.setOrderBy("o.order_time desc");
         orderInfoQuery.setQueryItems(true);
+        orderInfoQuery.setExecuteOrderStatusList(new Integer[]{OrderStatusEnum.DELETE.getStatus()});
 
         PaginationResultVO<OrderInfo> resultVO = orderInfoService.findListByPage(orderInfoQuery);
         return getSuccessResponseVO(resultVO);
@@ -101,4 +104,51 @@ public class OrderController extends ABaseController{
         query.setCommentStatus(OrderCommentStatusEnum.NOT_EVALUATED.getStatus());
     }
 
+    /**
+     * 删除订单
+     * @param orderId
+     * @return
+     */
+    @RequestMapping("/deleteOrder")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO deleteOrder(@NotEmpty String orderId) {
+        orderInfoService.deleteOrder(getTokenUserInfo().getUserId(),orderId);
+        return getSuccessResponseVO(null);
+
+    }
+
+    /**
+     * 取消订单
+     * @param orderId
+     * @return
+     */
+    @RequestMapping("/cancelOrder")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO cancelOrder(@NotEmpty String orderId) {
+        orderInfoService.cancelOrder(getTokenUserInfo().getUserId(),orderId,OrderStatusEnum.CANCELLED);
+        return getSuccessResponseVO(null);
+    }
+
+    /**
+     * 确认订单
+     * @param orderId
+     * @return
+     */
+    @RequestMapping("/confirmOrder")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO confirmOrder(@NotEmpty String orderId) {
+        orderInfoService.confirmOrder(getTokenUserInfo().getUserId(),orderId);
+        return getSuccessResponseVO(null);
+    }
+
+    /**
+     * 获取订单物流信息
+     * @param orderId
+     * @return
+     */
+    @RequestMapping("/getLogistics")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO getLogistics(@NotEmpty String orderId) {
+        return getSuccessResponseVO(orderLogisticsInfoService.getOrderLogisticsRecords(getTokenUserInfo().getUserId(),orderId));
+    }
 }

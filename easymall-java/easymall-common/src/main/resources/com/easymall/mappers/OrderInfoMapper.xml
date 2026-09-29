@@ -123,9 +123,15 @@
 			<if test="query.channelOrderIdFuzzy!= null  and query.channelOrderIdFuzzy!=''">
 				 and  o.channel_order_Id like concat('%', #{query.channelOrderIdFuzzy}, '%')
 			</if>
-			<if test="query.orderStatusList != null and query.orderStatusList != ''">
+			<if test="query.orderStatusList != null and query.orderStatusList.length > 0">
 			     and o.order_status in
 			     <foreach item="item" collection="query.orderStatusList" separator="," open="(" close=")">
+					 #{item}
+				 </foreach>
+			</if>
+		    <if test="query.executeOrderStatusList != null and query.executeOrderStatusList.length > 0">
+                 and o.order_status not in
+                 <foreach collection="query.executeOrderStatusList" item="item" open="(" separator="," close=")">
 					 #{item}
 				 </foreach>
 			</if>

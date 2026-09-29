@@ -86,6 +86,19 @@ public class OrderInfoQuery extends BaseParam {
 	 */
 	private Boolean queryItems;
 
+	/**
+	 * 排除指定的订单状态(不展示哪些状态)
+	 */
+	private Integer[] executeOrderStatusList;
+
+	public Integer[] getExecuteOrderStatusList() {
+		return executeOrderStatusList;
+	}
+
+	public void setExecuteOrderStatusList(Integer[] executeOrderStatusList) {
+		this.executeOrderStatusList = executeOrderStatusList;
+	}
+
 	public Boolean getQueryItems() {
 		return queryItems;
 	}

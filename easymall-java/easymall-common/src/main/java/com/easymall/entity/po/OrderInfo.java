@@ -3,6 +3,7 @@ package com.easymall.entity.po;
 import java.math.BigDecimal;
 import java.util.Date;
 import com.easymall.entity.enums.DateTimePatternEnum;
+import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.utils.DateUtil;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -73,6 +74,20 @@ public class OrderInfo implements Serializable {
 	 * 主订单的明细(子订单)
 	 */
 	private List<OrderItem> orderItemList;
+
+	/**
+	 * 订单状态名称
+	 */
+	private String orderStatusName;
+
+	public String getOrderStatusName() {
+		OrderStatusEnum orderStatusEnum = OrderStatusEnum.getByStatus(orderStatus);
+		return orderStatusEnum == null ? "" : orderStatusEnum.getDesc();
+	}
+
+	public void setOrderStatusName(String orderStatusName) {
+		this.orderStatusName = orderStatusName;
+	}
 
 	public List<OrderItem> getOrderItemList() {
 		return orderItemList;

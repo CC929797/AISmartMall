@@ -18,6 +18,9 @@ import com.easymall.mappers.*;
 import com.easymall.service.PayChannel;
 import jakarta.annotation.Resource;
 
+import jodd.util.ArraysUtil;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.ibatis.reflection.ArrayUtil;
 import org.springframework.stereotype.Service;
 
 import com.easymall.entity.vo.PaginationResultVO;
@@ -460,5 +463,32 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		List<OrderItem> orderItemList = this.orderItemMapper.selectList(orderItemQuery);
 		Integer buyCount = orderItemList.stream().mapToInt(OrderItem::getBuyCount).sum();
 		this.productInfoMapper.updateProductTotalSale(orderItemList.get(0).getProductId(), buyCount);
+	}
+
+	/**
+	 * 删除订单
+	 * @param userId 用户Id
+	 * @param orderId 订单Id
+	 */
+	@Override
+	public void deleteOrder(String userId, String orderId) {
+		OrderInfo orderInfo = orderInfoMapper.selectByOrderId(orderId);
+
+		if(orderInfo == null || !orderInfo.getUserId().equals(userId)){
+			throw new BusinessException("订单不存在");
+		}
+
+		Integer[] statusList = new Integer[]{OrderStatusEnum.CANCELLED.getStatus(),OrderStatusEnum.CLOSED.getStatus(),OrderStatusEnum.COMPLETED.getStatus()};
+		if (!ArrayUtils.contains(statusList, orderInfo.getOrderStatus())){
+			throw new BusinessException("订单无法删除");
+		}
+		OrderInfo updateOrderInfo = new OrderInfo();
+		updateOrderInfo.setOrderStatus(OrderStatusEnum.DELETE.getStatus());
+
+		OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+		orderInfoQuery.setOrderId(orderId);
+		orderInfoQuery.setUserId(userId);
+		orderInfoQuery.setOrderStatusList(statusList);
+		orderInfoMapper.updateByParam(updateOrderInfo, orderInfoQuery);
 	}
 }

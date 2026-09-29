@@ -127,12 +127,19 @@ public class PayOrderTask {
 
                     for (String payOrderId : queueDeliveryList) {
                         if (redisComponent.removeTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY,payOrderId) > 0){
-                            OrderLogisticsInfo orderLogisticsInfo = new OrderLogisticsInfo();
-                            orderLogisticsInfo.setLogisticsCompany("顺丰");
-                            orderLogisticsInfo.setLogisticsNo("SF" + StringTools.getRandomNumber(Constants.LENGTH_10));
-                            orderLogisticsInfo.setOrderId(payOrderId);
-                            //发货
-                            orderLogisticsInfoService.delivery(orderLogisticsInfo);
+                            //通过支付订单Id去查询订单列表
+                            OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+                            orderInfoQuery.setPayOrderId(payOrderId);
+                            List<OrderInfo> orderInfoList = orderInfoService.findListByParam(orderInfoQuery);
+                            //遍历订单列表，获取到订单Id并对每个订单进行发货
+                            for (OrderInfo orderInfo : orderInfoList) {
+                                OrderLogisticsInfo orderLogisticsInfo = new OrderLogisticsInfo();
+                                orderLogisticsInfo.setLogisticsCompany("顺丰");
+                                orderLogisticsInfo.setLogisticsNo("SF" + StringTools.getRandomNumber(Constants.LENGTH_10));
+                                orderLogisticsInfo.setOrderId(orderInfo.getOrderId());
+                                //发货
+                                orderLogisticsInfoService.delivery(orderLogisticsInfo);
+                            }
                         }
                     }
                 } catch (Exception e) {
@@ -177,6 +184,9 @@ public class PayOrderTask {
         });
     }
 
+    /**
+     * 自动确认订单
+     */
     @PostConstruct
     public void consumeConfirmOrder() {
         ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {

@@ -185,9 +185,12 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 		//加入队列，模拟物流
 		redisComponent.addOrder2LogisticsQueue(10,orderLogisticsInfo.getOrderId());
 
+		//获取到物流信息当中的发货地址
+		OrderLogisticsInfo dbInfo = this.getOrderLogisticsInfoByOrderId(orderInfo.getOrderId());
+
 		//插入物流信息记录表
 		OrderLogisticsInfoRecord record = new OrderLogisticsInfoRecord();
-		record.setRecordAddress(orderLogisticsInfo.getSenderAddress());
+		record.setRecordAddress(dbInfo.getSenderAddress());
 		record.setRecordTime(new Date());
 		record.setOrderId(orderLogisticsInfo.getOrderId());
 		orderLogisticsInfoRecordMapper.insert(record);
@@ -293,5 +296,26 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 			logisticsInfo.setLogisticsStatus(LogisticsStatusEnum.DELIVERED.getStatus());
 			this.orderLogisticsInfoMapper.updateByOrderId(logisticsInfo, orderId);
 		}
+	}
+
+	/**
+	 * 获取订单物流信息
+	 * @param userId
+	 * @param orderId
+	 * @return
+	 */
+	@Override
+	public OrderLogisticsInfo getOrderLogisticsRecords(String userId, String orderId) {
+		OrderLogisticsInfo orderLogisticsInfo = this.orderLogisticsInfoMapper.selectByOrderId(orderId);
+		if (orderLogisticsInfo == null || !orderLogisticsInfo.getUserId().equals(userId)) {
+			throw new BusinessException("订单不存在");
+		}
+		OrderLogisticsInfoRecordQuery query = new OrderLogisticsInfoRecordQuery();
+		query.setOrderId(orderId);
+		query.setOrderBy("record_time desc");
+		List<OrderLogisticsInfoRecord> recordList = this.orderLogisticsInfoRecordMapper.selectList(query);
+		orderLogisticsInfo.setRecordList(recordList);
+
+		return orderLogisticsInfo;
 	}
 }

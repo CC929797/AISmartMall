@@ -1,6 +1,9 @@
 package com.easymall.entity.po;
 
+import com.easymall.entity.enums.LogisticsStatusEnum;
+
 import java.io.Serializable;
+import java.util.List;
 
 
 /**
@@ -64,6 +67,32 @@ public class OrderLogisticsInfo implements Serializable {
 	 */
 	private Integer logisticsStatus;
 
+	/**
+	 * 物流记录列表
+	 */
+	private List<OrderLogisticsInfoRecord> recordList;
+
+	/**
+	 * 物流状态名称
+	 */
+	private String logisticsStatusName;
+
+	public String getLogisticsStatusName() {
+		LogisticsStatusEnum logisticsStatusEnum = LogisticsStatusEnum.getByStatus(logisticsStatus);
+		return logisticsStatusEnum == null ? "" : logisticsStatusEnum.getDesc();
+	}
+
+	public void setLogisticsStatusName(String logisticsStatusName) {
+		this.logisticsStatusName = logisticsStatusName;
+	}
+
+	public List<OrderLogisticsInfoRecord> getRecordList() {
+		return recordList;
+	}
+
+	public void setRecordList(List<OrderLogisticsInfoRecord> recordList) {
+		this.recordList = recordList;
+	}
 
 	public void setOrderId(String orderId){
 		this.orderId = orderId;

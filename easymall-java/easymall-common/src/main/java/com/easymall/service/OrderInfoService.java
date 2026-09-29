@@ -9,6 +9,7 @@ import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.query.OrderInfoQuery;
 import com.easymall.entity.po.OrderInfo;
 import com.easymall.entity.vo.PaginationResultVO;
+import jakarta.validation.constraints.NotEmpty;
 
 
 /**
@@ -97,4 +98,10 @@ public interface OrderInfoService {
 	 * @param orderId
 	 */
     void confirmOrder(String userId, String orderId);
+
+	/**
+	 * 删除订单
+	 * @param orderId
+	 */
+    void deleteOrder(String userId,String orderId);
 }
