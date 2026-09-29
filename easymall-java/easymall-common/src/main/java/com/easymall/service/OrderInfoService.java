@@ -104,4 +104,10 @@ public interface OrderInfoService {
 	 * @param orderId
 	 */
     void deleteOrder(String userId,String orderId);
+
+	/**
+	 * 退款
+	 * @param orderItemId 订单子订单Id
+	 */
+	void refundByOrderItemId(String userId, String orderItemId);
 }

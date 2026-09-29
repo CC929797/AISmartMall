@@ -151,4 +151,16 @@ public class OrderController extends ABaseController{
     public ResponseVO getLogistics(@NotEmpty String orderId) {
         return getSuccessResponseVO(orderLogisticsInfoService.getOrderLogisticsRecords(getTokenUserInfo().getUserId(),orderId));
     }
+
+    /**
+     * 退款
+     * @param orderItemId
+     * @return
+     */
+    @RequestMapping("/refundOrder")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO refundOrder(@NotEmpty String orderItemId) {
+        orderInfoService.refundByOrderItemId(getTokenUserInfo().getUserId(),orderItemId);
+        return getSuccessResponseVO(null);
+    }
 }

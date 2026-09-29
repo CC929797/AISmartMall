@@ -214,7 +214,7 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		//购物车信息
 		List<ProductCart> productCartList = new ArrayList<>();
 		//订单物流信息
-		//TODO: 物流信息
+		//物流信息
 		List<OrderLogisticsInfo> orderLogisticsInfoList = new ArrayList<>();
 
 		Map<String,OrderInfo> orderInfoMap = new HashMap<>();
@@ -328,6 +328,7 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 
 		this.orderItemMapper.insertBatch(orderItemList);
 
+		//记录物流信息
 		this.orderLogisticsInfoMapper.insertBatch(orderLogisticsInfoList);
 
 		//扣减库存
@@ -339,9 +340,6 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 			throw new BusinessException("库存不足");
 		}
 
-
-		// TODO:记录物流信息
-
 		//如果是购物车订单，删除购物车
 		if (OrderFromTypeEnum.CART == orderFromTypeEnum) {
 			this.productCartMapper.deleteBatch(productCartList);
@@ -351,8 +349,8 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		//获取到PayChannel接口
 		PayChannel payChannel = (PayChannel) SpringContext.getBean(payChannelEnum.getBeanName());
 		//判断是购物车购买还是手动单个商品购买
-		String subject = OrderFromTypeEnum.CART == orderFromTypeEnum ? String.format(Constants.CART_PAY_NAME,orderInfoList.size()) : orderInfoList.get(0).getOrderItemList().
-				get(0).getProductName();
+		String subject = OrderFromTypeEnum.CART == orderFromTypeEnum ? String.format(Constants.CART_PAY_NAME,orderInfoList.size()) :
+				orderInfoList.get(0).getOrderItemList().get(0).getProductName();
 		//计算支付总价(所有主订单的金额相加)
 		BigDecimal amount = orderInfoList.stream().map(OrderInfo::getAmount).reduce(BigDecimal::add).get();
 		//返回支付信息
@@ -490,5 +488,74 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		orderInfoQuery.setUserId(userId);
 		orderInfoQuery.setOrderStatusList(statusList);
 		orderInfoMapper.updateByParam(updateOrderInfo, orderInfoQuery);
+	}
+
+	/**
+	 * 退款
+	 * @param orderItemId 订单子订单Id
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void refundByOrderItemId(String userId,String orderItemId) {
+		OrderItem orderItem = orderItemMapper.selectByOrderItemId(orderItemId);
+		if(orderItem == null){
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
+
+		OrderInfo orderInfo = orderInfoMapper.selectByOrderId(orderItem.getOrderId());
+		if(orderInfo == null || !orderInfo.getUserId().equals(userId)){
+			throw new BusinessException("订单不存在");
+		}
+
+		Integer[] canRefundStatus = new Integer[]{OrderStatusEnum.PAID.getStatus(),OrderStatusEnum.SHIPPED.getStatus(),OrderStatusEnum.PARTIALLY_REFUNDED.getStatus()};
+
+		if (!ArrayUtils.contains(canRefundStatus, orderInfo.getOrderStatus())){
+			throw new BusinessException("订单无法退款");
+		}
+
+		if (!OrderItemStatusEnum.NORMAL.getStatus().equals(orderItem.getOrderItemStatus())) {
+			throw new BusinessException("订单已经退款无法再次退款");
+		}
+
+		//生成退款订单
+		String refundOrderId = StringTools.getRandomNumber(Constants.LENGTH_30);
+
+		//更改订单子订单的状态
+		OrderItem updateOrderItem = new OrderItem();
+		updateOrderItem.setOrderItemStatus(OrderItemStatusEnum.REFUND.getStatus());
+		updateOrderItem.setRefundOrderId(refundOrderId);
+
+		OrderItemQuery orderItemQuery = new OrderItemQuery();
+		orderItemQuery.setOrderItemId(orderItemId);
+		orderItem.setOrderItemStatus(OrderItemStatusEnum.NORMAL.getStatus());
+		Integer updateCount = orderItemMapper.updateByParam(updateOrderItem, orderItemQuery);
+
+		if (updateCount == 0) {
+			throw new BusinessException("退款失败，请稍后再试");
+		}
+
+		orderItemQuery = new OrderItemQuery();
+		orderItemQuery.setOrderId(orderItem.getOrderId());
+		orderItemQuery.setOrderItemStatus(OrderItemStatusEnum.NORMAL.getStatus());
+		Integer leftCount = orderItemMapper.selectCount(orderItemQuery);
+
+		//如果一个正常的子订单都没有，说明此订单已经全部退款
+		OrderInfo updateInfo = new OrderInfo();
+		updateInfo.setOrderStatus(leftCount == 0 ? OrderStatusEnum.REFUNDED.getStatus() : OrderStatusEnum.PARTIALLY_REFUNDED.getStatus());
+
+		OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+		orderInfoQuery.setOrderId(orderItem.getOrderId());
+		orderInfoQuery.setOrderStatusList(canRefundStatus);
+
+		Integer updateOrderCount = orderInfoMapper.updateByParam(updateInfo, orderInfoQuery);
+		if (updateOrderCount == 0) {
+			throw new BusinessException("退款失败,请稍后再试");
+		}
+
+		//支付宝退款
+		PayChannelEnum payChannelEnum = PayChannelEnum.getByPayScene(orderInfo.getPayScene());
+		PayChannel payChannel = (PayChannel) SpringContext.getBean(payChannelEnum.getBeanName());
+		payChannel.refund(orderInfo.getPayOrderId(),refundOrderId,orderItem.getItemAmount());
+
 	}
 }
