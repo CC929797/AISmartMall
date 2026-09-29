@@ -3,9 +3,12 @@ package com.easymall.controller;
 import com.easymall.annotation.GlobalInterceptor;
 import com.easymall.entity.dto.PayInfoDTO;
 import com.easymall.entity.dto.PostOrderDTO;
+import com.easymall.entity.enums.OrderCommentStatusEnum;
+import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.po.OrderInfo;
 import com.easymall.entity.query.OrderInfoQuery;
+import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.service.OrderInfoService;
@@ -60,6 +63,42 @@ public class OrderController extends ABaseController{
             throw new BusinessException(ResponseCodeEnum.CODE_600);
         }
         return getSuccessResponseVO(orderInfo);
+    }
+
+    /**
+     * 查询我的订单
+     * @param pageNo
+     * @return
+     */
+    @RequestMapping("/loadMyOrder")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO loadMyOrder(Integer pageNo,Integer status) {
+        OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+        buildStatus(orderInfoQuery,status);
+
+        orderInfoQuery.setPageNo(pageNo);
+        orderInfoQuery.setUserId(getTokenUserInfo().getUserId());
+        orderInfoQuery.setOrderBy("o.order_time desc");
+        orderInfoQuery.setQueryItems(true);
+
+        PaginationResultVO<OrderInfo> resultVO = orderInfoService.findListByPage(orderInfoQuery);
+        return getSuccessResponseVO(resultVO);
+    }
+    
+    private void buildStatus(OrderInfoQuery query,Integer status) {
+        if (status == null) {
+            return;
+        }
+        OrderStatusEnum orderStatusEnum = OrderStatusEnum.getByStatus(status);
+        if (orderStatusEnum.DELETE == orderStatusEnum) {
+            return;
+        }
+        query.setOrderStatus(orderStatusEnum.getStatus());
+        /*if (OrderStatusEnum.COMPLETED != orderStatusEnum) {
+            return;
+        }*/
+
+        query.setCommentStatus(OrderCommentStatusEnum.NOT_EVALUATED.getStatus());
     }
 
 }

@@ -153,7 +153,7 @@ public class RedisComponent {
     }
 
     /**
-     * 获取到超时订单
+     * 获取到延时订单
      * @param queueName
      * @return
      */
@@ -162,7 +162,7 @@ public class RedisComponent {
     }
 
     /**
-     * 删除到超时订单
+     * 删除到延时订单
      * @param queueName
      * @return
      */
@@ -183,5 +183,31 @@ public class RedisComponent {
      */
     public LogisticsSendDTO getLogisticsInfo() {
         return (LogisticsSendDTO) redisUtils.get(Constants.REDIS_KEY_SETTING_LOGISTICS);
+    }
+
+    /**
+     * 添加订单到物流队列
+     * @param delaySeconds
+     * @param orderId
+     */
+    public void addOrder2LogisticsQueue(Integer delaySeconds,String orderId){
+        long expireTime = System.currentTimeMillis() + delaySeconds * 1000;
+        redisUtils.zsetAdd(Constants.REDIS_KEY_ORDER_LOGISTICS_QUEUE,orderId,expireTime);
+    }
+
+    /**
+     * 获取到发货延时订单
+     */
+    public Set<String> getTimeOutOrder4Logistics() {
+        return redisUtils.zsetRangeByScore(Constants.REDIS_KEY_ORDER_LOGISTICS_QUEUE, 0, System.currentTimeMillis());
+    }
+
+    /**
+     * 删除Redis队列发货延时订单
+     * @param orderId
+     * @return
+     */
+    public Long removeTimeOutOrder4Logistics(String orderId) {
+        return redisUtils.zsetAddRemove(Constants.REDIS_KEY_ORDER_LOGISTICS_QUEUE,orderId);
     }
 }

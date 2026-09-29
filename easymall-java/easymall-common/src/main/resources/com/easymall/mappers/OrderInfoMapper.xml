@@ -25,6 +25,33 @@
 		<result column="channel_order_Id" property="channelOrderId"  />
 		<!--评价状态 0:未评价  1:已评价  2:已追评-->
 		<result column="comment_status" property="commentStatus"  />
+		<!--主订单的子列表 -->
+		<collection property="orderItemList" ofType="com.easymall.entity.po.OrderItem">
+			<!--订单明细ID-->
+			<result column="order_item_id" property="orderItemId"  />
+			<!--订单ID-->
+			<result column="order_id" property="orderId"  />
+			<!--封面-->
+			<result column="cover" property="cover"  />
+			<!--商品ID-->
+			<result column="product_id" property="productId"  />
+			<!--商品名称-->
+			<result column="product_name" property="productName"  />
+			<!--属性值id组hash-->
+			<result column="property_value_id_hash" property="propertyValueIdHash"  />
+			<!--属性信息-->
+			<result column="property_info" property="propertyInfo"  />
+			<!--价格-->
+			<result column="item_amount" property="itemAmount"  />
+			<!--数量-->
+			<result column="buy_count" property="buyCount"  />
+			<!--状态 1:正常 0:已退款-->
+			<result column="order_item_status" property="orderItemStatus"  />
+			<!--备注-->
+			<result column="remark" property="remark"  />
+			<!--退款订单号-->
+			<result column="refund_order_id" property="refundOrderId"  />
+		</collection>
 	</resultMap>
 
 
@@ -96,12 +123,26 @@
 			<if test="query.channelOrderIdFuzzy!= null  and query.channelOrderIdFuzzy!=''">
 				 and  o.channel_order_Id like concat('%', #{query.channelOrderIdFuzzy}, '%')
 			</if>
+			<if test="query.orderStatusList != null and query.orderStatusList != ''">
+			     and o.order_status in
+			     <foreach item="item" collection="query.orderStatusList" separator="," open="(" close=")">
+					 #{item}
+				 </foreach>
+			</if>
 	 </where>
 	</sql>
 
 	<!-- 查询集合-->
 	<select id="selectList" resultMap="base_result_map" >
-		 SELECT <include refid="base_column_list" /> FROM order_info o <include refid="query_condition" />
+		 SELECT <include refid="base_column_list" />
+		 <if test="query.queryItems">
+			 , i.*
+		 </if>
+	     FROM order_info o
+	     <if test="query.queryItems">
+			 left join order_item i on o.order_id = i.order_id
+		 </if>
+	     <include refid="query_condition" />
 		 <if test="query.orderBy!=null">
 			 order by ${query.orderBy}
 		 </if>

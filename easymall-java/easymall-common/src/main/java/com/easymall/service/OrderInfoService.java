@@ -90,4 +90,11 @@ public interface OrderInfoService {
 	 * @param payOrderNotifyDTO
 	 */
 	void payOrderSuccess(PayOrderNotifyDTO payOrderNotifyDTO);
+
+	/**
+	 * 确认收获
+	 * @param userId
+	 * @param orderId
+	 */
+    void confirmOrder(String userId, String orderId);
 }

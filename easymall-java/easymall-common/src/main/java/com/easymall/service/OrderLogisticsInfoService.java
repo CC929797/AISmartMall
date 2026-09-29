@@ -69,4 +69,14 @@ public interface OrderLogisticsInfoService {
 	 */
 	Integer deleteOrderLogisticsInfoByOrderId(String orderId);
 
+	/**
+	 * 订单发货
+	 */
+	void delivery(OrderLogisticsInfo orderLogisticsInfo);
+
+	/**
+	 * 模拟订单物流
+	 * @param orderId
+	 */
+    void mockOrderLogistics(String orderId);
 }

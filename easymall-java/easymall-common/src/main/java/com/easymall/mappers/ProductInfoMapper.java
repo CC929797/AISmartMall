@@ -24,5 +24,12 @@ public interface ProductInfoMapper<T,P> extends BaseMapper<T,P> {
 	 */
 	 T selectByProductId(@Param("productId") String productId);
 
+	/**
+	 * 确认收获后更新商品总销售量
+	 * @param productId
+	 * @param changeCount
+	 */
+	 void updateProductTotalSale(@Param("productId") String productId,@Param("changeCount") Integer changeCount);
+
 
 }

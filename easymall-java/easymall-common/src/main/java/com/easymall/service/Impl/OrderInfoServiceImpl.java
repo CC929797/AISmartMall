@@ -429,7 +429,36 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		orderInfoMapper.updateByParam(orderInfo, orderInfoQuery);
 
 		//支付成功，自动发货,这里是为了发货，避免管理后台手动发货
-		//redisComponent.addOrder2DelayQueue(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY,1,orderInfo.getOrderId());
+		redisComponent.addOrder2DelayQueue(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY,1,payOrderNotifyDTO.getPayOrderId());
 
+	}
+
+	/**
+	 * 确认收获
+	 * @param userId
+	 * @param orderId
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void confirmOrder(String userId, String orderId) {
+		OrderInfo updateInfo = new OrderInfo();
+		updateInfo.setOrderStatus(OrderStatusEnum.COMPLETED.getStatus());
+
+		OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+		orderInfoQuery.setOrderId(orderId);
+		orderInfoQuery.setUserId(userId);
+		orderInfoQuery.setOrderStatusList(new Integer[]{OrderStatusEnum.SHIPPED.getStatus(),OrderStatusEnum.PARTIALLY_REFUNDED.getStatus()});
+		Integer updateCount = this.orderInfoMapper.updateByParam(updateInfo, orderInfoQuery);
+		if (updateCount == 0) {
+			throw new BusinessException("该订单无法进行确认收货");
+		}
+
+		//设置销量
+		OrderItemQuery orderItemQuery = new OrderItemQuery();
+		orderItemQuery.setOrderId(orderId);
+		orderItemQuery.setOrderItemStatus(OrderItemStatusEnum.NORMAL.getStatus());
+		List<OrderItem> orderItemList = this.orderItemMapper.selectList(orderItemQuery);
+		Integer buyCount = orderItemList.stream().mapToInt(OrderItem::getBuyCount).sum();
+		this.productInfoMapper.updateProductTotalSale(orderItemList.get(0).getProductId(), buyCount);
 	}
 }

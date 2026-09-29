@@ -39,12 +39,20 @@ public class AppConfig {
     @Value("${alipay.serverUrl:}")
     private String alipayServerUrl;
 
-    //订单超时
+    //订单延时
     @Value("${order.expire.minute:5}")
     private Integer orderExpireMinute;
 
+    //自动确认收货
+    @Value("${order.confirm.minute:15}")
+    private Integer orderConfirmMinute;
+
     @Value("${project.auto-checkpay}")
     private Boolean autoCheckPay;
+
+    public Integer getOrderConfirmMinute() {
+        return orderConfirmMinute;
+    }
 
     public Boolean getAutoCheckPay() {
         return autoCheckPay;

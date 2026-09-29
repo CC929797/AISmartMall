@@ -76,6 +76,31 @@ public class OrderInfoQuery extends BaseParam {
 	 */
 	private Integer commentStatus;
 
+	/**
+	 * 订单状态列表
+	 */
+	private Integer[] orderStatusList;
+
+	/**
+	 * 是否查询子订单
+	 */
+	private Boolean queryItems;
+
+	public Boolean getQueryItems() {
+		return queryItems;
+	}
+
+	public void setQueryItems(Boolean queryItems) {
+		this.queryItems = queryItems;
+	}
+
+	public Integer[] getOrderStatusList() {
+		return orderStatusList;
+	}
+
+	public void setOrderStatusList(Integer[] orderStatusList) {
+		this.orderStatusList = orderStatusList;
+	}
 
 	public void setOrderId(String orderId){
 		this.orderId = orderId;

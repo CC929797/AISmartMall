@@ -9,10 +9,14 @@ import com.easymall.entity.enums.ExecutorServiceSignletionEnum;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.enums.PayChannelEnum;
 import com.easymall.entity.po.OrderInfo;
+import com.easymall.entity.po.OrderLogisticsInfo;
 import com.easymall.entity.query.OrderInfoQuery;
 import com.easymall.service.OrderInfoService;
+import com.easymall.service.OrderLogisticsInfoService;
 import com.easymall.service.PayChannel;
+import com.easymall.utils.StringTools;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,6 +33,8 @@ public class PayOrderTask {
     private OrderInfoService orderInfoService;
     @Resource
     private AppConfig appConfig;
+    @Resource
+    private OrderLogisticsInfoService orderLogisticsInfoService;
 
 
     /**
@@ -108,24 +114,94 @@ public class PayOrderTask {
     /**
      * 自动发货
      */
-//    @PostConstruct
-//    public void consumeDeliveryOrder() {
-//        ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
-//            while (true) {
-//                try {
-//                    Set<String> queueDeliveryList = redisComponent.getTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY);
-//
-//
-//
-//                } catch (Exception e) {
-//                    log.error("自动发货任务出错！错误信息：" + e.getMessage());
-//                    try {
-//                        Thread.sleep(5000);
-//                    } catch (Exception ex) {
-//                        log.error("休眠失败" + ex.getMessage());
-//                    }
-//                }
-//            }
-//        });
-//    }
+    @PostConstruct
+    public void consumeDeliveryOrder() {
+        ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
+            while (true) {
+                try {
+                    Set<String> queueDeliveryList = redisComponent.getTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY);
+                    if(queueDeliveryList == null || queueDeliveryList.isEmpty()) {
+                        Thread.sleep(1000);
+                        continue;
+                    }
+
+                    for (String payOrderId : queueDeliveryList) {
+                        if (redisComponent.removeTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY,payOrderId) > 0){
+                            OrderLogisticsInfo orderLogisticsInfo = new OrderLogisticsInfo();
+                            orderLogisticsInfo.setLogisticsCompany("顺丰");
+                            orderLogisticsInfo.setLogisticsNo("SF" + StringTools.getRandomNumber(Constants.LENGTH_10));
+                            orderLogisticsInfo.setOrderId(payOrderId);
+                            //发货
+                            orderLogisticsInfoService.delivery(orderLogisticsInfo);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("自动发货任务出错！错误信息：" + e.getMessage());
+                    try {
+                        Thread.sleep(5000);
+                    } catch (Exception ex) {
+                        log.error("休眠失败" + ex.getMessage());
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     *  模拟物流
+     */
+    @PostConstruct
+    public void consumeLogistics() {
+        ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
+            while (true) {
+                try {
+                    Set<String> orderList = redisComponent.getTimeOutOrder4Logistics();
+                    if(orderList == null || orderList.isEmpty()) {
+                        Thread.sleep(5000);
+                        continue;
+                    }
+                    for (String orderId : orderList) {
+                        if (redisComponent.removeTimeOutOrder4Logistics(orderId) > 0){
+                            orderLogisticsInfoService.mockOrderLogistics(orderId);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("模拟物流信息失败，错误信息：" + e.getMessage());
+                    try {
+                        Thread.sleep(5000);
+                    } catch (Exception ex) {
+                        log.error("休眠失败" + ex.getMessage());
+                    }
+                }
+            }
+        });
+    }
+
+    @PostConstruct
+    public void consumeConfirmOrder() {
+        ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
+            while (true) {
+                try {
+                    Set<String> orderList = redisComponent.getTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_CONFIRM);
+                    if(orderList == null || orderList.isEmpty()) {
+                        Thread.sleep(5000);
+                        continue;
+                    }
+                    for (String orderId : orderList) {
+                        if (redisComponent.removeTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_CONFIRM,orderId) > 0){
+                            //确认订单
+                            orderInfoService.confirmOrder(null,orderId);
+                        }
+                    }
+                }catch (Exception e){
+                    log.error("自动确认收费失败!,错误信息：" + e.getMessage());
+                    try{
+                        Thread.sleep(5000);
+                    }catch (Exception ex) {
+                        log.error("休眠失败" + ex.getMessage());
+                    }
+                }
+            }
+        });
+    }
 }

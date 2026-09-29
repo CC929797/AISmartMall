@@ -101,4 +101,8 @@ public class StringTools {
     public static final String createPayOrderId(){
         return StringTools.getRandomNumber(Constants.LENGTH_30);
     }
+
+    public static Integer getRandomNumberRange(int min, int max) {
+        return new Random().nextInt(max - min + 1) + min;
+    }
 }

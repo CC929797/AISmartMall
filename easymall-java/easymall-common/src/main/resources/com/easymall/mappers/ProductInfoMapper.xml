@@ -514,4 +514,8 @@
 		select <include refid="base_column_list" /> from product_info p where product_id=#{productId}
 	</select>
 
+	<update id="updateProductTotalSale">
+		update product_info set total_sale = total_sale + #{changeCount} where product_id = #{productId} and total_sale + #{changeCount} >= 0
+	</update>
+
 </mapper>

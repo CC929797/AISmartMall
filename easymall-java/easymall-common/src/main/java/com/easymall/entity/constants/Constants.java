@@ -25,8 +25,12 @@ public class Constants {
     public static final String REDIS_KEY_ORDER_DELAY_QUEUE = REDIS_KEY_PREFIX + "order:delay:queue:";
     //自动发货队列
     public static final String REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY = REDIS_KEY_PREFIX + "order:delay:queue:delivery:";
+    //自动确认收货
+    public static final String REDIS_KEY_ORDER_DELAY_QUEUE_CONFIRM = REDIS_KEY_PREFIX + "order:delay:queue:confirm:";
 
     public static final String REDIS_KEY_SETTING_LOGISTICS = REDIS_KEY_PREFIX + "setting:logistics:";
+
+    public static final String REDIS_KEY_ORDER_LOGISTICS_QUEUE = REDIS_KEY_PREFIX + "order:logistics:queue:";
 
     public static final Long REDIS_KEY_EXPIRES_ONE_MIN = 60L;
 
