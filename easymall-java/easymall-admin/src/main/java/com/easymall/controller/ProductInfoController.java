@@ -5,6 +5,7 @@ import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.entity.po.ProductInfo;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.service.ProductInfoService;
+import com.easymall.service.ProductSkuService;
 import com.easymall.valid.CreateGroup;
 import com.easymall.valid.UpdateGroup;
 import jakarta.validation.constraints.NotEmpty;
@@ -25,6 +26,10 @@ public class ProductInfoController extends ABaseController{
 
 	@Resource
 	private ProductInfoService productInfoService;
+	@Resource
+	private ProductSkuService productSkuService;
+
+
 	/**
 	 * 根据条件分页查询
 	 */
@@ -91,6 +96,15 @@ public class ProductInfoController extends ABaseController{
 		ProductInfo productInfo = new ProductInfo();
 		productInfo.setCommendType(commendType);
 		productInfoService.updateProductInfoByProductId(productInfo,productId);
+		return getSuccessResponseVO(null);
+	}
+
+	/**
+	 * 管理员更新库存
+	 */
+	@RequestMapping("/updateSkuStock")
+	public ResponseVO updateSkuStock(@NotEmpty String productId,@NotEmpty String propertyValueIdHash,@NotNull Integer changeStock) {
+		productSkuService.updateStock(productId,propertyValueIdHash,changeStock);
 		return getSuccessResponseVO(null);
 	}
 

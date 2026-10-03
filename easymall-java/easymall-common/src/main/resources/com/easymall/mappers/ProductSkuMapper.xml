@@ -336,4 +336,9 @@
 		    where ps.product_id = tem.product_id and ps.property_value_id_hash = tem.property_value_id_hash and ps.stock + tem.buy_count >= 0
 	</update>
 
+	<update id="updateStock">
+		update product_sku set stock = stock + #{changeStock}
+		where product_id = #{productId} and property_value_id_hash = #{propertyValueIdHash} and stock + #{changeStock} >= 0
+	</update>
+
 </mapper>

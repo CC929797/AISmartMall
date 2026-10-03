@@ -45,4 +45,9 @@ public interface ProductSkuMapper<T,P> extends BaseMapper<T,P> {
 	 * 扣减库存
 	 */
 	Integer updateStockBatch(@Param("orderItemList") List<OrderItem> orderItemList);
+
+	/**
+	 * 扣减单个商品的库存
+	 */
+	Integer updateStock(@Param("productId") String productId, @Param("propertyValueIdHash") String propertyValueIdHash, @Param("changeStock") Integer changeStock);
 }
