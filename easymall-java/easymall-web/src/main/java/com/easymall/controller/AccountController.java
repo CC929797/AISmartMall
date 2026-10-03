@@ -9,7 +9,6 @@ import com.easymall.entity.vo.CheckCodeVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.entity.vo.UserInfoVO;
 import com.easymall.exception.BusinessException;
-import com.easymall.service.ProductInfoService;
 import com.easymall.service.UserInfoService;
 import com.easymall.utils.CopyTools;
 import com.wf.captcha.ArithmeticCaptcha;
@@ -155,8 +154,6 @@ public class AccountController extends ABaseController{
         tokenUserInfoDTO.setAvatar(avatar);
 
         redisComponent.updateTokenInfo(tokenUserInfoDTO);
-        return getSuccessResponseVO(null);
+        return getSuccessResponseVO(tokenUserInfoDTO);
     }
-
-
 }

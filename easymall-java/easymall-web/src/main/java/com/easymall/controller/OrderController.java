@@ -8,6 +8,7 @@ import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.po.OrderInfo;
 import com.easymall.entity.query.OrderInfoQuery;
+import com.easymall.entity.vo.OrderCountVO;
 import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -162,5 +164,44 @@ public class OrderController extends ABaseController{
     public ResponseVO refundOrder(@NotEmpty String orderItemId) {
         orderInfoService.refundByOrderItemId(getTokenUserInfo().getUserId(),orderItemId);
         return getSuccessResponseVO(null);
+    }
+
+    /**
+     * 查询我的订单中待付款、待发货、待收货、待评价的订单数量
+     */
+    @RequestMapping("/getOrderCountInfo")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO getOrderCountInfo(){
+        OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+        orderInfoQuery.setUserId(getTokenUserInfo().getUserId());
+        orderInfoQuery.setOrderStatus(OrderStatusEnum.WAIT_PAYMENT.getStatus());
+        Integer count = orderInfoService.findCountByParam(orderInfoQuery);
+
+        List<OrderCountVO> orderCountVOList = new ArrayList<>();
+
+        //待付款
+        OrderCountVO orderCountVO = new OrderCountVO("pendingPayment", count);
+        orderCountVOList.add(orderCountVO);
+
+        //待发货
+        orderInfoQuery.setOrderStatus(OrderStatusEnum.PAID.getStatus());
+        count = orderInfoService.findCountByParam(orderInfoQuery);
+        orderCountVO = new OrderCountVO("pendingShipment", count);
+        orderCountVOList.add(orderCountVO);
+
+        //待收货
+        orderInfoQuery.setOrderStatus(OrderStatusEnum.SHIPPED.getStatus());
+        count = orderInfoService.findCountByParam(orderInfoQuery);
+        orderCountVO = new OrderCountVO("pendingReceipt", count);
+        orderCountVOList.add(orderCountVO);
+
+        //待评价
+        orderInfoQuery.setOrderStatus(OrderStatusEnum.COMPLETED.getStatus());
+        orderInfoQuery.setCommentStatus(OrderCommentStatusEnum.NOT_EVALUATED.getStatus());
+        count = orderInfoService.findCountByParam(orderInfoQuery);
+        orderCountVO = new OrderCountVO("pendingComment", count);
+        orderCountVOList.add(orderCountVO);
+
+        return getSuccessResponseVO(orderCountVOList);
     }
 }
