@@ -133,6 +133,15 @@ public class RedisComponent {
     }
 
     /**
+     * 修改个人信息时更改Redis当中存储的个人信息
+     * @param tokenUserInfoDTO
+     */
+    public void updateTokenInfo(TokenUserInfoDTO tokenUserInfoDTO) {
+        redisUtils.setex(Constants.REDIS_KEY_TOKEN_WEB + tokenUserInfoDTO.getToken(),tokenUserInfoDTO,Constants.REDIS_KEY_EXPIRES_DAY * 7);
+        redisUtils.setex(Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId(),tokenUserInfoDTO.getToken(),Constants.REDIS_KEY_EXPIRES_DAY * 7);
+    }
+
+    /**
      * 根据token获取到登录信息(包含token)
      * @param token
      * @return

@@ -1,13 +1,17 @@
 package com.easymall.controller;
 
+import com.easymall.annotation.GlobalInterceptor;
 import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.TokenUserInfoDTO;
+import com.easymall.entity.po.UserInfo;
 import com.easymall.entity.vo.CheckCodeVO;
 import com.easymall.entity.vo.ResponseVO;
+import com.easymall.entity.vo.UserInfoVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.service.ProductInfoService;
 import com.easymall.service.UserInfoService;
+import com.easymall.utils.CopyTools;
 import com.wf.captcha.ArithmeticCaptcha;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.*;
@@ -99,9 +103,58 @@ public class AccountController extends ABaseController{
         }
     }
 
+    /**
+     * 退出登录
+     * @param token
+     * @return
+     */
     @RequestMapping("/logout")
     public ResponseVO logout(@RequestHeader("token") String token){
         redisComponent.cleanToken(token);
+        return getSuccessResponseVO(null);
+    }
+
+    /**
+     * 修改密码
+     * @param oldPassword
+     * @param password
+     * @return
+     */
+    @RequestMapping("/updatePassword")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO updatePassword(@NotEmpty String oldPassword,@NotEmpty String password){
+        userInfoService.updatePassword(getTokenUserInfo().getUserId(), oldPassword, password);
+        return getSuccessResponseVO(null);
+    }
+
+    /**
+     * 获取用户信息
+     */
+    @RequestMapping("/getUserInfo")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO getUserInfo(){
+        UserInfo userInfo = userInfoService.getUserInfoByUserId(getTokenUserInfo().getUserId());
+        return getSuccessResponseVO(CopyTools.copy(userInfo, UserInfoVO.class));
+    }
+
+    @RequestMapping("/updateUserInfo")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO updateUserInfo(@NotEmpty String avatar,
+                                     @NotEmpty @Size(max = 20) String nickName,
+                                     @NotNull Integer sex){
+        TokenUserInfoDTO tokenUserInfoDTO =  getTokenUserInfo();
+        //数据库更新后的用户信息
+        UserInfo updateInfo = new UserInfo();
+        updateInfo.setAvatar(avatar);
+        updateInfo.setNickName(nickName);
+        updateInfo.setSex(sex);
+        this.userInfoService.updateUserInfoByUserId(updateInfo, tokenUserInfoDTO.getUserId());
+
+        //Redis更新新的用户信息
+        tokenUserInfoDTO.setNickName(nickName);
+        tokenUserInfoDTO.setAvatar(avatar);
+
+        redisComponent.updateTokenInfo(tokenUserInfoDTO);
         return getSuccessResponseVO(null);
     }
 

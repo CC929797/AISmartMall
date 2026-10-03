@@ -165,7 +165,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 		//判断是新增还是修改
 		boolean isAdd = StringTools.isEmpty(productInfo.getProductId());
 		if (isAdd) {
-			productInfo.setProductId(StringTools.getRandomString(Constants.LENGTH_15));
+			productInfo.setProductId(StringTools.getRandomNumber(Constants.LENGTH_15));
 		}
 		//设置商品属性的productId
 		productPropertyValueList.forEach(p -> {

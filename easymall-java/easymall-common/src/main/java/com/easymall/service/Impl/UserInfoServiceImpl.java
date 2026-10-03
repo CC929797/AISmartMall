@@ -8,6 +8,7 @@ import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.TokenUserInfoDTO;
 import com.easymall.entity.enums.UserSexEnum;
 import com.easymall.entity.enums.UserStatusEnum;
+import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.utils.CopyTools;
 import jakarta.annotation.Resource;
@@ -22,6 +23,7 @@ import com.easymall.entity.query.SimplePage;
 import com.easymall.mappers.UserInfoMapper;
 import com.easymall.service.UserInfoService;
 import com.easymall.utils.StringTools;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 
 /**
@@ -232,6 +234,26 @@ public class UserInfoServiceImpl implements UserInfoService {
 		redisComponent.saveTokenInfo(tokenUserInfoDTO);
 
 		return tokenUserInfoDTO;
+	}
+
+	/**
+	 * 修改密码
+	 * @param userId 用户ID
+	 * @param oldPassword 旧密码
+	 * @param password 新密码
+	 */
+	@Override
+	public void updatePassword(String userId, String oldPassword, String password) {
+		UserInfo userInfo = this.userInfoMapper.selectByUserId(userId);
+		if (userInfo == null) {
+			throw new BusinessException("用户不存在");
+		}
+		if (!userInfo.getPassword().equals(StringTools.encodeByMD5(oldPassword))) {
+			throw new BusinessException("原始密码错误");
+		}
+		UserInfo updateInfo = new UserInfo();
+		updateInfo.setPassword(StringTools.encodeByMD5(password));
+		this.userInfoMapper.updateByUserId(updateInfo,userId);
 	}
 
 

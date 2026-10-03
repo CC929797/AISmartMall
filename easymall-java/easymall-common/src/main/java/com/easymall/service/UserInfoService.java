@@ -120,4 +120,13 @@ public interface UserInfoService {
 	 * 用户登录
 	 */
 	public TokenUserInfoDTO login(String email, String password, String ip);
+
+	/**
+	 * 修改密码
+	 * @param userId 用户ID
+	 * @param oldPassword 旧密码
+	 * @param password 新密码
+	 */
+    void updatePassword(String userId, String oldPassword, String password);
+
 }
