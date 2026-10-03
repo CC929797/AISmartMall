@@ -3,6 +3,7 @@ package com.easymall.service.Impl;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.easymall.commonent.EsSearchComponent;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.ProductSaveDTO;
 import com.easymall.entity.enums.ProductStatusEnum;
@@ -44,6 +45,8 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 	private ProductSkuMapper<ProductSku, ProductSkuQuery> productSkuMapper;
 	@Resource
 	private SysCategoryService sysCategoryService;
+	@Resource
+	private EsSearchComponent esSearchComponent;
 
 
 	/**
@@ -301,7 +304,8 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 				productSkuMapper.deleteBatch(productInfo.getProductId(),productSkuDiffResult.deleteList);
 			}
 		}
-		//TODO:1. 将数据库信息写进es 2.将商品数据向量化
+		//1. 将数据库信息写进es 2.将商品数据向量化
+		saveProductInfoExtend(productInfo.getProductId());
 	}
 
 	/**
@@ -473,7 +477,8 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 		productInfo.setStatus(status);
 		this.updateProductInfoByProductId(productInfo,productId);
 
-		//TODO: 1.将数据库信息写入 es 2.将商品数据向量化
+		//1.将数据库信息写入 es 2.将商品数据向量化
+		saveProductInfoExtend(productId);
 
 	}
 
@@ -487,6 +492,12 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 		productInfo.setStatus(ProductStatusEnum.DELETE.getStatus());
 		this.updateProductInfoByProductId(productInfo,productId);
 
-		//TODO: 1.将数据库信息写入 es 2.将商品数据向量化
+		// 1.将数据库信息写入 es 2.将商品数据向量化
+		saveProductInfoExtend(productId);
+	}
+
+	private void saveProductInfoExtend(String productId){
+		esSearchComponent.saveProduct(productId);
+		//TODO: 2.将商品数据向量化
 	}
 }

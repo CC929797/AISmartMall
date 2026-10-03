@@ -1,6 +1,7 @@
 package com.easymall.controller;
 
 
+import com.easymall.commonent.EsSearchComponent;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.enums.CommendTypeEnum;
 import com.easymall.entity.enums.ProductStatusEnum;
@@ -16,10 +17,12 @@ import com.easymall.service.ProductInfoService;
 import com.easymall.service.SysCategoryService;
 import com.easymall.utils.StringTools;
 import jakarta.annotation.Resource;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -29,6 +32,8 @@ public class ProductController extends ABaseController {
     private SysCategoryService sysCategoryService;
     @Resource
     private ProductInfoService productInfoService;
+    @Resource
+    private EsSearchComponent esSearchComponent;
 
     @RequestMapping("/loadCategory")
     public ResponseVO loadCategory() {
@@ -74,6 +79,24 @@ public class ProductController extends ABaseController {
     @RequestMapping("/getProduct")
     public ResponseVO getProduct(@NotEmpty String productId) {
         return getSuccessResponseVO(productInfoService.getProductInfo(productId));
+    }
+
+    /**
+     * 商品搜索
+     * @param keyWords 关键词
+     * @param priceFrom 价格从
+     * @param priceTo 价格到
+     * @param sortType 排序类型
+     * @param sortField 排序字段
+     * @param pageNo 页码
+     */
+    @RequestMapping("/search")
+    public ResponseVO search(@NotEmpty String keyWords,
+                             BigDecimal priceFrom,
+                             BigDecimal priceTo,
+                             String sortType,
+                             String sortField,@Min(1) Integer pageNo) {
+        return getSuccessResponseVO(esSearchComponent.searchProduct(keyWords, priceFrom, priceTo, sortType, sortField, pageNo));
     }
 
 }
