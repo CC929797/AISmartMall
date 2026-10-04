@@ -1,5 +1,6 @@
 package com.easymall.entity.query;
 
+import javax.swing.text.StyledEditorKit;
 import java.math.BigDecimal;
 import java.util.Date;
 
@@ -90,6 +91,19 @@ public class OrderInfoQuery extends BaseParam {
 	 * 排除指定的订单状态(不展示哪些状态)
 	 */
 	private Integer[] executeOrderStatusList;
+
+	/**
+	 * 是否查询用户信息
+	 */
+	private Boolean queryUser;
+
+	public Boolean getQueryUser() {
+		return queryUser;
+	}
+
+	public void setQueryUser(Boolean queryUser) {
+		this.queryUser = queryUser;
+	}
 
 	public Integer[] getExecuteOrderStatusList() {
 		return executeOrderStatusList;

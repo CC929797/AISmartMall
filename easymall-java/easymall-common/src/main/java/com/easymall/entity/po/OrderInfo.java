@@ -80,6 +80,32 @@ public class OrderInfo implements Serializable {
 	 */
 	private String orderStatusName;
 
+	/**
+	 * 管理端查询订单的时候查询到此订单下单的用户昵称
+	 */
+	private String nickName;
+
+	/**
+	 * 管理端查询订单的时候查询到此订单下单的用户头像
+	 */
+	private String avatar;
+
+	public String getNickName() {
+		return nickName;
+	}
+
+	public void setNickName(String nickName) {
+		this.nickName = nickName;
+	}
+
+	public String getAvatar() {
+		return avatar;
+	}
+
+	public void setAvatar(String avatar) {
+		this.avatar = avatar;
+	}
+
 	public String getOrderStatusName() {
 		OrderStatusEnum orderStatusEnum = OrderStatusEnum.getByStatus(orderStatus);
 		return orderStatusEnum == null ? "" : orderStatusEnum.getDesc();

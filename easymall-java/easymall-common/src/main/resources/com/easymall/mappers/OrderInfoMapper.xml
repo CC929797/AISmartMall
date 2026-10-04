@@ -25,6 +25,10 @@
 		<result column="channel_order_Id" property="channelOrderId"  />
 		<!--评价状态 0:未评价  1:已评价  2:已追评-->
 		<result column="comment_status" property="commentStatus"  />
+		<!-- 管理端查询订单的时候查询到此订单下单的用户昵称 -->
+		<result column="nick_name" property="nickName"/>
+		<!-- 管理端查询订单的时候查询到此订单下单的用户头像 -->
+		<result column="avatar" property="avatar"/>
 		<!--主订单的子列表 -->
 		<collection property="orderItemList" ofType="com.easymall.entity.po.OrderItem">
 			<!--订单明细ID-->
@@ -144,9 +148,15 @@
 		 <if test="query.queryItems">
 			 , i.*
 		 </if>
+		 <if test="query.queryUser">
+		     , u.nick_name,u.avatar
+		 </if>
 	     FROM order_info o
 	     <if test="query.queryItems">
 			 left join order_item i on o.order_id = i.order_id
+		 </if>
+		 <if test="query.queryUser">
+			 left join user_info u on u.user_id = o.user_id
 		 </if>
 	     <include refid="query_condition" />
 		 <if test="query.orderBy!=null">
