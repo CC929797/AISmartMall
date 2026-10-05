@@ -116,6 +116,18 @@ public class RedisComponent {
     }
 
     /**
+     * 强制退出登录
+     * @param userId
+     */
+    public void forceLogout(String userId){
+        String token = (String)redisUtils.get(Constants.REDIS_KEY_TOKEN_USERID_WEB + userId);
+        if (!StringTools.isEmpty(token)) {
+            redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
+        }
+        redisUtils.delete(Constants.REDIS_KEY_TOKEN_USERID_WEB + userId);
+    }
+
+    /**
      * 用户退出登录时清除该用户所有的token信息
      * @param token
      */
