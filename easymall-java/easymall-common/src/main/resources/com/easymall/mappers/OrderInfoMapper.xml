@@ -169,7 +169,11 @@
 
 	<!-- 查询数量-->
 	<select id="selectCount" resultType="java.lang.Integer" >
-		 SELECT count(1) FROM order_info o <include refid="query_condition" />
+		 SELECT count(1) FROM order_info o
+		 <if test="query.queryItems">
+			 left join order_item i on o.order_id = i.order_id
+		 </if>
+		 <include refid="query_condition" />
 	</select>
 
 	<!-- 插入 （匹配有值的字段）-->
