@@ -1,5 +1,6 @@
 package com.easymall.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import com.easymall.entity.dto.PayInfoDTO;
@@ -110,4 +111,12 @@ public interface OrderInfoService {
 	 * @param orderItemId 订单子订单Id
 	 */
 	void refundByOrderItemId(String userId, String orderItemId);
+
+	/**
+	 * 管理端首页获取数据(什么时间什么状态的订单总金额)
+	 * @param orderTime 订单时间
+	 * @param orderStatus 订单状态
+	 * @return 订单总金额
+	 */
+	BigDecimal getOrderTotalAmount(String orderTime,Integer[] orderStatus);
 }

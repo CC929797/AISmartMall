@@ -69,4 +69,9 @@ public interface StatisticsInfoService {
 	 */
 	Integer deleteStatisticsInfoByStatisticsDateAndDataType(String statisticsDate,Integer dataType);
 
+	/**
+	 * 统计数据
+	 * @param date
+	 */
+	void statisticsData(String date);
 }

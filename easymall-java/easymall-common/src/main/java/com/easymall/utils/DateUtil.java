@@ -1,11 +1,8 @@
 package com.easymall.utils;
 
 
+import com.easymall.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,11 +10,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 
 @Slf4j
 public class DateUtil {
@@ -79,9 +72,47 @@ public class DateUtil {
     }
 
 
+    /**
+     * 获取当前时间后几分钟的时间
+     * @param min 几分钟
+     * @param pattern 日期格式
+     */
     public static String getMinAfter(int min, String pattern) {
         Calendar c = Calendar.getInstance();
         c.add(Calendar.MINUTE, min);
         return format(c.getTime(), pattern);
+    }
+
+    /**
+     * 获取前几天的日期
+     * @param day 几天
+     * @param pattern 日期格式
+     */
+    public static String getBeforeDay(Integer day,String pattern) {
+        Calendar c = Calendar.getInstance();
+        c.add(Calendar.DAY_OF_MONTH, -day);
+        return format(c.getTime(), pattern);
+    }
+
+    /**
+     * 获取日期范围
+     * @param startDateStr 开始日期
+     * @param endDateStr 结束日期
+     * @param pattern 日期格式
+     * @return 日期范围
+     */
+    public static List<String> getDateRange(String startDateStr, String endDateStr, String pattern) {
+        List<String> dateList = new ArrayList<>();
+        LocalDate startDate = LocalDate.parse(startDateStr, DateTimeFormatter.ofPattern(pattern));
+        LocalDate endDate = LocalDate.parse(endDateStr, DateTimeFormatter.ofPattern(pattern));
+        if(startDate.isAfter(endDate)){
+            throw new BusinessException("开始日期不能晚于结束日期");
+        }
+        LocalDate currentDate = startDate;
+        while (!currentDate.isAfter(endDate)) {
+          dateList.add(currentDate.format(DateTimeFormatter.ofPattern(pattern)));
+          currentDate = currentDate.plusDays(1);
+        }
+        return dateList;
     }
 }

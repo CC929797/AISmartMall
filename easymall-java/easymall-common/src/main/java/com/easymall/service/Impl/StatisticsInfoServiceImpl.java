@@ -1,7 +1,13 @@
 package com.easymall.service.Impl;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
+import com.easymall.entity.enums.OrderStatusEnum;
+import com.easymall.entity.enums.StatisticsDataTypeEnum;
+import com.easymall.entity.query.OrderInfoQuery;
+import com.easymall.service.OrderInfoService;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -24,6 +30,8 @@ public class StatisticsInfoServiceImpl implements StatisticsInfoService {
 
 	@Resource
 	private StatisticsInfoMapper<StatisticsInfo, StatisticsInfoQuery> statisticsInfoMapper;
+	@Resource
+	private OrderInfoService orderInfoService;
 
 	/**
 	 * 根据条件查询列表
@@ -126,5 +134,62 @@ public class StatisticsInfoServiceImpl implements StatisticsInfoService {
 	@Override
 	public Integer deleteStatisticsInfoByStatisticsDateAndDataType(String statisticsDate, Integer dataType) {
 		return this.statisticsInfoMapper.deleteByStatisticsDateAndDataType(statisticsDate, dataType);
+	}
+
+	/**
+	 * 统计数据
+	 * @param date
+	 */
+	@Override
+	public void statisticsData(String date) {
+		List<StatisticsInfo> statisticsInfoList = new ArrayList<>();
+
+		// 订单金额
+		BigDecimal yesterdayOrderAmount = orderInfoService.getOrderTotalAmount(date, new Integer[]{
+				OrderStatusEnum.PAID.getStatus(),
+				OrderStatusEnum.SHIPPED.getStatus(),
+				OrderStatusEnum.COMPLETED.getStatus()
+		});
+		StatisticsInfo statisticsInfo = new StatisticsInfo();
+		statisticsInfo.setStatisticsDate(date);
+		statisticsInfo.setDataType(StatisticsDataTypeEnum.SALE_AMOUNT.getType());
+		statisticsInfo.setDataValue(yesterdayOrderAmount);
+		statisticsInfoList.add(statisticsInfo);
+
+		//退款金额
+		BigDecimal yesterdayRefundAmount = orderInfoService.getOrderTotalAmount(date, new Integer[]{OrderStatusEnum.REFUNDED.getStatus()});
+		statisticsInfo = new StatisticsInfo();
+		statisticsInfo.setStatisticsDate(date);
+		statisticsInfo.setDataType(StatisticsDataTypeEnum.REFUND_AMOUNT.getType());
+		statisticsInfo.setDataValue(yesterdayRefundAmount);
+		statisticsInfoList.add(statisticsInfo);
+
+		//订单数量
+		OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+		orderInfoQuery.setOrderTime(date);
+		orderInfoQuery.setOrderStatusList(new Integer[]{
+				OrderStatusEnum.PAID.getStatus(),
+				OrderStatusEnum.SHIPPED.getStatus(),
+				OrderStatusEnum.COMPLETED.getStatus()
+		});
+		Integer yesterdayOrderCount = this.orderInfoService.findCountByParam(orderInfoQuery);
+		statisticsInfo = new StatisticsInfo();
+		statisticsInfo.setStatisticsDate(date);
+		statisticsInfo.setDataType(StatisticsDataTypeEnum.SALE_COUNT.getType());
+		statisticsInfo.setDataValue(new BigDecimal(yesterdayOrderCount));
+		statisticsInfoList.add(statisticsInfo);
+
+		//退款数量
+		orderInfoQuery = new OrderInfoQuery();
+		orderInfoQuery.setOrderTime(date);
+		orderInfoQuery.setOrderStatusList(new Integer[]{OrderStatusEnum.REFUNDED.getStatus()});
+		Integer yesterdayRefundCount = this.orderInfoService.findCountByParam(orderInfoQuery);
+		statisticsInfo = new StatisticsInfo();
+		statisticsInfo.setStatisticsDate(date);
+		statisticsInfo.setDataType(StatisticsDataTypeEnum.REFUND_COUNT.getType());
+		statisticsInfo.setDataValue(new BigDecimal(yesterdayRefundCount));
+		statisticsInfoList.add(statisticsInfo);
+
+		this.addOrUpdateBatch(statisticsInfoList);
 	}
 }

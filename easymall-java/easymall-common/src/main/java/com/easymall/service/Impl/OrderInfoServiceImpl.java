@@ -558,4 +558,15 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		payChannel.refund(orderInfo.getPayOrderId(),refundOrderId,orderItem.getItemAmount());
 
 	}
+
+	/**
+	 * 管理端首页获取数据(什么时间什么状态的订单总金额)
+	 * @param orderTime 订单时间
+	 * @param orderStatus 订单状态
+	 * @return 订单总金额
+	 */
+	@Override
+	public BigDecimal getOrderTotalAmount(String orderTime, Integer[] orderStatus) {
+		return this.orderInfoMapper.selectOrderTotalAmount(orderTime,orderStatus);
+	}
 }

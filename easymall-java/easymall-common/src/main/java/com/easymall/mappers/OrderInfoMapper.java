@@ -2,6 +2,7 @@ package com.easymall.mappers;
 
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -37,4 +38,11 @@ public interface OrderInfoMapper<T,P> extends BaseMapper<T,P> {
 								 @Param("orderIdList") List<String> orderIdList);
 
 
+	/**
+	 * 管理端首页获取数据(什么时间什么状态的订单总金额)
+	 * @param orderTime 订单时间
+	 * @param orderStatus 订单状态
+	 * @return 订单总金额
+	 */
+    BigDecimal selectOrderTotalAmount(@Param("orderTime") String orderTime,@Param("orderStatus") Integer[] orderStatus);
 }
