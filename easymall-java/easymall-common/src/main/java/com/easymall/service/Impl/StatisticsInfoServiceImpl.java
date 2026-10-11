@@ -2,12 +2,19 @@ package com.easymall.service.Impl;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import com.easymall.entity.enums.DateTimePatternEnum;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.enums.StatisticsDataTypeEnum;
 import com.easymall.entity.query.OrderInfoQuery;
+import com.easymall.entity.vo.StatisticsDataVO;
 import com.easymall.service.OrderInfoService;
+import com.easymall.utils.DateUtil;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -166,7 +173,9 @@ public class StatisticsInfoServiceImpl implements StatisticsInfoService {
 
 		//订单数量
 		OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
-		orderInfoQuery.setOrderTime(date);
+		//orderInfoQuery.setOrderTime(date);
+		orderInfoQuery.setOrderTimeStart(date);
+		orderInfoQuery.setOrderTimeEnd(date);
 		orderInfoQuery.setOrderStatusList(new Integer[]{
 				OrderStatusEnum.PAID.getStatus(),
 				OrderStatusEnum.SHIPPED.getStatus(),
@@ -181,7 +190,9 @@ public class StatisticsInfoServiceImpl implements StatisticsInfoService {
 
 		//退款数量
 		orderInfoQuery = new OrderInfoQuery();
-		orderInfoQuery.setOrderTime(date);
+		//orderInfoQuery.setOrderTime(date);
+		orderInfoQuery.setOrderTimeStart(date);
+		orderInfoQuery.setOrderTimeEnd(date);
 		orderInfoQuery.setOrderStatusList(new Integer[]{OrderStatusEnum.REFUNDED.getStatus()});
 		Integer yesterdayRefundCount = this.orderInfoService.findCountByParam(orderInfoQuery);
 		statisticsInfo = new StatisticsInfo();
@@ -191,5 +202,47 @@ public class StatisticsInfoServiceImpl implements StatisticsInfoService {
 		statisticsInfoList.add(statisticsInfo);
 
 		this.addOrUpdateBatch(statisticsInfoList);
+	}
+
+	/**
+	 * 获取本周统计数据
+	 * @return
+	 */
+	@Override
+	public List<StatisticsDataVO> loadWeeklyStatisticsData() {
+		StatisticsInfoQuery statisticsInfoQuery = new StatisticsInfoQuery();
+		String startDate = DateUtil.getBeforeDay(8, DateTimePatternEnum.YYYY_MM_DD.getPattern());
+		String endDate = DateUtil.getBeforeDay(1, DateTimePatternEnum.YYYY_MM_DD.getPattern());
+		statisticsInfoQuery.setStatisticsDateStart(startDate);
+		statisticsInfoQuery.setStatisticsDateEnd(endDate);
+		statisticsInfoQuery.setOrderBy("statistics_date asc,data_type asc");
+		List<StatisticsInfo> statisticsInfoList = this.statisticsInfoMapper.selectList(statisticsInfoQuery);
+
+		Map<String, StatisticsInfo> statisicsInfoMap = statisticsInfoList.stream()
+				.collect(Collectors.toMap(item -> item.getStatisticsDate() + item.getDataType(),
+						Function.identity(), (data1, data2) -> data2));
+
+		List<String> dateList = DateUtil.getDateRange(startDate, endDate, DateTimePatternEnum.YYYY_MM_DD.getPattern());
+
+		List<StatisticsDataVO> statisticsDataVOList = new ArrayList<>();
+
+		for (StatisticsDataTypeEnum dataType : StatisticsDataTypeEnum.values()) {
+			StatisticsDataVO statisticsDataVO = new StatisticsDataVO();
+			statisticsDataVOList.add(statisticsDataVO);
+
+			statisticsDataVO.setDataType(dataType.getType());
+
+			for (String date : dateList) {
+				StatisticsInfo statisticsInfo = statisicsInfoMap.get(date + dataType.getType());
+				statisticsDataVO.getDateList().add(date);
+				if (statisticsInfo == null) {
+					statisticsDataVO.getDataList().add(BigDecimal.ZERO);
+				}else {
+					statisticsDataVO.getDataList().add(statisticsInfo.getDataValue());
+				}
+			}
+		}
+		return statisticsDataVOList;
+
 	}
 }

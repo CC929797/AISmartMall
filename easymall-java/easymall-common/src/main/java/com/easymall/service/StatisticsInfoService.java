@@ -5,6 +5,7 @@ import java.util.List;
 import com.easymall.entity.query.StatisticsInfoQuery;
 import com.easymall.entity.po.StatisticsInfo;
 import com.easymall.entity.vo.PaginationResultVO;
+import com.easymall.entity.vo.StatisticsDataVO;
 
 
 /**
@@ -74,4 +75,11 @@ public interface StatisticsInfoService {
 	 * @param date
 	 */
 	void statisticsData(String date);
+
+	/**
+	 * 获取本周统计数据
+	 * @return
+	 */
+    List<StatisticsDataVO> loadWeeklyStatisticsData();
+
 }

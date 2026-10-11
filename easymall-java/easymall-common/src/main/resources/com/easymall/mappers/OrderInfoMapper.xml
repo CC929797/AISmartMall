@@ -77,7 +77,7 @@
 				 and  o.user_id = #{query.userId}
 			</if>
 			<if test="query.orderTime != null and query.orderTime!=''">
-				 <![CDATA[ and  o.order_time=str_to_date(#{query.orderTime}, '%Y-%m-%d') ]]>
+				 <![CDATA[ and  DATE_FORMAT(o.order_time, '%Y-%m-%d') = #{query.orderTime}]]>
 			</if>
 			<if test="query.orderStatus != null">
 				 and  o.order_status = #{query.orderStatus}

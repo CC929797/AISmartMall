@@ -38,6 +38,12 @@
 			<if test="query.statisticsDateFuzzy!= null  and query.statisticsDateFuzzy!=''">
 				 and  s.statistics_date like concat('%', #{query.statisticsDateFuzzy}, '%')
 			</if>
+		    <if test="query.statisticsDateStart != null and query.statisticsDateStart != ''">
+			    <![CDATA[ and  s.statistics_date>=#{query.statisticsDateStart} ]]>
+		    </if>
+		    <if test="query.statisticsDateEnd!= null and query.statisticsDateEnd!=''">
+			    <![CDATA[ and  s.statistics_date<= #{query.statisticsDateEnd} ]]>
+		    </if>
 	 </where>
 	</sql>
 

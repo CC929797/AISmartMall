@@ -57,7 +57,7 @@
 				 and  u.sex = #{query.sex}
 			</if>
 			<if test="query.joinTime != null and query.joinTime!=''">
-				 <![CDATA[ and  u.join_time=str_to_date(#{query.joinTime}, '%Y-%m-%d') ]]>
+				<![CDATA[ and  DATE_FORMAT(u.join_time, '%Y-%m-%d') = #{query.joinTime}]]>
 			</if>
 			<if test="query.lastLoginTime != null and query.lastLoginTime!=''">
 				 <![CDATA[ and  u.last_login_time=str_to_date(#{query.lastLoginTime}, '%Y-%m-%d') ]]>

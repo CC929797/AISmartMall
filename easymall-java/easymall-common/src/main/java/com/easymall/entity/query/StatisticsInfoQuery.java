@@ -26,6 +26,31 @@ public class StatisticsInfoQuery extends BaseParam {
 	 */
 	private BigDecimal dataValue;
 
+	/**
+	 * 统计数据开始
+	 */
+	private String statisticsDateStart;
+
+	/**
+	 * 统计数据结束
+	 */
+	private String statisticsDateEnd;
+
+	public String getStatisticsDateStart() {
+		return statisticsDateStart;
+	}
+
+	public void setStatisticsDateStart(String statisticsDateStart) {
+		this.statisticsDateStart = statisticsDateStart;
+	}
+
+	public String getStatisticsDateEnd() {
+		return statisticsDateEnd;
+	}
+
+	public void setStatisticsDateEnd(String statisticsDateEnd) {
+		this.statisticsDateEnd = statisticsDateEnd;
+	}
 
 	public void setStatisticsDate(String statisticsDate){
 		this.statisticsDate = statisticsDate;
