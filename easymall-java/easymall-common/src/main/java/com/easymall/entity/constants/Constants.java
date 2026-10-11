@@ -9,6 +9,8 @@ public class Constants {
     public static final Integer LENGTH_15 = 15;
     public static final Integer LENGTH_30 = 30;
 
+    public static final String PING = "ping";
+
     private static final String REDIS_KEY_PREFIX = "easymall:";
 
     public static final String REDIS_KEY_CHECK_CODE = REDIS_KEY_PREFIX + "checkCode:";

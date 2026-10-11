@@ -6,6 +6,11 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration("appConfig")
 public class AppConfig {
+    /**
+     * websocket 端口
+     */
+    @Value("${ws.port:}")
+    private Integer wsPort;
 
     @Value("${admin.account:}")
     private String adminAccount;
@@ -49,6 +54,10 @@ public class AppConfig {
 
     @Value("${project.auto-checkpay}")
     private Boolean autoCheckPay;
+
+    public Integer getWsPort() {
+        return wsPort;
+    }
 
     public Integer getOrderConfirmMinute() {
         return orderConfirmMinute;
