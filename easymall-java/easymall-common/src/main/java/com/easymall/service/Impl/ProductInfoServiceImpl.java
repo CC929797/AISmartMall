@@ -500,4 +500,6 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 		esSearchComponent.saveProduct(productId);
 		//TODO: 2.将商品数据向量化
 	}
+
+
 }

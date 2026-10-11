@@ -5,9 +5,11 @@ import java.util.List;
 import com.easymall.entity.dto.ProductSaveDTO;
 import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.entity.po.ProductInfo;
+import com.easymall.entity.query.ProductSkuQuery;
 import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ProductInfoDetailVO;
 import com.easymall.entity.vo.ProductListVO;
+import com.easymall.entity.vo.ProductSkuVO;
 
 
 /**

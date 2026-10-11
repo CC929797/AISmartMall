@@ -52,6 +52,19 @@ public class ProductSkuQuery extends BaseParam {
 	 */
 	private List<String> productIdList;
 
+	/**
+	 * 库存预警值
+	 */
+	private Integer lessStock;
+
+	public Integer getLessStock() {
+		return lessStock;
+	}
+
+	public void setLessStock(Integer lessStock) {
+		this.lessStock = lessStock;
+	}
+
 	public List<String> getProductIdList() {
 		return productIdList;
 	}

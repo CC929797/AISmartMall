@@ -5,6 +5,7 @@ import java.util.List;
 import com.easymall.entity.query.ProductSkuQuery;
 import com.easymall.entity.po.ProductSku;
 import com.easymall.entity.vo.PaginationResultVO;
+import com.easymall.entity.vo.ProductSkuVO;
 
 
 /**
@@ -73,4 +74,11 @@ public interface ProductSkuService {
 	 * 管理员修改库存
 	 */
 	void updateStock(String productId,String propertyValueIdHash,Integer stock);
+
+	/**
+	 * 管理端查询库存预警
+	 * @param query
+	 * @return
+	 */
+	PaginationResultVO<ProductSkuVO> findListByPage4ListVO(ProductSkuQuery query);
 }

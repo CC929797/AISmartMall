@@ -2,9 +2,11 @@ package com.easymall.controller;
 
 import com.easymall.commonent.EsSearchComponent;
 import com.easymall.commonent.RedisComponent;
+import com.easymall.entity.constants.Constants;
 import com.easymall.entity.enums.DateTimePatternEnum;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.query.OrderInfoQuery;
+import com.easymall.entity.query.ProductSkuQuery;
 import com.easymall.entity.query.UserInfoQuery;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.entity.vo.TodayDataVO;
@@ -36,6 +38,8 @@ public class HomeController extends ABaseController{
     private OrderInfoService orderInfoService;
     @Resource
     private UserInfoService userInfoService;
+    @Resource
+    private ProductSkuService productSkuService;
 
     /**
      * 获取今日数据(并且获取相比于昨天的增长量)
@@ -104,6 +108,17 @@ public class HomeController extends ABaseController{
     @RequestMapping("/loadWeeklyStatisticsData")
     public ResponseVO loadWeeklyStatisticsData(){
         return getSuccessResponseVO(statisticsInfoService.loadWeeklyStatisticsData());
+    }
+
+    /**
+     * 查询库存预警
+     * @return
+     */
+    @RequestMapping("/loadLessStockProduct")
+    public ResponseVO loadLessStockProduct(){
+        ProductSkuQuery query = new ProductSkuQuery();
+        query.setLessStock(Constants.LENGTH_10);
+        return getSuccessResponseVO(productSkuService.findListByPage4ListVO(query));
     }
 
 }

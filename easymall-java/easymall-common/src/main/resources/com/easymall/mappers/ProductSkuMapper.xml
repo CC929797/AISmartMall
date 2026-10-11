@@ -66,6 +66,9 @@
 					 #{item}
 			     </foreach>
 			</if>
+		    <if test="query.lessStock!=null">
+			     <![CDATA[ and  p.stock<=#{query.lessStock} ]]>
+		    </if>
 	 </where>
 	</sql>
 
