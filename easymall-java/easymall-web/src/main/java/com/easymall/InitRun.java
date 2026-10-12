@@ -1,5 +1,6 @@
 package com.easymall;
 
+import com.easymall.websocket.message.MessageHandler;
 import com.easymall.websocket.netty.NettyWebSocketStarter;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,8 @@ public class InitRun implements ApplicationRunner {
     private NettyWebSocketStarter nettyWebSocketStarter;
     @Resource
     private RedisTemplate<String,Object> redisTemplate;
+    @Resource
+    private MessageHandler messageHandler;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -31,6 +34,10 @@ public class InitRun implements ApplicationRunner {
             redisTemplate.getConnectionFactory().getConnection().isClosed();
 
             new Thread(nettyWebSocketStarter).start();
+
+            new Thread(() -> {
+                messageHandler.listenMessage();
+            }).start();
             log.info("web服务器启动成功,可以开始愉快聊天了");
         } catch (SQLException e) {
             System.out.println("数据配置错误");

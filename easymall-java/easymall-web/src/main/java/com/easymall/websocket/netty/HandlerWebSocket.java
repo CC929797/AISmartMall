@@ -67,6 +67,6 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
         String text = textWebSocketFrame.text();
         log.info("收到心跳消息：{}", text);
 
-        channelHandlerContext.channel().writeAndFlush(new TextWebSocketFrame("pong"));
+        //channelHandlerContext.channel().writeAndFlush(new TextWebSocketFrame("pong"));
     }
 }

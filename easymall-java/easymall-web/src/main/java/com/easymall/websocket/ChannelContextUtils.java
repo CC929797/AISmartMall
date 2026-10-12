@@ -3,6 +3,7 @@ package com.easymall.websocket;
 
 import com.alibaba.fastjson2.JSON;
 import com.easymall.entity.dto.MessageSendDTO;
+import com.easymall.utils.JsonUtils;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.util.AttributeKey;
@@ -25,7 +26,7 @@ public class ChannelContextUtils {
         if (channel == null || !channel.isActive()) {
             return;
         }
-        channel.writeAndFlush(new TextWebSocketFrame(JSON.toJSONString(messageSendDto)));
+        channel.writeAndFlush(new TextWebSocketFrame(JsonUtils.convertObj2Json(messageSendDto)));
     }
 
     /**
