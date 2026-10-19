@@ -29,6 +29,33 @@ spring:
     uris: http://localhost:9200
     #username: elastic  # 如果启用了安全认证
     #password: your_password
+  # AI相关
+  ai:
+    #向量数据库
+    vectorstore:
+      elasticsearch:
+        initialize-schema: true
+        index-name: easymall-index-vectorstore
+        dimensions: 1024 #embeddinggemma:768  百炼 text-embedding-v4:1024  doubao-embedding-vision-251215:2048# 向量维度（根据使用的嵌入模型调整）
+    # 使用openai 对接 阿里百炼(推荐大家使用这个,下面的otherai可以不用管,如果没有阿里百炼的,可以使用deepseek的chat模型(deepssek没向量模型)),豆包的向量模型)
+    openai:
+      api-key: xxx
+      #base-url: https://dashscope.aliyuncs.com/compatible-mode/
+      base-url: xxx
+      chat:
+        completions-path: xxx
+        options:
+          model: xxx  #qwen3-max 使用max 调用mcp 报错toolName cannot be null
+      embedding:
+        embeddings-path: xxx
+        options:
+          model: xxx
+    dashscope:
+      base-url: xxx
+      api-key: xxx
+      embedding:
+        model: xxx
+
 mybatis:
   configuration:
     map-underscore-to-camel-case: true
@@ -37,10 +64,13 @@ project:
   folder: D:/java/java24/wokspach-teach/runtime/easymall/
   auto-checkpay: true #自动检查支付订单
   domain: http://xxx.xxxx.com
+
 #订单过期时间
 order:
   expire:
     minute: 10
+  confirm:
+    minute: 15 #订单物流自动确认时间
 #支付宝
 alipay:
   appid: xxxx   # 沙箱

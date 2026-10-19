@@ -9,17 +9,22 @@ import com.easymall.service.AgentMessageService;
 import com.easymall.websocket.ChannelContextUtils;
 import com.easymall.websocket.message.MessageHandler;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 消息处理
  */
 @RestController
+@Slf4j
 public class ChatComponent {
     @Resource
     private AgentMessageService agentMessageService;
     @Resource
     private MessageHandler messageHandler;
+    @Resource
+    private ChatClient chatClient;
 
     /**
      * 发送消息
@@ -45,7 +50,10 @@ public class ChatComponent {
         MessageSendDTO messageSendDTO = new MessageSendDTO();
         messageSendDTO.setUserId(agentMessage.getUserId());
         messageSendDTO.setOutPutType(MessageOutPutTypeEnum.DONE.getType());
-        messageSendDTO.setAssistantMessage("test");
+        //获取到大模型的回复
+        String content = chatClient.prompt().user(agentMessage.getUserMessage()).call().content();
+        log.info("返回内容：{}", content);
+        messageSendDTO.setAssistantMessage(content);
         messageSendDTO.setMessageId(agentMessage.getMessageId());
         messageSendDTO.setBizType(UserIntentEnum.CHAT.getKey());
         messageSendDTO.setUserMessage(agentMessage.getUserMessage());
