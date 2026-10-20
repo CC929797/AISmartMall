@@ -2,8 +2,11 @@ package com.easymall.controller;
 
 import com.easymall.commonent.EsSearchComponent;
 import com.easymall.commonent.RedisComponent;
+import com.easymall.entity.constants.Constants;
+import com.easymall.entity.dto.RagDataDTO;
 import com.easymall.entity.enums.DateTimePatternEnum;
 import com.easymall.entity.enums.ProductStatusEnum;
+import com.easymall.entity.enums.RagDataTypeEnum;
 import com.easymall.entity.po.ProductInfo;
 import com.easymall.entity.po.RagQuestion;
 import com.easymall.entity.query.ProductInfoQuery;
@@ -61,8 +64,10 @@ public class ToolController extends ABaseController{
         productInfoQuery.setStatus(ProductStatusEnum.ON_SALE.getStatus());
         List<ProductInfo> productInfoList = productInfoService.findListByParam(productInfoQuery);
         for (ProductInfo productInfo : productInfoList) {
+            //1.将商品数据保存到es中
             esSearchComponent.saveProduct(productInfo.getProductId());
-            //TODO: 1.将商品数据保存到向量数据库中
+            //2.将商品数据保存到向量数据库中
+            redisComponent.sendMessage(Constants.REDIS_QUEUE_RAG_DATA,new RagDataDTO(productInfo.getProductId(), RagDataTypeEnum.PRODUCT.getType()));
         }
         return getSuccessResponseVO(null);
     }

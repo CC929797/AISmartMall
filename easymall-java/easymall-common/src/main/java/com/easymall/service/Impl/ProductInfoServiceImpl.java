@@ -4,9 +4,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.easymall.commonent.EsSearchComponent;
+import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.ProductSaveDTO;
+import com.easymall.entity.dto.RagDataDTO;
 import com.easymall.entity.enums.ProductStatusEnum;
+import com.easymall.entity.enums.RagDataTypeEnum;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.po.ProductPropertyValue;
 import com.easymall.entity.po.ProductSku;
@@ -29,6 +32,10 @@ import com.easymall.mappers.ProductInfoMapper;
 import com.easymall.service.ProductInfoService;
 import com.easymall.utils.StringTools;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.reactive.TransactionContextManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 
 /**
@@ -47,6 +54,8 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 	private SysCategoryService sysCategoryService;
 	@Resource
 	private EsSearchComponent esSearchComponent;
+	@Resource
+	private RedisComponent redisComponent;
 
 
 	/**
@@ -498,7 +507,13 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 
 	private void saveProductInfoExtend(String productId){
 		esSearchComponent.saveProduct(productId);
-		//TODO: 2.将商品数据向量化
+		//2.将商品数据向量化
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				redisComponent.sendMessage(Constants.REDIS_QUEUE_RAG_DATA, new RagDataDTO(productId, RagDataTypeEnum.PRODUCT.getType()));
+			}
+		});
 	}
 
 

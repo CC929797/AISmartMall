@@ -3,8 +3,19 @@ package com.easymall.task;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.RagDataDTO;
 import com.easymall.entity.enums.ExecutorServiceSignletionEnum;
+import com.easymall.entity.enums.ProductStatusEnum;
 import com.easymall.entity.enums.RagDataTypeEnum;
+import com.easymall.entity.po.ProductInfo;
+import com.easymall.entity.po.ProductPropertyValue;
+import com.easymall.entity.po.ProductSku;
 import com.easymall.entity.po.RagQuestion;
+import com.easymall.entity.query.ProductInfoQuery;
+import com.easymall.entity.query.ProductPropertyValueQuery;
+import com.easymall.entity.query.ProductSkuQuery;
+import com.easymall.mappers.ProductInfoMapper;
+import com.easymall.mappers.ProductPropertyValueMapper;
+import com.easymall.mappers.ProductSkuMapper;
+import com.easymall.service.ProductInfoService;
 import com.easymall.service.RagQuestionService;
 import com.easymall.utils.StringTools;
 import jakarta.annotation.PostConstruct;
@@ -18,6 +29,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -30,6 +42,15 @@ public class RagDataTask {
 
     @Resource
     private VectorStore vectorStore;
+
+    @Resource
+    private ProductInfoMapper<ProductInfo, ProductInfoQuery> productInfoMapper;
+
+    @Resource
+    private ProductPropertyValueMapper<ProductPropertyValue, ProductPropertyValueQuery> productPropertyValueMapper;
+
+    @Resource
+    private ProductSkuMapper<ProductSku,ProductSkuQuery> productSkuMapper;
 
     /**
      * 自动化订阅消息，把消息保存到向量数据库
@@ -46,6 +67,12 @@ public class RagDataTask {
                         case FAQ :
                             saveData2VectorStore4FAQ(ragDataDTO.getDataId());
                             break;
+                        case PRODUCT :
+                            log.info("收到商品信息 {}", ragDataDTO.getDataId());
+                            saveData2VectorStore4Product(ragDataDTO.getDataId());
+                            break;
+                        default:
+                            break;
                     }
 
                 } catch (InterruptedException e) {
@@ -58,6 +85,75 @@ public class RagDataTask {
             }
         });
     }
+
+    /**
+     * 将商品数据保存到向量数据库
+     * @param productId 商品ID
+     */
+    private void saveData2VectorStore4Product(String productId) {
+        ProductInfo productInfo = this.productInfoMapper.selectByProductId(productId);
+        if (!ProductStatusEnum.ON_SALE.getStatus().equals(productInfo.getStatus())) {
+            vectorStore.delete(RagDataTypeEnum.PRODUCT.getType() + productId);
+            return;
+        }
+        ProductPropertyValueQuery productPropertyValueQuery = new ProductPropertyValueQuery();
+        productPropertyValueQuery.setProductId(productId);
+        productPropertyValueQuery.setOrderBy("property_sort asc");
+        List<ProductPropertyValue> productPropertyValueList = this.productPropertyValueMapper.selectList(productPropertyValueQuery);
+
+        Map<String, ProductPropertyValue> propertyValueMap =
+                productPropertyValueList.stream().collect(Collectors.toMap(item -> item.getPropertyValueId(),
+                propertyValue -> propertyValue));
+
+        ProductSkuQuery productSkuQuery = new ProductSkuQuery();
+        productSkuQuery.setProductId(productId);
+        List<ProductSku> allProductSkuList = this.productSkuMapper.selectList(productSkuQuery);
+        List<Document> list = new ArrayList<>();
+        Map<String , Object> metaData = new HashMap<>();
+        metaData.put("dataType", RagDataTypeEnum.PRODUCT.getType());
+        metaData.put("productId", productId);
+        metaData.put("productName", productInfo.getProductName());
+        Document doc = new Document(productId,productInfo.getProductName(),metaData);
+        list.add(doc);
+
+        List<Map<String,Object>> skuList = new ArrayList<>();
+        for (ProductSku sku : allProductSkuList) {
+            metaData = new HashMap<>();
+            metaData.put("dataType", RagDataTypeEnum.PRODUCT.getType());
+            metaData.put("productId", sku.getProductId());
+            metaData.put("productName",productInfo.getProductName());
+            StringBuilder content = new StringBuilder();
+            content.append(productInfo.getProductName()).append(" ");
+            Map<String,Object> skuProperty = new HashMap<>();
+            String[] propertyValueIds = sku.getPropertyValueIds().split("-");
+            StringBuilder skuContent = new StringBuilder();
+            Integer index = 0;
+            for (String propertyValueId : propertyValueIds) {
+                index++;
+                ProductPropertyValue propertyValue = propertyValueMap.get(propertyValueId);
+                skuContent = skuContent.append(propertyValue.getPropertyName()).append("：").append(propertyValue.getPropertyValue());
+                if (index < propertyValueIds.length) {
+                    skuContent.append("，");
+                }
+            }
+            content.append(skuContent);
+            skuProperty.put("property",skuContent);
+            skuList.add(skuProperty);
+            metaData.put("skuList",skuList);
+            doc = new Document(sku.getProductId() + "_" + sku.getPropertyValueIdHash(),content.toString(),metaData);
+            list.add(doc);
+            if (list.size() >= 10){
+                //阿里百炼如果一次性往向量数据库添加超过10条数据会报错
+                vectorStore.add(list);
+                list.clear();
+            }
+        }
+
+        if (!list.isEmpty()) {
+            vectorStore.add(list);
+        }
+    }
+
 
     /**
      * 将FAQ数据(知识库问题)保存到向量数据库
