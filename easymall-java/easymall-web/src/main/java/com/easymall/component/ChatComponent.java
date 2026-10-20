@@ -1,12 +1,17 @@
 package com.easymall.component;
 
+import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.MessageSendDTO;
 import com.easymall.entity.enums.*;
 import com.easymall.entity.po.AgentMessage;
+import com.easymall.entity.po.OrderInfo;
 import com.easymall.entity.po.ProductInfo;
+import com.easymall.entity.query.OrderInfoQuery;
 import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.service.AgentMessageService;
+import com.easymall.service.OrderInfoService;
 import com.easymall.service.ProductInfoService;
+import com.easymall.utils.DateUtil;
 import com.easymall.utils.JsonUtils;
 import com.easymall.utils.StringTools;
 import com.easymall.websocket.ChannelContextUtils;
@@ -23,6 +28,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,6 +48,8 @@ public class ChatComponent {
     private VectorStore vectorStore;
     @Resource
     private ProductInfoService productInfoService;
+    @Resource
+    private OrderInfoService orderInfoService;
 
     /**
      * 发送消息
@@ -71,8 +79,11 @@ public class ChatComponent {
         switch (promptTypeEnum) {
             case PRODUCT_SEARCH :
                 searchProduct(agentMessage,userIntent.data);
+                agentMessageService.completeMessage(agentMessage.getMessageId(), agentMessage.getBizType(), agentMessage.getAssistantMessage(), agentMessage.getBizData());
                 break;
             case QUERY_ORDER :
+                queryOrder(agentMessage,userIntent.data);
+                agentMessageService.completeMessage(agentMessage.getMessageId(), agentMessage.getBizType(), agentMessage.getAssistantMessage(), agentMessage.getBizData());
                 break;
             default:
                 chat(promptTypeEnum,agentMessage);
@@ -117,6 +128,41 @@ public class ChatComponent {
         messageSendDTO.setAssistantMessage(assistantData);
         messageSendDTO.setBizType(UserIntentEnum.PRODUCT_SEARCH.getKey());
         messageSendDTO.setMessageId(agentMessage.getMessageId());
+        messageSendDTO.setUserMessage(agentMessage.getUserMessage());
+
+        messageHandler.sendMessage(messageSendDTO);
+    }
+
+    /**
+     * AI查询订单
+     * @param message 用户消息
+     * @param orderId 订单Id
+     */
+    private void queryOrder(AgentMessage message,String orderId){
+        OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
+        orderInfoQuery.setOrderTimeStart(DateUtil.getBeforeDay(Constants.LATEST_ORDER_DAYS,DateTimePatternEnum.YYYY_MM_DD.getPattern()));
+        orderInfoQuery.setOrderTimeEnd(DateUtil.format(new Date(), DateTimePatternEnum.YYYY_MM_DD.getPattern()));
+        orderInfoQuery.setOrderId(orderId);
+        orderInfoQuery.setUserId(message.getUserId());
+        orderInfoQuery.setOrderBy("o.order_time desc");
+        orderInfoQuery.setQueryItems(true);
+        orderInfoQuery.setExecuteOrderStatusList(new Integer[]{OrderStatusEnum.DELETE.getStatus()});
+        List<OrderInfo> orderInfoList = orderInfoService.findListByParam(orderInfoQuery);
+
+        String assistantData = JsonUtils.convertObj2Json(orderInfoList);
+        message.setBizType(UserIntentEnum.QUERY_ORDER.getKey());
+        message.setAssistantMessage(assistantData);
+
+        List<String> orderIdList = orderInfoList.stream().map(OrderInfo::getOrderId).toList();
+        message.setBizData(orderIdList.isEmpty() ? null : JsonUtils.convertObj2Json(orderIdList));
+
+        MessageSendDTO messageSendDTO = new MessageSendDTO();
+        messageSendDTO.setUserId(message.getUserId());
+        messageSendDTO.setOutPutType(MessageOutPutTypeEnum.DONE.getType());
+        messageSendDTO.setAssistantMessage(assistantData);
+        messageSendDTO.setBizType(UserIntentEnum.QUERY_ORDER.getKey());
+        messageSendDTO.setMessageId(message.getMessageId());
+        messageSendDTO.setUserMessage(message.getUserMessage());
 
         messageHandler.sendMessage(messageSendDTO);
     }

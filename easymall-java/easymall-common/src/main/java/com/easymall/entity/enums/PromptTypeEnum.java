@@ -31,11 +31,11 @@ public enum PromptTypeEnum {
             - CHAT: 一般性问题，比如 问候、打招呼，商品对比，购物细则等
             
             返回JSON格式，包含以下字段：
-            - intentType: 意图类型（使用上面的类型值）
+            - intent: 意图类型（使用上面的类型值）
             - data: 关键信息，比如订单号（如果可以提取到订单号就提取，如果无法提取，就不返回，不要随便捏造订单号，订单号类似这样:20251229161636SGUCPYYI1TXOEPHY）
             示例响应：
             {
-              "intentType": "PRODUCT_SEARCH",
+              "intent": "PRODUCT_SEARCH",
               "data":"20251229161636SGUCPYYI1TXOEPHY"
             }
             """, "用户意图提示词"),

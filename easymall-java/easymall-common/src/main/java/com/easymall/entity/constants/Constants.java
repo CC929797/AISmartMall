@@ -51,7 +51,8 @@ public class Constants {
     //向量数据库队列
     public static final String REDIS_QUEUE_RAG_DATA = REDIS_KEY_PREFIX + "queue:rag:";
 
-    public static final String REDIS_KEY_CANCEL_AGENT_MESSAGE = REDIS_KEY_PREFIX + "agent:message:";
+    //最近订单天数
+    public static final Integer LATEST_ORDER_DAYS = 15;
 
 
 }
