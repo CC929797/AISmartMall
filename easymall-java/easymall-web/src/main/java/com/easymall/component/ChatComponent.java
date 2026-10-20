@@ -3,7 +3,11 @@ package com.easymall.component;
 import com.easymall.entity.dto.MessageSendDTO;
 import com.easymall.entity.enums.*;
 import com.easymall.entity.po.AgentMessage;
+import com.easymall.entity.po.ProductInfo;
+import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.service.AgentMessageService;
+import com.easymall.service.ProductInfoService;
+import com.easymall.utils.JsonUtils;
 import com.easymall.utils.StringTools;
 import com.easymall.websocket.ChannelContextUtils;
 import com.easymall.websocket.message.MessageHandler;
@@ -15,6 +19,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
@@ -35,6 +40,8 @@ public class ChatComponent {
     private ChatClient chatClient;
     @Resource
     private VectorStore vectorStore;
+    @Resource
+    private ProductInfoService productInfoService;
 
     /**
      * 发送消息
@@ -63,12 +70,55 @@ public class ChatComponent {
 
         switch (promptTypeEnum) {
             case PRODUCT_SEARCH :
+                searchProduct(agentMessage,userIntent.data);
                 break;
             case QUERY_ORDER :
                 break;
             default:
                 chat(promptTypeEnum,agentMessage);
         }
+    }
+
+    /**
+     * 从向量数据库当中获取商品
+     */
+    private void searchProduct(AgentMessage agentMessage,String keyword) {
+        keyword = StringTools.isEmpty(keyword) ? agentMessage.getUserMessage() : keyword;
+        SearchRequest request = SearchRequest.builder()
+                .query(agentMessage.getUserMessage())
+                .filterExpression(buildTypeFilter(RagDataTypeEnum.PRODUCT.getType())).
+                similarityThreshold(0.45).topK(30).
+                build();
+
+        //查询向量数据库当中所有的商品信息
+        List<Document> doc = vectorStore.similaritySearch(request);
+        String prompt = getPrompt(PromptTypeEnum.PRODUCT_SEARCH, JsonUtils.convertObj2Json(doc), keyword,null);
+        //AI根据提示的关键词去检索查询到的商品信息中更符合的商品
+        List<ProductInfo> productInfos = getChatClientRequestSpec().user(prompt).call().entity(new ParameterizedTypeReference<>(){
+        });
+        //根据符合条件的商品id查询商品信息
+        List<String> productIds = productInfos.stream().map(ProductInfo::getProductId).collect(Collectors.toList());
+        List<ProductInfo> productInfoList = new ArrayList<>();
+        if (!productInfos.isEmpty()){
+            ProductInfoQuery productInfoQuery = new ProductInfoQuery();
+            productInfoQuery.setProductIdList(productIds);
+            productInfoQuery.setOrderBy("create_time desc");
+            productInfoList = productInfoService.findListByParam(productInfoQuery);
+        }
+        //把查询到的商品信息转化为JSON字符串，设置到消息当中
+        String assistantData = JsonUtils.convertObj2Json(productInfoList);
+        agentMessage.setBizType(UserIntentEnum.PRODUCT_SEARCH.getKey());
+        agentMessage.setBizData(productIds.isEmpty() ? null : JsonUtils.convertObj2Json(productIds));
+        agentMessage.setAssistantMessage(assistantData);
+
+        MessageSendDTO messageSendDTO = new MessageSendDTO();
+        messageSendDTO.setUserId(agentMessage.getUserId());
+        messageSendDTO.setOutPutType(MessageOutPutTypeEnum.DONE.getType());
+        messageSendDTO.setAssistantMessage(assistantData);
+        messageSendDTO.setBizType(UserIntentEnum.PRODUCT_SEARCH.getKey());
+        messageSendDTO.setMessageId(agentMessage.getMessageId());
+
+        messageHandler.sendMessage(messageSendDTO);
     }
 
     /**

@@ -53,7 +53,7 @@ public class AgentMessage implements Serializable {
 	private String bizType;
 
 	/**
-	 * 
+	 * 业务数据
 	 */
 	private String bizData;
 
