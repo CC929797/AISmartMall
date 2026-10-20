@@ -1,17 +1,25 @@
 package com.easymall.component;
 
 import com.easymall.entity.dto.MessageSendDTO;
-import com.easymall.entity.enums.ExecutorServiceSignletionEnum;
-import com.easymall.entity.enums.MessageOutPutTypeEnum;
-import com.easymall.entity.enums.UserIntentEnum;
+import com.easymall.entity.enums.*;
 import com.easymall.entity.po.AgentMessage;
 import com.easymall.service.AgentMessageService;
+import com.easymall.utils.StringTools;
 import com.easymall.websocket.ChannelContextUtils;
 import com.easymall.websocket.message.MessageHandler;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 消息处理
@@ -25,6 +33,8 @@ public class ChatComponent {
     private MessageHandler messageHandler;
     @Resource
     private ChatClient chatClient;
+    @Resource
+    private VectorStore vectorStore;
 
     /**
      * 发送消息
@@ -47,16 +57,162 @@ public class ChatComponent {
      * @param agentMessage 消息
      */
     public void assistantAnswer(AgentMessage agentMessage) {
+        UserIntent userIntent = analyzeUserIntent(agentMessage.getUserId(), agentMessage.getUserMessage());
+        PromptTypeEnum promptTypeEnum = PromptTypeEnum.getByCode(userIntent.intent);
+        promptTypeEnum = promptTypeEnum == null ? PromptTypeEnum.CHAT : promptTypeEnum;
+
+        switch (promptTypeEnum) {
+            case PRODUCT_SEARCH :
+                break;
+            case QUERY_ORDER :
+                break;
+            default:
+                chat(promptTypeEnum,agentMessage);
+        }
+    }
+
+    /**
+     * 过滤元数据
+      * @param dataType 数据类型
+     */
+    private String buildTypeFilter(String dataType){
+        return String.format("dataType=='%s'", dataType);
+    }
+
+    /**
+     * AI回答关于除了商品查找和订单查询之外的问题
+     * @param promptTypeEnum 提示词类型
+     * @param agentMessage 消息
+     */
+    public void chat(PromptTypeEnum promptTypeEnum, AgentMessage agentMessage) {
+        List<String> chatMessage = new ArrayList<>();
         MessageSendDTO messageSendDTO = new MessageSendDTO();
         messageSendDTO.setUserId(agentMessage.getUserId());
-        messageSendDTO.setOutPutType(MessageOutPutTypeEnum.DONE.getType());
-        //获取到大模型的回复
-        String content = chatClient.prompt().user(agentMessage.getUserMessage()).call().content();
-        log.info("返回内容：{}", content);
-        messageSendDTO.setAssistantMessage(content);
         messageSendDTO.setMessageId(agentMessage.getMessageId());
-        messageSendDTO.setBizType(UserIntentEnum.CHAT.getKey());
-        messageSendDTO.setUserMessage(agentMessage.getUserMessage());
-        messageHandler.sendMessage(messageSendDTO);
+        try {
+            String ragData = "";
+            if (promptTypeEnum == PromptTypeEnum.CHAT) {
+                //获取本地知识库的内容
+                SearchRequest request = SearchRequest.builder().
+                        query(agentMessage.getUserMessage()).filterExpression(buildTypeFilter(RagDataTypeEnum.FAQ.getType())).
+                        similarityThreshold(0.5).topK(15).
+                        build();
+                //查询向量数据中的内容
+                List<Document> documents = vectorStore.similaritySearch(request);
+                documents = documents.stream().distinct().collect(Collectors.toList());
+
+                //获取到向量数据库中的片段，并用两个换行符进行连接
+                //如果只用一个\n，当文档片段本身内部就有换行时，大模型可能分不清哪里是上一个片段的结尾，哪里是下一个片段的开头
+                ragData = documents.stream().map(document -> document.getText()).collect(Collectors.joining("\n\n"));
+
+            }
+            String prompt = getPrompt(promptTypeEnum, agentMessage.getUserId(), agentMessage.getUserMessage(), ragData);
+            getChatClientRequestSpec().messages(getHistoryMessages(agentMessage.getUserId(), prompt)).stream().chatResponse().doOnNext(response -> {
+                log.info("流式分片：results数量={}，metadata={}", response.getResults().size(), response.getMetadata());
+                if (response.getResults().isEmpty()) {
+                    return; // 跳过没有正文结果的分片
+                }
+                String responseMessage = response.getResults().get(0).getOutput().getText();
+                log.info("大模型返回消息 {}", responseMessage);
+                if (!StringTools.isEmpty(responseMessage)) {
+                    messageSendDTO.setOutPutType(MessageOutPutTypeEnum.OUTPUTTING.getType());
+                    messageSendDTO.setAssistantMessage(responseMessage);
+
+                    messageHandler.sendMessage(messageSendDTO);
+
+                    chatMessage.add(responseMessage);
+                }
+
+            }).doOnComplete(()->{
+                messageSendDTO.setOutPutType(MessageOutPutTypeEnum.DONE.getType());
+                messageHandler.sendMessage(messageSendDTO);
+
+                agentMessage.setAssistantMessage(chatMessage.stream().collect(Collectors.joining("")));
+                agentMessageService.completeMessage(agentMessage.getMessageId(), PromptTypeEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
+            }).doOnError(error -> {
+                messageSendDTO.setOutPutType(MessageOutPutTypeEnum.ERROR.getType());
+                messageSendDTO.setAssistantMessage(ResponseCodeEnum.CODE_500.getMsg());
+                messageHandler.sendMessage(messageSendDTO);
+
+                agentMessage.setAssistantMessage(chatMessage.stream().collect(Collectors.joining("")));
+                agentMessageService.completeMessage(agentMessage.getMessageId(), PromptTypeEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
+            }).subscribe();
+
+        }catch (Exception e){
+            log.info("调用大模型失败",e);
+            messageSendDTO.setOutPutType(MessageOutPutTypeEnum.ERROR.getType());
+            messageSendDTO.setMessageId(agentMessage.getMessageId());
+            messageSendDTO.setAssistantMessage(ResponseCodeEnum.CODE_500.getMsg());
+            messageHandler.sendMessage(messageSendDTO);
+
+            agentMessage.setAssistantMessage(ResponseCodeEnum.CODE_500.getMsg());
+            agentMessageService.completeMessage(agentMessage.getMessageId(), PromptTypeEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
+        }
+
+    }
+
+    /**
+     * 获取提示词
+      * @param typeEnum 提示词类型
+     * @param userId 用户ID
+     * @param message 用户消息
+     * @param ragData 联想数据
+     * @return 提示词
+     */
+    private String getPrompt (PromptTypeEnum typeEnum,String userId,String message,String ragData) {
+        String prompt = typeEnum.getPrompt();
+        //根据提示词类型进行处理
+        if (PromptTypeEnum.CHAT == typeEnum) {
+            //若为聊天类型，则需要查询知识库将ragData进行处理
+            ragData = StringTools.isEmpty(ragData) ? "知识库当中暂无相关内容" : ragData;
+            prompt = String.format(prompt, ragData,userId,message);
+            return prompt;
+        } else if (PromptTypeEnum.GLOBAL != typeEnum) {
+            //若为其他类型，则直接返回提示词
+            return String.format(prompt, userId, message);
+        }
+        //以上所有类型都不满足，则为全局类型，直接返回提示词
+        return prompt;
+    }
+
+
+    /**
+     * 定义AI全局人设
+     * @return
+     */
+    private ChatClient.ChatClientRequestSpec getChatClientRequestSpec() {
+        String systemPrompt = getPrompt(PromptTypeEnum.GLOBAL, null, null, null);
+        return chatClient.prompt().system(systemPrompt).advisors(new LoggerAdvisor());
+    }
+
+    /**
+     * 以当前的聊天消息为背景，暂时替代历史聊天消息，进行大模型调用
+     * @param userId
+     * @param currentMessage
+     * @return
+     */
+    private List<Message> getHistoryMessages(String userId,String currentMessage) {
+        List<Message> historyList = new ArrayList<>();
+        historyList.add(new UserMessage(currentMessage));
+        return historyList;
+    }
+
+    /**
+     * 分析用户意图
+     * @param userId
+     * @param message
+     * @return
+     */
+    private UserIntent analyzeUserIntent(String userId,String message) {
+        String prompt = getPrompt(PromptTypeEnum.USER_INTENT, userId, message, null);
+        //调用大模型进行分析，查看分析出用户的意图是PromptTypeEnum.USER_INTENT中的哪一个intent
+        UserIntent userIntent = getChatClientRequestSpec().messages(getHistoryMessages(userId, prompt)).call().entity(UserIntent.class);
+
+        return userIntent;
+    }
+
+
+    record UserIntent(String intent,String data){
+
     }
 }

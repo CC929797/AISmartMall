@@ -76,4 +76,9 @@ public interface AgentMessageService {
 	 */
 	AgentMessage saveMessage(String userId,String userMessage);
 
+	/**
+	 * 处理消息完毕
+	 */
+	void completeMessage(Integer messageId,String bizType,String assistantMessage,String bizData);
+
 }

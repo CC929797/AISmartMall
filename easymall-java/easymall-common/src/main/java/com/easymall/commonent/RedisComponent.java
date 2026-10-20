@@ -2,12 +2,17 @@ package com.easymall.commonent;
 
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.LogisticsSendDTO;
+import com.easymall.entity.dto.RagDataDTO;
 import com.easymall.entity.dto.TokenUserInfoDTO;
 import com.easymall.entity.po.SysCategory;
 import com.easymall.redis.RedisUtils;
 import com.easymall.utils.StringTools;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotEmpty;
+import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBlockingDeque;
+import org.redisson.api.RedissonClient;
+import org.redisson.codec.JsonJacksonCodec;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -16,10 +21,13 @@ import java.util.Set;
 import java.util.UUID;
 
 @Component
+@Slf4j
 public class RedisComponent {
 
     @Resource
     private RedisUtils redisUtils;
+    @Resource
+    private RedissonClient redissonClient;
 
     /**
      * 保存验证码到Redis
@@ -230,5 +238,20 @@ public class RedisComponent {
      */
     public Long removeTimeOutOrder4Logistics(String orderId) {
         return redisUtils.zsetAddRemove(Constants.REDIS_KEY_ORDER_LOGISTICS_QUEUE,orderId);
+    }
+
+    /**
+     * AI
+     * 发送到向量数据库消息队列
+     * @param queueName
+     * @param data
+     */
+    public void sendMessage(String queueName,RagDataDTO data) {
+        RBlockingDeque<RagDataDTO> queue = redissonClient.getBlockingDeque(queueName, JsonJacksonCodec.INSTANCE);
+        try {
+            queue.put(data);
+        }catch (Exception e){
+            log.error("发送消息失败",e);
+        }
     }
 }

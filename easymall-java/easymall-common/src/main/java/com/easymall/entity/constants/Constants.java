@@ -47,4 +47,11 @@ public class Constants {
     public static final String IMAGE_THUMBNAIL_SUFFIX = "_thumbnail";
 
     public static final String CART_PAY_NAME = "购物车支付-%d件商品";
+
+    //向量数据库队列
+    public static final String REDIS_QUEUE_RAG_DATA = REDIS_KEY_PREFIX + "queue:rag:";
+
+    public static final String REDIS_KEY_CANCEL_AGENT_MESSAGE = REDIS_KEY_PREFIX + "agent:message:";
+
+
 }

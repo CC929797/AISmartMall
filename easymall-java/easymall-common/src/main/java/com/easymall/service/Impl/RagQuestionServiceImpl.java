@@ -3,6 +3,10 @@ package com.easymall.service.Impl;
 import java.util.Date;
 import java.util.List;
 
+import com.easymall.commonent.RedisComponent;
+import com.easymall.entity.constants.Constants;
+import com.easymall.entity.dto.RagDataDTO;
+import com.easymall.entity.enums.RagDataTypeEnum;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -26,6 +30,8 @@ public class RagQuestionServiceImpl implements RagQuestionService {
 	@Resource
 	private RagQuestionMapper<RagQuestion, RagQuestionQuery> ragQuestionMapper;
 
+	@Resource
+	private RedisComponent redisComponent;
 	/**
 	 * 根据条件查询列表
 	 */
@@ -144,7 +150,7 @@ public class RagQuestionServiceImpl implements RagQuestionService {
 			this.ragQuestionMapper.updateByQuestionId(ragQuestion,ragQuestion.getQuestionId());
 		}
 
-		//TODO: 存入向量数据库
+		redisComponent.sendMessage(Constants.REDIS_QUEUE_RAG_DATA,new RagDataDTO(ragQuestion.getQuestionId().toString(), RagDataTypeEnum.FAQ.getType()));
 	}
 
 	/**
@@ -155,6 +161,6 @@ public class RagQuestionServiceImpl implements RagQuestionService {
 	public void delRagQuestion(Integer questionId) {
 		this.deleteRagQuestionByQuestionId(questionId);
 
-		//TODO: 删除向量数据库
+		redisComponent.sendMessage(Constants.REDIS_QUEUE_RAG_DATA,new RagDataDTO(questionId.toString(), RagDataTypeEnum.FAQ.getType()));
 	}
 }

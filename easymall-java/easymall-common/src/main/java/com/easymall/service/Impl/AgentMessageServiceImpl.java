@@ -146,4 +146,25 @@ public class AgentMessageServiceImpl implements AgentMessageService {
 
 		return agentMessage;
 	}
+
+	/**
+	 * 处理消息完毕(更新消息状态)
+	 * @param messageId 消息ID
+	 * @param bizType 业务类型
+	 * @param assistantMessage 机器人回复消息
+	 * @param bizData 业务数据
+	 */
+	@Override
+	public void completeMessage(Integer messageId, String bizType, String assistantMessage, String bizData) {
+		AgentMessage agentMessage = new AgentMessage();
+		agentMessage.setAssistantMessage(assistantMessage);
+		agentMessage.setBizData(bizData);
+		agentMessage.setBizType(bizType);
+		agentMessage.setStatus(AgentMessageStatusEnum.COMPLETE.getStatus());
+
+		AgentMessageQuery query = new AgentMessageQuery();
+		query.setMessageId(messageId);
+		query.setStatus(AgentMessageStatusEnum.NORMAL.getStatus());
+		this.agentMessageMapper.updateByParam(agentMessage, query);
+	}
 }

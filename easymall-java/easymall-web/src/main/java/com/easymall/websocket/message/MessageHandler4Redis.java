@@ -28,7 +28,7 @@ public class MessageHandler4Redis  implements MessageHandler {
     public void listenMessage() {
         RTopic rTopic = redissonClient.getTopic(MESSAGE_TOPIC);
         rTopic.addListener(MessageSendDTO.class, (channel, message) -> {
-            log.info("收到消息: {}", JsonUtils.convertObj2Json(message));
+            //log.info("收到消息: {}", JsonUtils.convertObj2Json(message));
             channelContextUtils.sendMessage(message);
         });
 
