@@ -471,6 +471,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 	 * 修改商品的上架和下架状态
 	 */
 	@Override
+	@Transactional(rollbackFor = Exception.class)
 	public void updateProductStatus(String productId, Integer status) {
 		ProductStatusEnum productStatusEnum = ProductStatusEnum.getByStatus(status);
 		if(productStatusEnum == null || productStatusEnum == ProductStatusEnum.DELETE){
@@ -496,6 +497,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 	 * @param productId 商品Id
 	 */
 	@Override
+	@Transactional(rollbackFor = Exception.class)
 	public void deleteProduct(String productId) {
 		ProductInfo productInfo = new ProductInfo();
 		productInfo.setStatus(ProductStatusEnum.DELETE.getStatus());
