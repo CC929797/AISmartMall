@@ -42,7 +42,7 @@ public class AgentController extends ABaseController{
         agentMessageQuery.setOrderBy("message_id desc");
         agentMessageQuery.setPageNo(pageNo);
         agentMessageQuery.setUserId(getTokenUserInfo().getUserId());
-        //TODO: 记录人的消息Id
+        agentMessageQuery.setMaxMessageId(maxMessageId);
         PaginationResultVO<AgentMessage> resultVO = agentMessageService.findListByPage(agentMessageQuery);
         return getSuccessResponseVO(resultVO);
     }

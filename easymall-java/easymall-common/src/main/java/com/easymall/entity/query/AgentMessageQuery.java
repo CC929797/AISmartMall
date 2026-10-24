@@ -63,6 +63,18 @@ public class AgentMessageQuery extends BaseParam {
 
 	private String bizDataFuzzy;
 
+	/**
+	 * 最大消息ID
+	 */
+	private Integer maxMessageId;
+
+	public Integer getMaxMessageId() {
+		return maxMessageId;
+	}
+
+	public void setMaxMessageId(Integer maxMessageId) {
+		this.maxMessageId = maxMessageId;
+	}
 
 	public void setMessageId(Integer messageId){
 		this.messageId = messageId;

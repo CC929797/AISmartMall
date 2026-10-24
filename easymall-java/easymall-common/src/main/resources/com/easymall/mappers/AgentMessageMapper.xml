@@ -82,6 +82,9 @@
 			<if test="query.bizDataFuzzy!= null  and query.bizDataFuzzy!=''">
 				 and  a.biz_data like concat('%', #{query.bizDataFuzzy}, '%')
 			</if>
+		    <if test="query.maxMessageId!=null">
+				 <![CDATA[ and a.message_id<#{query.maxMessageId} ]]>
+		    </if>
 	 </where>
 	</sql>
 
