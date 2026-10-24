@@ -16,6 +16,7 @@ import com.easymall.service.ProductInfoService;
 import com.easymall.service.RagQuestionService;
 import com.easymall.service.StatisticsInfoService;
 import com.easymall.utils.DateUtil;
+import io.netty.util.Constant;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -81,7 +82,8 @@ public class ToolController extends ABaseController{
         RagQuestionQuery ragQuestionQuery = new RagQuestionQuery();
         List<RagQuestion> ragQuestionList = ragQuestionService.findListByParam(ragQuestionQuery);
         for (RagQuestion ragQuestion : ragQuestionList) {
-            //TODO: 1.将知识库写入向量数据库
+            //1.将知识库写入向量数据库
+            redisComponent.sendMessage(Constants.REDIS_QUEUE_RAG_DATA,new RagDataDTO(ragQuestion.getQuestionId().toString(), RagDataTypeEnum.FAQ.getType()));
         }
         return getSuccessResponseVO(null);
     }
