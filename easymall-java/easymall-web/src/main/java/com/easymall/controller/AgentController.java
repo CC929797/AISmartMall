@@ -46,4 +46,16 @@ public class AgentController extends ABaseController{
         PaginationResultVO<AgentMessage> resultVO = agentMessageService.findListByPage(agentMessageQuery);
         return getSuccessResponseVO(resultVO);
     }
+
+    /**
+     * 取消消息
+     * @param messageId 消息Id
+     * @return 取消成功
+     */
+    @RequestMapping("/cancelMessage")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO cancelMessage(Integer messageId) {
+        chatComponent.cancelMessage(getTokenUserInfo().getUserId(),messageId);
+        return getSuccessResponseVO(null);
+    }
 }

@@ -81,4 +81,10 @@ public interface AgentMessageService {
 	 */
 	void completeMessage(Integer messageId,String bizType,String assistantMessage,String bizData);
 
+	/**
+	 * 取消消息
+	 * @param userId 用户ID
+	 * @param messageId 消息ID
+	 */
+    void cancelMessage(String userId, Integer messageId);
 }

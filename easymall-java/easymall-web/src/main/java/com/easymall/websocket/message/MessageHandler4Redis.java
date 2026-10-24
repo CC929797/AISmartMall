@@ -1,5 +1,6 @@
 package com.easymall.websocket.message;
 
+import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.dto.MessageSendDTO;
 import com.easymall.utils.JsonUtils;
 import com.easymall.websocket.ChannelContextUtils;
@@ -18,6 +19,9 @@ public class MessageHandler4Redis  implements MessageHandler {
 
     @Resource
     private ChannelContextUtils channelContextUtils;
+
+    @Resource
+    private RedisComponent redisComponent;
 
     private static final String MESSAGE_TOPIC = "message.topic";
 
@@ -40,7 +44,10 @@ public class MessageHandler4Redis  implements MessageHandler {
      */
     @Override
     public void sendMessage(MessageSendDTO messageSendDTO) {
-        //TODO: 消息取消，不发送消息
+        //消息取消，不发送消息
+        if (redisComponent.hasCancelMessage(messageSendDTO.getUserId(), messageSendDTO.getMessageId())) {
+            return;
+        }
         RTopic rTopic = redissonClient.getTopic(MESSAGE_TOPIC);
         rTopic.publish(messageSendDTO);
     }

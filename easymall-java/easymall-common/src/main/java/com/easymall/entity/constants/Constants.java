@@ -57,5 +57,7 @@ public class Constants {
     //提示词
     public static final String REDIS_KEY_PROMPT = REDIS_KEY_PREFIX + "prompt:";
 
+    public static final String REDIS_KEY_CANCEL_AGENT_MESSAGE = REDIS_KEY_PREFIX + "cancel:agent:message:";
+
 
 }

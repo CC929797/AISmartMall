@@ -90,6 +90,10 @@ public class ChatComponent {
         PromptTypeEnum promptTypeEnum = PromptTypeEnum.getByCode(userIntent.intent);
         promptTypeEnum = promptTypeEnum == null ? PromptTypeEnum.CHAT : promptTypeEnum;
 
+        if (redisComponent.hasCancelMessage(agentMessage.getUserId(), agentMessage.getMessageId())){
+            return;
+        }
+
         switch (promptTypeEnum) {
             case PRODUCT_SEARCH :
                 //商品搜索意图
@@ -349,8 +353,15 @@ public class ChatComponent {
         return userIntent;
     }
 
+    record UserIntent(String intent,String data){}
 
-    record UserIntent(String intent,String data){
-
+    /**
+     * 取消消息
+     * @param messageId 消息ID
+     */
+    public void cancelMessage(String userId,Integer messageId) {
+        //
+        agentMessageService.cancelMessage(userId,messageId);
+        redisComponent.cancelMessage(userId, messageId);
     }
 }

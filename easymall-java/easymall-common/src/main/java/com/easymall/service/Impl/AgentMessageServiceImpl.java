@@ -167,4 +167,22 @@ public class AgentMessageServiceImpl implements AgentMessageService {
 		query.setStatus(AgentMessageStatusEnum.NORMAL.getStatus());
 		this.agentMessageMapper.updateByParam(agentMessage, query);
 	}
+
+	/**
+	 * 取消消息
+	 * @param userId 用户ID
+	 * @param messageId 消息ID
+	 */
+	@Override
+	public void cancelMessage(String userId, Integer messageId) {
+		AgentMessage agentMessage = new AgentMessage();
+		agentMessage.setAssistantMessage("用户取消");
+		agentMessage.setStatus(AgentMessageStatusEnum.CANCEL.getStatus());
+
+		AgentMessageQuery query = new AgentMessageQuery();
+		query.setMessageId(messageId);
+		query.setStatus(AgentMessageStatusEnum.NORMAL.getStatus());
+		query.setUserId(userId);
+		this.agentMessageMapper.updateByParam(agentMessage, query);
+	}
 }

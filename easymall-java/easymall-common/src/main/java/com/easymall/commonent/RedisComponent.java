@@ -279,4 +279,23 @@ public class RedisComponent {
     public void cleanPrompt(String key){
         redisUtils.delete(Constants.REDIS_KEY_PROMPT + key);
     }
+
+    /**
+     * 取消消息
+     * @param userId
+     * @param messageId
+     */
+    public void cancelMessage(String userId,Integer messageId) {
+        redisUtils.setex(Constants.REDIS_KEY_CANCEL_AGENT_MESSAGE + userId + messageId, messageId, Constants.REDIS_KEY_EXPIRES_ONE_MIN);
+    }
+
+    /**
+     * 判断是否取消消息
+     * @param userId
+     * @param messageId
+     * @return
+     */
+    public Boolean hasCancelMessage(String userId, Integer messageId) {
+        return redisUtils.get(Constants.REDIS_KEY_CANCEL_AGENT_MESSAGE + userId + messageId) != null;
+    }
 }
