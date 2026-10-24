@@ -254,4 +254,29 @@ public class RedisComponent {
             log.error("发送消息失败",e);
         }
     }
+
+    /**
+     * 获取redis当中存储的提示语
+     * @param key 提示语的key
+     */
+    public String getPrompt(String key){
+        return (String) redisUtils.get(Constants.REDIS_KEY_PROMPT + key);
+    }
+
+    /**
+     * 保存提示语到redis
+     * @param key 提示语的key
+     * @param value 提示语的值
+     */
+    public void savePrompt(String key,String value){
+        redisUtils.set(Constants.REDIS_KEY_PROMPT + key,value);
+    }
+
+    /**
+     * 删除redis当中存储的提示语
+     * @param key 提示语的key
+     */
+    public void cleanPrompt(String key){
+        redisUtils.delete(Constants.REDIS_KEY_PROMPT + key);
+    }
 }

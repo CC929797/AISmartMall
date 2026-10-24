@@ -1,13 +1,16 @@
 package com.easymall.component;
 
+import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.MessageSendDTO;
 import com.easymall.entity.enums.*;
 import com.easymall.entity.po.AgentMessage;
 import com.easymall.entity.po.OrderInfo;
 import com.easymall.entity.po.ProductInfo;
+import com.easymall.entity.query.AgentMessageQuery;
 import com.easymall.entity.query.OrderInfoQuery;
 import com.easymall.entity.query.ProductInfoQuery;
+import com.easymall.entity.query.SimplePage;
 import com.easymall.service.AgentMessageService;
 import com.easymall.service.OrderInfoService;
 import com.easymall.service.ProductInfoService;
@@ -18,16 +21,21 @@ import com.easymall.websocket.ChannelContextUtils;
 import com.easymall.websocket.message.MessageHandler;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ArrayUtils;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -50,6 +58,10 @@ public class ChatComponent {
     private ProductInfoService productInfoService;
     @Resource
     private OrderInfoService orderInfoService;
+    @Resource
+    private ToolCallbackProvider toolCallbackProvider;
+    @Resource
+    private RedisComponent redisComponent;
 
     /**
      * 发送消息
@@ -72,16 +84,20 @@ public class ChatComponent {
      * @param agentMessage 消息
      */
     public void assistantAnswer(AgentMessage agentMessage) {
+        //AI判断意图
         UserIntent userIntent = analyzeUserIntent(agentMessage.getUserId(), agentMessage.getUserMessage());
+        //获取到AI判断的意图类型
         PromptTypeEnum promptTypeEnum = PromptTypeEnum.getByCode(userIntent.intent);
         promptTypeEnum = promptTypeEnum == null ? PromptTypeEnum.CHAT : promptTypeEnum;
 
         switch (promptTypeEnum) {
             case PRODUCT_SEARCH :
+                //商品搜索意图
                 searchProduct(agentMessage,userIntent.data);
                 agentMessageService.completeMessage(agentMessage.getMessageId(), agentMessage.getBizType(), agentMessage.getAssistantMessage(), agentMessage.getBizData());
                 break;
             case QUERY_ORDER :
+                //查询订单意图
                 queryOrder(agentMessage,userIntent.data);
                 agentMessageService.completeMessage(agentMessage.getMessageId(), agentMessage.getBizType(), agentMessage.getAssistantMessage(), agentMessage.getBizData());
                 break;
@@ -139,6 +155,7 @@ public class ChatComponent {
      * @param orderId 订单Id
      */
     private void queryOrder(AgentMessage message,String orderId){
+        //默认查询15天内的订单
         OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
         orderInfoQuery.setOrderTimeStart(DateUtil.getBeforeDay(Constants.LATEST_ORDER_DAYS,DateTimePatternEnum.YYYY_MM_DD.getPattern()));
         orderInfoQuery.setOrderTimeEnd(DateUtil.format(new Date(), DateTimePatternEnum.YYYY_MM_DD.getPattern()));
@@ -149,6 +166,7 @@ public class ChatComponent {
         orderInfoQuery.setExecuteOrderStatusList(new Integer[]{OrderStatusEnum.DELETE.getStatus()});
         List<OrderInfo> orderInfoList = orderInfoService.findListByParam(orderInfoQuery);
 
+        //将订单信息转化为JSON字符串
         String assistantData = JsonUtils.convertObj2Json(orderInfoList);
         message.setBizType(UserIntentEnum.QUERY_ORDER.getKey());
         message.setAssistantMessage(assistantData);
@@ -156,6 +174,7 @@ public class ChatComponent {
         List<String> orderIdList = orderInfoList.stream().map(OrderInfo::getOrderId).toList();
         message.setBizData(orderIdList.isEmpty() ? null : JsonUtils.convertObj2Json(orderIdList));
 
+        //构建消息设置给DTO，最后给WebSocket发送消息
         MessageSendDTO messageSendDTO = new MessageSendDTO();
         messageSendDTO.setUserId(message.getUserId());
         messageSendDTO.setOutPutType(MessageOutPutTypeEnum.DONE.getType());
@@ -203,7 +222,7 @@ public class ChatComponent {
 
             }
             String prompt = getPrompt(promptTypeEnum, agentMessage.getUserId(), agentMessage.getUserMessage(), ragData);
-            getChatClientRequestSpec().messages(getHistoryMessages(agentMessage.getUserId(), prompt)).stream().chatResponse().doOnNext(response -> {
+            getChatClientRequestSpec().toolCallbacks(toolCallbackProvider).messages(getHistoryMessages(agentMessage.getUserId(), prompt)).stream().chatResponse().doOnNext(response -> {
                 log.info("流式分片：results数量={}，metadata={}", response.getResults().size(), response.getMetadata());
                 if (response.getResults().isEmpty()) {
                     return; // 跳过没有正文结果的分片
@@ -256,7 +275,11 @@ public class ChatComponent {
      * @return 提示词
      */
     private String getPrompt (PromptTypeEnum typeEnum,String userId,String message,String ragData) {
-        String prompt = typeEnum.getPrompt();
+        //从Redis中获取提示词,因为提示词可能会被更新，更新的提示词会保存在Redis中
+        String prompt = redisComponent.getPrompt(typeEnum.getKey());
+        if (StringTools.isEmpty(prompt)) {
+            prompt = typeEnum.getPrompt();
+        }
         //根据提示词类型进行处理
         if (PromptTypeEnum.CHAT == typeEnum) {
             //若为聊天类型，则需要查询知识库将ragData进行处理
@@ -288,7 +311,26 @@ public class ChatComponent {
      * @return
      */
     private List<Message> getHistoryMessages(String userId,String currentMessage) {
+        AgentMessageQuery agentMessageQuery = new AgentMessageQuery();
+        agentMessageQuery.setUserId(userId);
+        agentMessageQuery.setOrderBy("message_id desc");
+        agentMessageQuery.setSimplePage(new SimplePage(1,Constants.LENGTH_10));
+        List<AgentMessage> agentMessageList = agentMessageService.findListByParam(agentMessageQuery);
+        agentMessageList.sort(Comparator.comparingInt(AgentMessage::getMessageId));
         List<Message> historyList = new ArrayList<>();
+
+        for (AgentMessage agentMessage : agentMessageList) {
+            if (ArrayUtils.contains(new String[]{UserIntentEnum.PRODUCT_SEARCH.getKey(),UserIntentEnum.QUERY_ORDER.getKey()}, agentMessage.getBizType()) && agentMessage.getBizData() != null){
+                historyList.add(new UserMessage(agentMessage.getUserMessage()));
+                historyList.add(new AssistantMessage(agentMessage.getBizData()));
+                continue;
+            }
+            if (!StringTools.isEmpty(agentMessage.getAssistantMessage())){
+                historyList.add(new UserMessage(agentMessage.getUserMessage()));
+                historyList.add(new AssistantMessage(agentMessage.getAssistantMessage()));
+            }
+        }
+
         historyList.add(new UserMessage(currentMessage));
         return historyList;
     }

@@ -54,5 +54,8 @@ public class Constants {
     //最近订单天数
     public static final Integer LATEST_ORDER_DAYS = 15;
 
+    //提示词
+    public static final String REDIS_KEY_PROMPT = REDIS_KEY_PREFIX + "prompt:";
+
 
 }
