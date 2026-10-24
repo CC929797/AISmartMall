@@ -34,6 +34,14 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
 #项目目录
-#项目目录
 project:
-  folder: D:/java/java24/wokspach-teach/runtime/easymall/
+  folder: xxx #自定义文件夹
+  auto-checkpay: true #自动检查支付订单
+#支付宝
+alipay:
+  appid: xxx   # 沙箱
+  appPrivateKey: xxx
+  appCertPath: xxx
+  alipayPublicCertPath: xxx
+  alipayRootCertPath: xxx
+  serverUrl: xxx

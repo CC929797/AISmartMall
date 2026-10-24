@@ -56,12 +56,24 @@ spring:
       embedding:
         model: xxx
 
+    mcp:
+      client:
+        enabled: true
+        name: my-mcp-client
+        version: 1.0.0
+        request-timeout: 30s
+        type: sync
+        streamable-http:
+          connections:
+            mcp-server:
+              url: http://127.0.0.1:8084
+
 mybatis:
   configuration:
     map-underscore-to-camel-case: true
 #项目目录
 project:
-  folder: D:/java/java24/wokspach-teach/runtime/easymall/
+  folder: xxx #自定义文件夹
   auto-checkpay: true #自动检查支付订单
   domain: http://xxx.xxxx.com
 
