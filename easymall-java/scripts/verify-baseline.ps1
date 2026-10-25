@@ -36,7 +36,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Maven failed with exit code $LASTEXITCODE." }
 
         $executed = 0
-        foreach ($module in @('easymall-common', 'easymall-web')) {
+        foreach ($module in @('easymall-common', 'easymall-admin', 'easymall-web')) {
             $reportDirectory = Join-Path $backendRoot "$module/target/surefire-reports"
             if (-not (Test-Path -LiteralPath $reportDirectory)) {
                 throw "Missing test reports for $module."

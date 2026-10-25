@@ -16,6 +16,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.easymall</groupId>
             <artifactId>easymall-common</artifactId>
             <version>1.0.0</version>

@@ -5,9 +5,12 @@ import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.enums.UserStatusEnum;
 import com.easymall.entity.po.UserInfo;
 import com.easymall.entity.query.UserInfoQuery;
+import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
+import com.easymall.entity.vo.UserAdminVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.service.UserInfoService;
+import com.easymall.utils.CopyTools;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,7 +30,14 @@ public class UserController extends ABaseController{
     @RequestMapping("/loadUser")
     public ResponseVO loadUser(UserInfoQuery userInfoQuery) {
         userInfoQuery.setOrderBy("u.join_time desc");
-        return getSuccessResponseVO(userInfoService.findListByPage(userInfoQuery));
+        PaginationResultVO<UserInfo> userPage = userInfoService.findListByPage(userInfoQuery);
+        PaginationResultVO<UserAdminVO> responsePage = new PaginationResultVO<>();
+        responsePage.setTotalCount(userPage.getTotalCount());
+        responsePage.setPageSize(userPage.getPageSize());
+        responsePage.setPageNo(userPage.getPageNo());
+        responsePage.setPageTotal(userPage.getPageTotal());
+        responsePage.setList(CopyTools.copyList(userPage.getList(), UserAdminVO.class));
+        return getSuccessResponseVO(responsePage);
     }
 
     /**

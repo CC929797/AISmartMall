@@ -1,9 +1,11 @@
 package com.easymall.entity.po;
 
 import java.util.Date;
+import com.alibaba.fastjson2.annotation.JSONField;
 import com.easymall.entity.enums.DateTimePatternEnum;
 import com.easymall.utils.DateUtil;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.io.Serializable;
@@ -38,6 +40,8 @@ public class UserInfo implements Serializable {
 	/**
 	 * 密码
 	 */
+	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+	@JSONField(serialize = false)
 	private String password;
 
 	/**
@@ -72,6 +76,8 @@ public class UserInfo implements Serializable {
 	/**
 	 * 大模型应用key
 	 */
+	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+	@JSONField(serialize = false)
 	private String apiKey;
 
 
@@ -165,6 +171,6 @@ public class UserInfo implements Serializable {
 
 	@Override
 	public String toString (){
-		return "用户id:"+(userId == null ? "空" : userId)+"，昵称:"+(nickName == null ? "空" : nickName)+"，头像:"+(avatar == null ? "空" : avatar)+"，邮箱:"+(email == null ? "空" : email)+"，密码:"+(password == null ? "空" : password)+"，0:女 1:男 2:未知:"+(sex == null ? "空" : sex)+"，加入时间:"+(joinTime == null ? "空" : DateUtil.format(joinTime, DateTimePatternEnum.YYYY_MM_DD_HH_MM_SS.getPattern()))+"，最后登录时间:"+(lastLoginTime == null ? "空" : DateUtil.format(lastLoginTime, DateTimePatternEnum.YYYY_MM_DD_HH_MM_SS.getPattern()))+"，最后登录IP:"+(lastLoginIp == null ? "空" : lastLoginIp)+"，0:禁用 1:正常:"+(status == null ? "空" : status)+"，大模型应用key:"+(apiKey == null ? "空" : apiKey);
+		return "用户id:"+(userId == null ? "空" : userId)+"，昵称:"+(nickName == null ? "空" : nickName)+"，头像:"+(avatar == null ? "空" : avatar)+"，邮箱:"+(email == null ? "空" : email)+"，0:女 1:男 2:未知:"+(sex == null ? "空" : sex)+"，加入时间:"+(joinTime == null ? "空" : DateUtil.format(joinTime, DateTimePatternEnum.YYYY_MM_DD_HH_MM_SS.getPattern()))+"，最后登录时间:"+(lastLoginTime == null ? "空" : DateUtil.format(lastLoginTime, DateTimePatternEnum.YYYY_MM_DD_HH_MM_SS.getPattern()))+"，最后登录IP:"+(lastLoginIp == null ? "空" : lastLoginIp)+"，0:禁用 1:正常:"+(status == null ? "空" : status);
 	}
 }

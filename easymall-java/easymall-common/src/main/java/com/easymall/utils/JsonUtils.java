@@ -22,7 +22,10 @@ public class JsonUtils {
         try {
             return JSONObject.parseObject(json, classz);
         } catch (Exception e) {
-            logger.error("convertJson2Obj异常，json:{}", json);
+            // 解析器消息和异常信息中可能包含原始的 JSON 负载
+            logger.error("JSON 对象转换失败: targetType={}, inputLength={}, exceptionType={}",
+                    classz == null ? "null" : classz.getName(),
+                    json == null ? 0 : json.length(), e.getClass().getName());
             throw new BusinessException(ResponseCodeEnum.CODE_603);
         }
     }
@@ -31,7 +34,9 @@ public class JsonUtils {
         try {
             return JSONArray.parseArray(json, classz);
         } catch (Exception e) {
-            logger.error("convertJsonArray2List,json:{}", json, e);
+            logger.error("JSON 数组转换失败: targetType={}, inputLength={}, exceptionType={}",
+                    classz == null ? "null" : classz.getName(),
+                    json == null ? 0 : json.length(), e.getClass().getName());
             throw new BusinessException(ResponseCodeEnum.CODE_603);
         }
     }

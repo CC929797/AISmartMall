@@ -11,7 +11,7 @@
 
 不带 `-Package` 执行 test，带参数执行 package（包含测试）。脚本仅临时设置当前进程的 Java 环境，退出时恢复原值；默认 Maven 缓存位于工作区上级的 `runtime/phase0/maven-repository`。首次下载需要联网。
 
-脚本要求 common、web 都产生**本次调用更新的** Surefire XML，且两个模块实际执行数均大于 0。历史报告、全部跳过或“没有测试”不能作为通过证据。普通测试不依赖运行中的数据库、Redis、ES、模型或支付。
+脚本要求 common、admin、web 都产生**本次调用更新的** Surefire XML，且三个模块实际执行数均大于 0（步骤 01 起增加 admin 检查）。历史报告、全部跳过或“没有测试”不能作为通过证据。普通测试不依赖运行中的数据库、Redis、ES、模型或支付。
 
 ## 独立联调准备
 

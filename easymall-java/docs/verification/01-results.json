@@ -1,0 +1,176 @@
+{
+  "recordedAt": "2026-10-25T17:16:53.4609413+08:00",
+  "step": "01",
+  "baseCommit": "ce38232a244b19570ed30caea6d6b46269f4e109",
+  "workingTreeChanges": true,
+  "java": "Microsoft 21.0.11",
+  "maven": "3.9.14",
+  "unitSuites": [
+    {
+      "module": "easymall-common",
+      "name": "com.easymall.config.BaselineTestConfigTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "easymall-common",
+      "name": "com.easymall.entity.po.UserInfoSerializationTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "easymall-common",
+      "name": "com.easymall.entity.query.SimplePageTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "easymall-common",
+      "name": "com.easymall.utils.JsonUtilsLoggingTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "easymall-admin",
+      "name": "com.easymall.controller.UserControllerSecurityTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "easymall-web",
+      "name": "com.easymall.controller.ProductControllerBaselineTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "easymall-web",
+      "name": "com.easymall.controller.UserAccountSecurityTest",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "unitTotal": 44.0,
+  "package": {
+    "exitCode": 0,
+    "allModules": true,
+    "durationSeconds": 33.937,
+    "log": "runtime/phase1/01-package-after.log"
+  },
+  "integration": {
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "includes": [
+      "commerce and AI baseline",
+      "user profile identity and closed CRUD"
+    ],
+    "durationSeconds": 43.043,
+    "legacyRoutes": 13,
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "victimEntireRowUnchanged": true,
+    "profileExtraFieldsIgnored": true
+  },
+  "adminHttp": {
+    "loginCode": 200,
+    "anonymousListCode": 901,
+    "listCode": 200,
+    "rowCount": 2,
+    "allowedFields": [
+      "avatar",
+      "email",
+      "joinTime",
+      "lastLoginIp",
+      "lastLoginTime",
+      "nickName",
+      "sex",
+      "status",
+      "userId"
+    ],
+    "passwordOrApiKeyPresent": false
+  },
+  "frontend": [
+    {
+      "name": "web",
+      "exitCode": 0,
+      "durationSeconds": 21.77,
+      "indexSha256": "330FBD0F2CD1DE95D62645330FEADF9401B71E215B7693C045C787A5C826B781"
+    },
+    {
+      "name": "admin",
+      "exitCode": 0,
+      "durationSeconds": 27.13,
+      "indexSha256": "485B6D6754E3CA5456DFF3D89B689E68419F49C6D7DB60CDA8F8310FDF9C33F8"
+    }
+  ],
+  "beforeFix": [
+    {
+      "scope": "sensitive JSON and toString",
+      "tests": 7,
+      "failures": 5,
+      "errors": 0
+    },
+    {
+      "scope": "JSON parser logs",
+      "tests": 2,
+      "failures": 2,
+      "errors": 0
+    },
+    {
+      "scope": "admin response model",
+      "tests": 3,
+      "failures": 1,
+      "errors": 0
+    },
+    {
+      "scope": "legacy CRUD and account compatibility",
+      "tests": 20,
+      "failures": 13,
+      "errors": 0
+    }
+  ],
+  "modelMock": {
+    "status": "ok",
+    "synthetic": true,
+    "models": {
+      "chat": "baseline-chat",
+      "embedding": "baseline-embedding"
+    },
+    "embeddingDimensions": 1024,
+    "counters": {
+      "requestsTotal": 7,
+      "healthRequests": 3,
+      "chatRequests": 2,
+      "intentResponses": 1,
+      "streamResponses": 1,
+      "embeddingRequests": 2,
+      "embeddingItems": 2,
+      "errors": 0
+    }
+  },
+  "boundaries": [
+    "No schema migration or password protocol change",
+    "No real model or payment calls",
+    "No frontend source changes",
+    "Browser interactions not separately exercised",
+    "Default authentication and fixed dev identity remain step 02"
+  ],
+  "endState": "Owned test processes and baseline containers stopped; synthetic data and volumes retained; original development services unchanged"
+}

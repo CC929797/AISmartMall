@@ -15,6 +15,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.config.ConfigDataEnvironmentPostProcessor;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -35,12 +36,15 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,6 +85,10 @@ class BaselineSmokeIT {
 
     @Autowired
     private ElasticsearchOperations elasticsearchOperations;
+
+    @Autowired
+    @Qualifier("requestMappingHandlerMapping")
+    private RequestMappingHandlerMapping requestMappings;
 
     @LocalServerPort
     private int port;
@@ -265,6 +273,165 @@ class BaselineSmokeIT {
         assertThat(jdbc.queryForObject("select order_status from order_info where order_id=?",
                 Integer.class, orderId)).isEqualTo(5);
         verify(payment).closeOrder(payOrderId);
+    }
+
+    @Test
+    void userProfileBoundaryAndClosedCrudProtectBothSyntheticUsers() {
+        String otherUserId = "SECUSER002";
+        assertThat(jdbc.queryForObject("select database()", String.class)).isEqualTo("easymall_test");
+        prepareSyntheticSecurityUser(otherUserId);
+        Map<String, Object> otherUserBefore = snapshotUser(otherUserId);
+        Map<String, Object> loginUserBefore = snapshotUser(USER_ID);
+        String injectedPassword = "synthetic-profile-password-injection";
+        String injectedApiKey = "synthetic-profile-key-injection";
+        List<String> secrets = Stream.of(loginUserBefore.get("password"), loginUserBefore.get("api_key"),
+                        otherUserBefore.get("password"), otherUserBefore.get("api_key"),
+                        injectedPassword, injectedApiKey)
+                .filter(Objects::nonNull).map(Object::toString).filter(value -> !value.isBlank()).toList();
+
+        // Fail before issuing legacy delete/update requests if a route is accidentally restored.
+        assertThat(requestMappings.getHandlerMethods().keySet().stream()
+                .flatMap(mapping -> mapping.getPatternValues().stream())
+                .noneMatch(path -> path.equals("/userInfo") || path.startsWith("/userInfo/")))
+                .as("the generated user CRUD must not be registered").isTrue();
+
+        String checkCodeKey = redisComponent.saveCheckCode("9");
+        MultiValueMap<String, String> loginForm = new LinkedMultiValueMap<>();
+        loginForm.add("email", "baseline@example.invalid");
+        loginForm.add("password", StringTools.encodeByMD5("Baseline123"));
+        loginForm.add("checkCodeKey", checkCodeKey);
+        loginForm.add("checkCode", "9");
+        JsonNode login = form("/account/login", loginForm, null);
+        assertCredentialSafe(login, secrets);
+        assertThat(login.path("userId").asText()).isEqualTo(USER_ID);
+        String token = login.path("token").asText();
+        assertThat(token).isNotBlank();
+        assertThat(redisComponent.getCheckCode(checkCodeKey) == null)
+                .as("login consumes the synthetic captcha").isTrue();
+
+        JsonNode automaticLogin = get("/account/autoLogin", token);
+        assertCredentialSafe(automaticLogin, secrets);
+        assertThat(automaticLogin.path("userId").asText()).isEqualTo(USER_ID);
+        // The current auto-login implementation rotates the token; follow its response.
+        token = automaticLogin.path("token").asText();
+        assertThat(token).isNotBlank();
+        JsonNode profile = get("/account/getUserInfo?userId=" + otherUserId, token);
+        assertCredentialSafe(profile, secrets);
+        assertThat(profile.path("userId").asText()).isEqualTo(USER_ID);
+
+        Map<String, Object> ownUserBeforeEdit = snapshotUser(USER_ID);
+        int newSex = jdbc.queryForObject("select sex from user_info where user_id=?",
+                Integer.class, USER_ID) == 1 ? 0 : 1;
+        String newAvatar = "security/synthetic-a.png";
+        String newNickName = "Security fixture A";
+        MultiValueMap<String, String> edit = new LinkedMultiValueMap<>();
+        edit.add("avatar", newAvatar);
+        edit.add("nickName", newNickName);
+        edit.add("sex", Integer.toString(newSex));
+        edit.add("userId", otherUserId);
+        edit.add("email", "injected-profile@example.invalid");
+        edit.add("status", "0");
+        edit.add("password", injectedPassword);
+        edit.add("apiKey", injectedApiKey);
+        JsonNode updated = form("/account/updateUserInfo", edit, token);
+        assertCredentialSafe(updated, secrets);
+        assertThat(updated.path("userId").asText()).isEqualTo(USER_ID);
+
+        Map<String, Object> ownUserAfterEdit = snapshotUser(USER_ID);
+        assertThat(newAvatar.equals(ownUserAfterEdit.get("avatar")))
+                .as("only the authenticated user's avatar is edited").isTrue();
+        assertThat(newNickName.equals(ownUserAfterEdit.get("nick_name")))
+                .as("only the authenticated user's nickname is edited").isTrue();
+        assertThat(jdbc.queryForObject("select sex from user_info where user_id=?", Integer.class, USER_ID))
+                .isEqualTo(newSex);
+        assertThat(nonEditableUserFields(ownUserBeforeEdit).equals(nonEditableUserFields(ownUserAfterEdit)))
+                .as("all user columns outside avatar, nickname and sex remain unchanged").isTrue();
+        assertThat(otherUserBefore.equals(snapshotUser(otherUserId)))
+                .as("the other synthetic user's entire row is unchanged").isTrue();
+
+        JsonNode automaticLoginAfterEdit = get("/account/autoLogin", token);
+        assertCredentialSafe(automaticLoginAfterEdit, secrets);
+        assertThat(automaticLoginAfterEdit.path("userId").asText()).isEqualTo(USER_ID);
+        assertThat(newNickName.equals(automaticLoginAfterEdit.path("nickName").asText()))
+                .as("automatic login reads the updated nickname from Redis").isTrue();
+        assertThat(newAvatar.equals(automaticLoginAfterEdit.path("avatar").asText()))
+                .as("automatic login reads the updated avatar from Redis").isTrue();
+        token = automaticLoginAfterEdit.path("token").asText();
+        JsonNode refreshedProfile = get("/account/getUserInfo", token);
+        assertCredentialSafe(refreshedProfile, secrets);
+        assertThat(newNickName.equals(refreshedProfile.path("nickName").asText()))
+                .as("the edited profile remains readable").isTrue();
+
+        List<String> legacyOperations = List.of("loadDataList", "add", "addBatch", "addOrUpdateBatch",
+                "getUserInfoByUserId", "updateUserInfoByUserId", "deleteUserInfoByUserId",
+                "getUserInfoByEmail", "updateUserInfoByEmail", "deleteUserInfoByEmail",
+                "getUserInfoByNickName", "updateUserInfoByNickName", "deleteUserInfoByNickName");
+        MultiValueMap<String, String> legacyAttack = new LinkedMultiValueMap<>();
+        legacyAttack.add("userId", otherUserId);
+        legacyAttack.add("email", "security-b@example.invalid");
+        legacyAttack.add("nickName", "Security fixture B");
+        legacyAttack.add("password", injectedPassword);
+        legacyAttack.add("apiKey", injectedApiKey);
+        legacyAttack.add("status", "0");
+        for (String operation : legacyOperations) {
+            String path = "/userInfo/" + operation;
+            assertLegacyNotFound(path, http.exchange(url(path) + "?userId=" + otherUserId,
+                    HttpMethod.GET, new HttpEntity<>(headers(null, null)), JsonNode.class), secrets);
+            assertLegacyNotFound(path, http.postForEntity(url(path),
+                    new HttpEntity<>(legacyAttack, headers(null, MediaType.APPLICATION_FORM_URLENCODED)),
+                    JsonNode.class), secrets);
+        }
+        assertThat(otherUserBefore.equals(snapshotUser(otherUserId)))
+                .as("anonymous requests to all legacy routes leave the other user untouched").isTrue();
+    }
+
+    private void prepareSyntheticSecurityUser(String userId) {
+        Integer count = jdbc.queryForObject("select count(*) from user_info where user_id=?",
+                Integer.class, userId);
+        if (count == 0) {
+            jdbc.update("""
+                    insert into user_info (user_id, nick_name, avatar, email, password, sex,
+                                           join_time, status, api_key)
+                    values (?, ?, ?, ?, ?, ?, current_timestamp, ?, ?)
+                    """, userId, "Security fixture B", "security/synthetic-b.png",
+                    "security-b@example.invalid", StringTools.encodeByMD5("SyntheticB123"),
+                    2, 1, "synthetic-security-b-key");
+        }
+        assertThat("security-b@example.invalid".equals(jdbc.queryForObject(
+                "select email from user_info where user_id=?", String.class, userId)))
+                .as("only the expected synthetic secondary user may be reused").isTrue();
+    }
+
+    private Map<String, Object> snapshotUser(String userId) {
+        return jdbc.queryForMap("select * from user_info where user_id=?", userId);
+    }
+
+    private static Map<String, Object> nonEditableUserFields(Map<String, Object> row) {
+        Map<String, Object> fields = new HashMap<>(row);
+        fields.remove("avatar");
+        fields.remove("nick_name");
+        fields.remove("sex");
+        return fields;
+    }
+
+    private static void assertCredentialSafe(JsonNode payload, List<String> secrets) {
+        assertThat(payload.findValues("password").isEmpty())
+                .as("password is absent from the HTTP payload").isTrue();
+        assertThat(payload.findValues("apiKey").isEmpty() && payload.findValues("api_key").isEmpty())
+                .as("API key is absent from the HTTP payload").isTrue();
+        String json = payload.toString();
+        for (String secret : secrets) {
+            assertThat(json.contains(secret)).as("credential values cannot escape through HTTP").isFalse();
+        }
+    }
+
+    private static void assertLegacyNotFound(String path, ResponseEntity<JsonNode> response,
+                                           List<String> secrets) {
+        assertThat(response.getStatusCode().is2xxSuccessful()).as("%s keeps the existing error envelope", path)
+                .isTrue();
+        JsonNode body = Objects.requireNonNull(response.getBody());
+        assertThat(body.path("code").asInt()).as("%s is closed to anonymous requests", path).isEqualTo(404);
+        assertCredentialSafe(body, secrets);
     }
 
     private Integer stock(String skuHash) {
