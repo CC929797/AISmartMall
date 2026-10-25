@@ -1,0 +1,120 @@
+{
+  "recordedAt": "2026-10-25T16:10:59.4192873+08:00",
+  "stage": "00",
+  "java": "Microsoft 21.0.11",
+  "maven": "3.6.3",
+  "powershell": "7.6.5",
+  "node": "22.15.0",
+  "npm": "10.9.2",
+  "springBoot": "3.5.4",
+  "springAi": "1.1.2",
+  "unitSuites": [
+    {
+      "module": "easymall-common",
+      "name": "com.easymall.config.BaselineTestConfigTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "easymall-common",
+      "name": "com.easymall.entity.query.SimplePageTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "easymall-web",
+      "name": "com.easymall.controller.ProductControllerBaselineTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "integration": {
+    "name": "com.easymall.controller.BaselineSmokeIT",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "payment": "Mockito",
+    "model": "loopback deterministic fixture",
+    "toolProvider": "empty test implementation",
+    "database": "dedicated easymall_test",
+    "stockRestored": true
+  },
+  "package": {
+    "exitCode": 0,
+    "allModules": true,
+    "log": "runtime/phase0/package-build.log"
+  },
+  "frontend": [
+    {
+      "name": "web",
+      "exitCode": 0,
+      "indexSha256": "330FBD0F2CD1DE95D62645330FEADF9401B71E215B7693C045C787A5C826B781",
+      "outputDirectory": "runtime/phase0/frontend-web",
+      "emptyOutDir": false,
+      "modules": 3699,
+      "durationSeconds": 25.07
+    },
+    {
+      "name": "admin",
+      "exitCode": 0,
+      "indexSha256": "485B6D6754E3CA5456DFF3D89B689E68419F49C6D7DB60CDA8F8310FDF9C33F8",
+      "outputDirectory": "runtime/phase0/frontend-admin",
+      "emptyOutDir": false,
+      "modules": 4266,
+      "durationSeconds": 29.4
+    }
+  ],
+  "sourceDatabaseVersion": "8.0.43",
+  "isolatedServices": {
+    "mysql": "8.4.9",
+    "redis": "8.2.0",
+    "elasticsearch": "9.2.1",
+    "analysisIk": "9.2.1",
+    "ports": [
+      13306,
+      16379,
+      19200
+    ],
+    "stateAfterVerification": "stopped; data and volumes retained"
+  },
+  "jarEndpointProbes": {
+    "webCategoryHttp": 200,
+    "adminCaptchaHttp": 200,
+    "mcpInitializeHttp": 200,
+    "webSocketStartupPort": 6051
+  },
+  "modelMock": {
+    "status": "ok",
+    "synthetic": true,
+    "models": {
+      "chat": "baseline-chat",
+      "embedding": "baseline-embedding"
+    },
+    "embeddingDimensions": 1024,
+    "counters": {
+      "requestsTotal": 9,
+      "healthRequests": 5,
+      "chatRequests": 2,
+      "intentResponses": 1,
+      "streamResponses": 1,
+      "embeddingRequests": 2,
+      "embeddingItems": 2,
+      "errors": 0
+    }
+  },
+  "limitations": [
+    "No real model quality measurement",
+    "No real payment/refund execution",
+    "No browser interaction verification",
+    "Known uppercase wildcard search difference",
+    "Known cancellation route writes CLOSED(5)",
+    "Known consumer shutdown retries"
+  ]
+}

@@ -1,0 +1,46 @@
+# Copy to mcp.yml and select explicitly with --spring.config.location.
+server:
+  address: 127.0.0.1
+  port: 8084
+spring:
+  main:
+    web-application-type: reactive
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:13306/easymall_test?useSSL=false&serverTimezone=GMT%2B8&characterEncoding=utf8}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:16379}
+  elasticsearch:
+    uris: ${ES_URIS:http://127.0.0.1:19200}
+  ai:
+    mcp:
+      server:
+        protocol: STREAMABLE
+        name: easymall-mcp
+        version: 1.0.0
+        streamable-http:
+          mcp-endpoint: /mcp
+          keep-alive-interval: 60s
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+project:
+  folder: ${PROJECT_FOLDER:./target/local-files/}
+  auto-checkpay: false
+alipay:
+  appid: ${ALIPAY_APP_ID:unconfigured}
+  appPrivateKey: ${ALIPAY_PRIVATE_KEY:unconfigured}
+  appCertPath: ${ALIPAY_APP_CERT_PATH:unconfigured}
+  alipayPublicCertPath: ${ALIPAY_PUBLIC_CERT_PATH:unconfigured}
+  alipayRootCertPath: ${ALIPAY_ROOT_CERT_PATH:unconfigured}
+  serverUrl: ${ALIPAY_SERVER_URL:http://127.0.0.1:1}
+logging:
+  level:
+    root: INFO
+log:
+  root:
+    level: info

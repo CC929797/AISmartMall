@@ -1,0 +1,72 @@
+# Independent stage-0 infrastructure. Select the project with -p easymall-baseline.
+# Supply a private --env-file containing the two required baseline passwords.
+# No container names, external volumes or existing development volumes are used.
+# All published ports bind to loopback; images must already exist locally.
+services:
+  mysql:
+    image: mysql:8
+    pull_policy: never
+    restart: "no"
+    environment:
+      MYSQL_DATABASE: easymall_test
+      MYSQL_USER: baseline
+      MYSQL_PASSWORD: ${BASELINE_DB_PASSWORD:?Set BASELINE_DB_PASSWORD in a private env file}
+      MYSQL_ROOT_PASSWORD: ${BASELINE_MYSQL_ROOT_PASSWORD:?Set BASELINE_MYSQL_ROOT_PASSWORD in a private env file}
+    ports:
+      - "127.0.0.1:13306:3306"
+    volumes:
+      - baseline-mysql-data:/var/lib/mysql
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_PASSWORD}\" mysql --protocol=TCP --host=127.0.0.1 --user=baseline --database=easymall_test --batch --skip-column-names --execute='SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 40s
+
+  redis:
+    image: redis:8.2.0
+    pull_policy: never
+    restart: "no"
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:16379:6379"
+    volumes:
+      - baseline-redis-data:/data
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  elasticsearch:
+    image: local/elasticsearch-analysis-ik:9.2.1
+    pull_policy: never
+    restart: "no"
+    environment:
+      node.name: easymall-baseline-node
+      cluster.name: easymall-baseline
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.security.enrollment.enabled: "false"
+      xpack.security.http.ssl.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "127.0.0.1:19200:9200"
+    volumes:
+      - baseline-elasticsearch-data:/usr/share/elasticsearch/data
+    mem_limit: 1536m
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent 'http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 60s
+
+# Compose prefixes these new volume names with the explicitly selected project.
+volumes:
+  baseline-mysql-data:
+  baseline-redis-data:
+  baseline-elasticsearch-data:

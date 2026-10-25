@@ -1,2 +1,6 @@
 .idea
 runtime
+**/target/
+/easymall-java/config/local/web.yml
+/easymall-java/config/local/admin.yml
+/easymall-java/config/local/mcp.yml

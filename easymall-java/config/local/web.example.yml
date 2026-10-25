@@ -1,0 +1,82 @@
+# Copy to web.yml, set environment variables, use --spring.config.location.
+# Dedicated integration infrastructure is required; these ports are examples.
+# This configuration is NOT a payment mock or a switch for all consumers.
+server:
+  address: 127.0.0.1
+  port: 6050
+  servlet:
+    context-path: /api
+ws:
+  port: 6051
+spring:
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:13306/easymall_test?useSSL=false&serverTimezone=GMT%2B8&characterEncoding=utf8}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:16379}
+  elasticsearch:
+    uris: ${ES_URIS:http://127.0.0.1:19200}
+  ai:
+    model:
+      chat: openai
+      embedding: openai
+    openai:
+      api-key: ${AI_API_KEY}
+      base-url: ${AI_BASE_URL}
+      chat:
+        completions-path: ${AI_CHAT_PATH:/v1/chat/completions}
+        options:
+          model: ${AI_CHAT_MODEL}
+      embedding:
+        embeddings-path: ${AI_EMBEDDING_PATH:/v1/embeddings}
+        options:
+          model: ${AI_EMBEDDING_MODEL}
+    vectorstore:
+      elasticsearch:
+        initialize-schema: false
+        index-name: ${AI_VECTOR_INDEX:easymall-test-vectorstore}
+        dimensions: ${AI_VECTOR_DIMENSIONS:1024}
+    mcp:
+      client:
+        enabled: true
+        name: easymall-local-client
+        version: 1.0.0
+        request-timeout: 30s
+        type: sync
+        streamable-http:
+          connections:
+            mcp-server:
+              url: ${MCP_BASE_URL:http://127.0.0.1:8084}
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+project:
+  folder: ${PROJECT_FOLDER:./target/local-files/}
+  domain: ${PROJECT_DOMAIN:http://127.0.0.1:6001}
+  auto-checkpay: false
+order:
+  expire:
+    minute: 10
+  confirm:
+    minute: 15
+alipay:
+  appid: ${ALIPAY_APP_ID:unconfigured}
+  appPrivateKey: ${ALIPAY_PRIVATE_KEY:unconfigured}
+  appCertPath: ${ALIPAY_APP_CERT_PATH:unconfigured}
+  alipayPublicCertPath: ${ALIPAY_PUBLIC_CERT_PATH:unconfigured}
+  alipayRootCertPath: ${ALIPAY_ROOT_CERT_PATH:unconfigured}
+  serverUrl: ${ALIPAY_SERVER_URL:http://127.0.0.1:1}
+logging:
+  level:
+    root: INFO
+log:
+  root:
+    level: info

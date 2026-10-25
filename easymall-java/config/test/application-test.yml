@@ -1,0 +1,52 @@
+# Used only by Surefire. No Boot application is started by the baseline tests.
+# These deliberately unavailable local endpoints prevent fallback to dev settings.
+# A future full-context integration test must explicitly mock startup consumers,
+# schedulers, Netty, Redisson, ES initialization, model clients and payment beans.
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:1/easymall_test?connectTimeout=1000&socketTimeout=1000
+    username: test-placeholder
+    password: test-placeholder
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 1
+      connect-timeout: 1s
+      timeout: 1s
+  elasticsearch:
+    uris: http://127.0.0.1:1
+    connection-timeout: 1s
+    socket-timeout: 1s
+  ai:
+    model:
+      chat: none
+      embedding: none
+    openai:
+      base-url: http://127.0.0.1:1
+      api-key: test-placeholder
+    mcp:
+      client:
+        enabled: false
+      server:
+        enabled: false
+    vectorstore:
+      elasticsearch:
+        initialize-schema: false
+        index-name: easymall-test-vectorstore
+project:
+  folder: ./target/baseline-files/
+  domain: http://127.0.0.1:1
+  auto-checkpay: false
+ws:
+  port: 0
+admin:
+  account: test-placeholder
+  password: test-placeholder
+alipay:
+  appid: test-placeholder
+  appPrivateKey: test-placeholder
+  appCertPath: test-placeholder
+  alipayPublicCertPath: test-placeholder
+  alipayRootCertPath: test-placeholder
+  serverUrl: http://127.0.0.1:1
