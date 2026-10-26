@@ -28,7 +28,14 @@ docker compose -p easymall-baseline --env-file ../runtime/phase0/baseline.env -f
 
 ## 显式集成烟测
 
-先启动下方模型替身，再在设置了 JDK 21 的另一个终端执行：
+先启动下方模型替身。步骤 02 起还需要运行本轮打包的管理端（6061），使用 prepare-baseline-config 生成的合成管理员与隔离数据配置；用于验证后台封禁能跨进程关闭 WebSocket。在设置了 JDK 21 的其他终端分别执行：
+
+```powershell
+# 完成普通 package 后，在单独终端启动，保持运行直到集成验收结束
+java -jar ./easymall-admin/target/easymall-admin-1.0.0.jar --spring.config.location=file:./config/local/admin.yml --spring.profiles.active=baseline
+```
+
+确认 6061 与 WebSocket 6051 没有其他项目占用；不得对已运行的日常开发服务执行本集成测试。
 
 ```powershell
 $baselineRepo = Join-Path (Split-Path (Get-Location).Path -Parent) 'runtime/phase0/maven-repository'
@@ -39,7 +46,9 @@ mvn "-Dmaven.repo.local=$baselineRepo" -Dmaven.test.skip=false -DskipTests=false
 
 测试使用实际隔离 MySQL/Redis/ES，完成匿名浏览、验证码登录、ES 搜索、提交订单、本人订单查询、AI 消息保存及成功后的业务关闭与库存恢复。保留合成订单、消息和日志作为证据，不删除记录。断言失败时不使用 SQL 重置；应先检查失败原因和遗留状态。当前取消接口写入状态 5 的既有行为由基线记录，未在阶段 0 修复。
 
-结束后在模型终端按 Ctrl+C，使用以下命令停止本次测试容器并保留所有卷和数据：
+步骤 02 另覆盖默认鉴权、真实 Redis Lua 防会话复活、Token 退出/过期、真实 WebSocket 撤销、Admin 跨进程封禁和 A/B 订单/地址/评论隔离。测试仅操作已守卫的合成用户与 fixture；新增完成态订单/评价/地址保留作为证据，封禁测试在 finally 中解封并撤销会话。完整对比与限制见 [步骤 02 验证记录](../docs/verification/02-authentication-boundary.md)。
+
+结束后在模型和合成管理端终端按 Ctrl+C，使用以下命令停止本次测试容器并保留所有卷和数据：
 
 ```powershell
 docker compose -p easymall-baseline --env-file ../runtime/phase0/baseline.env -f compose.baseline.yml stop

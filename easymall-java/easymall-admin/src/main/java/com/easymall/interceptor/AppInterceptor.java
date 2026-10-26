@@ -4,6 +4,9 @@ import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.exception.BusinessException;
+import com.easymall.controller.AccountController;
+import com.easymall.controller.FileController;
+import com.easymall.security.CurrentUser;
 import com.easymall.utils.StringTools;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,46 +14,55 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
-import org.springframework.web.servlet.ModelAndView;
+
+import java.lang.reflect.Method;
+import java.util.Map;
 
 @Component
 public class AppInterceptor implements HandlerInterceptor {
 
-    private final static String URL_ACCOUNT = "/account";
-    private final static String URL_FILE = "/file/getResource";
+    private static final Map<Method, String> PUBLIC_HANDLERS = publicHandlers();
 
     @Resource
     private RedisComponent redisComponent;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        request.removeAttribute(CurrentUser.class.getName());
         if (null == handler) {
             return false;
         }
-        if (!(handler instanceof HandlerMethod)) {
+        if (!(handler instanceof HandlerMethod handlerMethod)) {
             return true;
         }
-        if (request.getRequestURI().contains(URL_ACCOUNT) || request.getRequestURI().contains(URL_FILE)) {
+        String publicPath = PUBLIC_HANDLERS.get(handlerMethod.getMethod());
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        if (publicPath != null && publicPath.equals(path)) {
             return true;
         }
         String token = request.getHeader(Constants.TOKEN_ADMIN);
         if (StringTools.isEmpty(token)) {
             throw new BusinessException(ResponseCodeEnum.CODE_901);
         }
-        Object sessionObj = redisComponent.getLoginInfo4Admin(token);
-        if (sessionObj == null) {
+        String account = redisComponent.getLoginInfo4Admin(token);
+        if (StringTools.isEmpty(account)) {
             throw new BusinessException(ResponseCodeEnum.CODE_901);
         }
+        request.setAttribute(CurrentUser.class.getName(),
+                new CurrentUser(account, account, null, CurrentUser.Role.ADMIN));
         return true;
     }
 
-    @Override
-    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
-        HandlerInterceptor.super.postHandle(request, response, handler, modelAndView);
-    }
-
-    @Override
-    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
-        HandlerInterceptor.super.afterCompletion(request, response, handler, ex);
+    private static Map<Method, String> publicHandlers() {
+        try {
+            return Map.of(
+                    AccountController.class.getMethod("checkCode"), "/account/checkCode",
+                    AccountController.class.getMethod("login", String.class, String.class,
+                            String.class, String.class), "/account/login",
+                    FileController.class.getMethod("getResource", HttpServletResponse.class, String.class),
+                    "/file/getResource");
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException("后台管理模块的公开处理器配置，和实际 Controller 的路由/端点定义不一致", e);
+        }
     }
 }

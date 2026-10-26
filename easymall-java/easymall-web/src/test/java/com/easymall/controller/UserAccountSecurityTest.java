@@ -5,6 +5,8 @@ import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.dto.TokenUserInfoDTO;
 import com.easymall.entity.po.UserInfo;
 import com.easymall.service.UserInfoService;
+import com.easymall.security.UserAuthenticationService;
+import com.easymall.security.WebAuthenticationConfiguration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -16,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -24,17 +27,20 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Uses the real login aspect and MVC mappings, with in-memory service replacements. */
+/** 使用真实登录切面和 MVC 路由，业务服务及 Redis 由内存替身隔离。 */
 class UserAccountSecurityTest {
     private static final String USER_A = "ACCOUNT001";
     private static final String USER_B = "ACCOUNT002";
@@ -55,8 +61,14 @@ class UserAccountSecurityTest {
         context.setServletContext(new MockServletContext());
         users = mock(UserInfoService.class);
         redis = mock(RedisComponent.class);
-        // Register replacements directly so Spring does not inject infrastructure
-        // fields into the RedisComponent mock itself.
+        UserInfo enabled = new UserInfo();
+        enabled.setUserId(USER_A);
+        enabled.setNickName("A");
+        enabled.setAvatar("synthetic-avatar.png");
+        enabled.setStatus(1);
+        when(users.getUserInfoByUserId(USER_A)).thenReturn(enabled);
+        when(redis.getCurrentToken(USER_A)).thenReturn(TOKEN_A);
+        // 直接注册测试替身，避免 Spring 向 RedisComponent 的 Mock 对象注入基础设施依赖。
         context.addBeanFactoryPostProcessor(factory -> {
             factory.registerSingleton("userInfoService", users);
             factory.registerSingleton("redisComponent", redis);
@@ -77,7 +89,7 @@ class UserAccountSecurityTest {
             "getUserInfoByEmail", "updateUserInfoByEmail", "deleteUserInfoByEmail",
             "getUserInfoByNickName", "updateUserInfoByNickName", "deleteUserInfoByNickName"})
     void generatedCrudHasNoAnonymousHttpMapping(String operation) throws Exception {
-        // JSON [] also makes the old bulk routes valid requests before the fix.
+        // 发送 JSON 空数组，保证修复前的旧批量接口也能接收到合法请求。
         mvc.perform(get("/userInfo/" + operation).contentType("application/json").content("[]")
                         .param("userId", USER_B).param("email", "b@example.invalid").param("nickName", "B"))
                 .andExpect(jsonPath("$.code").value(404));
@@ -93,6 +105,7 @@ class UserAccountSecurityTest {
         owner.setNickName("A");
         owner.setAvatar("synthetic-avatar.png");
         owner.setSex(2);
+        owner.setStatus(1);
         owner.setPassword(PASSWORD);
         owner.setApiKey(API_KEY);
         when(users.getUserInfoByUserId(USER_A)).thenReturn(owner);
@@ -104,7 +117,7 @@ class UserAccountSecurityTest {
                 .andReturn().getResponse().getContentAsString();
         assertSafe(body);
         assertThat(JSON.readTree(body).path("data").size()).isEqualTo(5);
-        verify(users).getUserInfoByUserId(USER_A);
+        verify(users, times(2)).getUserInfoByUserId(USER_A);
     }
 
     @Test
@@ -163,11 +176,28 @@ class UserAccountSecurityTest {
         verify(redis).deleteCheckCode("synthetic-check-key");
 
         when(redis.getTokenInfo(TOKEN_A)).thenReturn(token);
+        when(redis.refreshTokenInfo(any())).thenReturn(true);
         String auto = mvc.perform(post("/account/autoLogin").header("token", TOKEN_A))
                 .andExpect(jsonPath("$.code").value(200)).andReturn().getResponse().getContentAsString();
         assertSafe(auto);
         assertThat(JSON.readTree(auto).path("data").path("userId").asText()).isEqualTo(USER_A);
-        verify(redis).saveTokenInfo(token);
+        ArgumentCaptor<TokenUserInfoDTO> automaticSession = ArgumentCaptor.forClass(TokenUserInfoDTO.class);
+        verify(redis).refreshTokenInfo(automaticSession.capture());
+        assertThat(automaticSession.getValue().getUserId()).isEqualTo(USER_A);
+        assertThat(automaticSession.getValue().getToken()).isEqualTo(TOKEN_A);
+        assertThat(automaticSession.getValue().getNickName()).isEqualTo("A");
+        assertThat(automaticSession.getValue().getAvatar()).isEqualTo("synthetic-avatar.png");
+        assertThat(JSON.readTree(auto).path("data").path("token").asText()).isEqualTo(TOKEN_A);
+        verify(redis, never()).saveTokenInfo(any());
+    }
+
+    @Test
+    void autoLoginCannotRecreateASessionRevokedAfterAuthentication() throws Exception {
+        when(redis.getTokenInfo(TOKEN_A)).thenReturn(session());
+        when(redis.refreshTokenInfo(any())).thenReturn(false);
+        mvc.perform(post("/account/autoLogin").header("token", TOKEN_A))
+                .andExpect(jsonPath("$.code").value(901));
+        verify(redis, never()).saveTokenInfo(any());
     }
 
     @Test
@@ -197,6 +227,7 @@ class UserAccountSecurityTest {
     @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
     @EnableAspectJAutoProxy(proxyTargetClass = true)
+    @Import({WebAuthenticationConfiguration.class, UserAuthenticationService.class})
     static class WebFixture {
         @Bean AccountController accountController() { return new AccountController(); }
         @Bean UserInfoController legacyUserInfoController() { return new UserInfoController(); }

@@ -4,8 +4,6 @@ import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -22,13 +20,11 @@ public class HandlerHeartBeat extends ChannelDuplexHandler {
         if (evt instanceof IdleStateEvent) {
             IdleStateEvent e = (IdleStateEvent) evt;
             if (e.state() == IdleState.READER_IDLE) {
-                Attribute<String> attribute = ctx.channel().attr(AttributeKey.valueOf(ctx.channel().id().toString()));
-                String userId = attribute.get();
-                log.error("用户：{}没有发送心跳，断开连接", userId);
+                log.debug("WebSocket 读端空闲，正在关闭连接");
                 ctx.close();
-            }else if (e.state() == IdleState.WRITER_IDLE) {
-                ctx.writeAndFlush("heart");
             }
+        } else {
+            ctx.fireUserEventTriggered(evt);
         }
     }
 }

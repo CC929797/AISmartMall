@@ -1,11 +1,12 @@
 package com.easymall.interceptor;
 
 import jakarta.annotation.Resource;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.handler.MappedInterceptor;
 
 import java.util.List;
 
@@ -20,9 +21,9 @@ public class WebAppConfigurer implements WebMvcConfigurer {
 
     }
 
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(appInterceptor).addPathPatterns("/**");
+    @Bean
+    public MappedInterceptor adminAuthenticationInterceptor() {
+        return new MappedInterceptor(new String[]{"/**"}, appInterceptor);
     }
 
     /**

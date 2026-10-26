@@ -1,0 +1,342 @@
+{
+  "step": "02",
+  "date": "2026-10-26",
+  "timezone": "Asia/Shanghai",
+  "status": "implemented_and_http_websocket_verified",
+  "sourceBaseline": "fff0175",
+  "java": "Microsoft JDK 21.0.11",
+  "maven": "3.9.14",
+  "ordinary": {
+    "previousTests": 44,
+    "tests": 137,
+    "addedTests": 93,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "modules": [
+      {
+        "module": "easymall-common",
+        "tests": 58,
+        "suites": [
+          {
+            "name": "com.easymall.config.BaselineTestConfigTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.entity.po.UserInfoSerializationTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.entity.query.SimplePageTest",
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.security.RedisSessionLoggingTest",
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.security.RedisSessionRevocationTest",
+            "tests": 14,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.security.UserAuthenticationServiceTest",
+            "tests": 15,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.BusinessResourceOwnershipTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.UserAddressOwnershipTest",
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.utils.JsonUtilsLoggingTest",
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      },
+      {
+        "module": "easymall-admin",
+        "tests": 15,
+        "suites": [
+          {
+            "name": "com.easymall.controller.UserControllerSecurityTest",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.interceptor.AppInterceptorSecurityTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      },
+      {
+        "module": "easymall-web",
+        "tests": 64,
+        "suites": [
+          {
+            "name": "com.easymall.controller.ProductControllerBaselineTest",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.UserAccountSecurityTest",
+            "tests": 21,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.UserResourceBoundaryTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.WebAuthenticationBoundaryTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.ChannelContextSecurityRegressionTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.ChannelContextSecurityTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.netty.WebSocketAuthenticationTest",
+            "tests": 9,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.WebSocketSessionRevocationListenerTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      }
+    ]
+  },
+  "package": {
+    "status": "passed",
+    "modules": [
+      "easymall-common",
+      "easymall-admin",
+      "easymall-web",
+      "easymall-mcp"
+    ],
+    "seconds": 51.363,
+    "log": "runtime/phase1/step02/02-package-final.log",
+    "ignoreTestFailures": false
+  },
+  "integration": {
+    "previousTests": 2,
+    "tests": 7,
+    "addedTests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suiteSeconds": 30.997,
+    "log": "runtime/phase1/step02/02-integration-final.log",
+    "cases": [
+      {
+        "name": "realWebSocketsCloseOnLogoutAndExpireEvenWithoutClientTraffic",
+        "seconds": 14.68
+      },
+      {
+        "name": "adminProcessBanImmediatelyClosesWebSocketAndSeparatesUserAndAdminTokens",
+        "seconds": 0.177
+      },
+      {
+        "name": "userProfileBoundaryAndClosedCrudProtectBothSyntheticUsers",
+        "seconds": 0.301
+      },
+      {
+        "name": "bothRealUsersCanReadTheirOwnResourcesButCannotReadOrChangeEachOthersResources",
+        "seconds": 0.382
+      },
+      {
+        "name": "realHttpKeepsPublicBrowsingAndProtectsPrivateHandlersByDefault",
+        "seconds": 0.09
+      },
+      {
+        "name": "realRedisScriptsPreserveNewLoginAndNeverReviveRevokedOrExpiredSnapshots",
+        "seconds": 1.123
+      },
+      {
+        "name": "browseLoginSearchOrderAndAiCompleteAgainstIsolatedServices",
+        "seconds": 1.323
+      }
+    ],
+    "infrastructure": "isolated MySQL13306 Redis16379 ES19200 WebSocket6051 Admin6061 loopback model18080",
+    "payment": "Mockito",
+    "mcpTools": "empty provider"
+  },
+  "verifiedBehaviors": [
+    "exact public handlers remain anonymous",
+    "unannotated future handlers reject anonymous access",
+    "anonymous image upload never reaches storage",
+    "dev property cannot create a user",
+    "USER and ADMIN tokens remain isolated",
+    "A/B order address comment access rejected and rows unchanged",
+    "actual JSON Redis serializer supports compare-delete and conditional refresh",
+    "autoLogin preserves the current token and cannot recreate a revoked session",
+    "logout revokes HTTP and closes real WebSocket within five-second test deadline",
+    "admin ban crosses JVM processes and closes existing WebSocket within five-second test deadline",
+    "idle expired WebSocket closes within twenty-second test deadline",
+    "synthetic private frame traverses Redis Topic and actual WebSocket"
+  ],
+  "beforeFix": [
+    {
+      "suite": "RedisSessionRevocationTest",
+      "tests": 8,
+      "failures": 6
+    },
+    {
+      "suite": "UserAddressOwnershipTest",
+      "tests": 4,
+      "failures": 4
+    },
+    {
+      "suite": "AppInterceptorSecurityTest",
+      "tests": 7,
+      "failures": 5
+    },
+    {
+      "suite": "WebAuthenticationBoundaryTest",
+      "tests": 7,
+      "failures": 7
+    },
+    {
+      "suite": "ChannelContextSecurityRegressionTest",
+      "tests": 1,
+      "failures": 1
+    },
+    {
+      "suite": "UserResourceBoundaryTest",
+      "tests": 6,
+      "failures": 3
+    },
+    {
+      "suite": "BusinessResourceOwnershipTest",
+      "tests": 7,
+      "failures": 0
+    }
+  ],
+  "frontends": [
+    {
+      "frontend": "web",
+      "status": "passed",
+      "seconds": 17.8,
+      "indexSha256": "F648354523A4222F1F1343652DD938336BC1C604D1A802E8AEB93C362A91810F"
+    },
+    {
+      "frontend": "admin",
+      "status": "passed",
+      "seconds": 23.62,
+      "indexSha256": "485B6D6754E3CA5456DFF3D89B689E68419F49C6D7DB60CDA8F8310FDF9C33F8"
+    }
+  ],
+  "model": {
+    "synthetic": true,
+    "errors": 0,
+    "realModelEvaluated": false
+  },
+  "compatibility": {
+    "tokenHeaders": [
+      "token",
+      "adminToken"
+    ],
+    "responseLoginExpiredCode": 901,
+    "passwordProtocolChanged": false,
+    "databaseSchemaChanged": false,
+    "autoLoginRotatesToken": false
+  },
+  "limits": [
+    "browser click-through not separately exercised",
+    "throughput and concurrency load not measured",
+    "private frame fixture is transport verification, not real model output quality",
+    "full authentication-version coordination for in-flight password login and ban remains follow-up",
+    "already-authorized in-flight tasks are not transactionally cancelled",
+    "original search-case cancellation-status and RagDataTask shutdown-loop issues remain"
+  ],
+  "git": {
+    "committedByAgent": false,
+    "stagedByAgent": false,
+    "existingUntrackedDocsPreserved": true,
+    "frontendExistingIdeaAndDistPreserved": true
+  },
+  "endState": {
+    "ownedAdminStopped": true,
+    "ownedModelStopped": true,
+    "baselineContainersStopped": true,
+    "deletedContainers": false,
+    "deletedVolumes": false,
+    "remainingTestPorts": [],
+    "existingDevelopmentPorts": [
+      3306,
+      9200,
+      6379
+    ]
+  },
+  "finalDiffChecks": {
+    "backend": "passed",
+    "frontend": "passed"
+  },
+  "webSocketPathCompatibilityFix": {
+    "record": "02-websocket-path-results.json",
+    "tests": 147,
+    "realTransportTests": 4,
+    "status": "passed"
+  }
+}

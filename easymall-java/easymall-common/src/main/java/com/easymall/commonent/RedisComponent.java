@@ -5,7 +5,11 @@ import com.easymall.entity.dto.LogisticsSendDTO;
 import com.easymall.entity.dto.RagDataDTO;
 import com.easymall.entity.dto.TokenUserInfoDTO;
 import com.easymall.entity.po.SysCategory;
+import com.easymall.entity.enums.ResponseCodeEnum;
+import com.easymall.exception.BusinessException;
 import com.easymall.redis.RedisUtils;
+import com.easymall.security.SessionRevokedEvent;
+import com.easymall.utils.JsonUtils;
 import com.easymall.utils.StringTools;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotEmpty;
@@ -13,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBlockingDeque;
 import org.redisson.api.RedissonClient;
 import org.redisson.codec.JsonJacksonCodec;
+import org.redisson.client.codec.StringCodec;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -62,7 +67,9 @@ public class RedisComponent {
      */
     public String saveTokenInfoAdmin(String account) {
         String token = UUID.randomUUID().toString();
-        redisUtils.setex(Constants.REDIS_KEY_TOKEN_ADMIN + token,account,Constants.REDIS_KEY_EXPIRES_DAY);
+        if (!redisUtils.setex(Constants.REDIS_KEY_TOKEN_ADMIN + token,account,Constants.REDIS_KEY_EXPIRES_DAY)) {
+            throw new BusinessException(ResponseCodeEnum.CODE_500);
+        }
         return token;
     }
 
@@ -71,7 +78,9 @@ public class RedisComponent {
      * @param token
      */
     public void cleanTokenInfoAdmin(String token) {
-        redisUtils.delete(Constants.REDIS_KEY_TOKEN_ADMIN + token);
+        if (!StringTools.isEmpty(token)) {
+            redisUtils.delete(Constants.REDIS_KEY_TOKEN_ADMIN + token);
+        }
     }
 
     /**
@@ -80,7 +89,8 @@ public class RedisComponent {
      * @return
      */
     public String getLoginInfo4Admin(String token) {
-        return (String) redisUtils.get(Constants.REDIS_KEY_TOKEN_ADMIN + token);
+        Object account = redisUtils.get(Constants.REDIS_KEY_TOKEN_ADMIN + token);
+        return account instanceof String ? (String) account : null;
     }
 
     /**
@@ -103,6 +113,9 @@ public class RedisComponent {
      * @param tokenUserInfoDTO
      */
     public void saveTokenInfo(TokenUserInfoDTO tokenUserInfoDTO) {
+        if (tokenUserInfoDTO == null || StringTools.isEmpty(tokenUserInfoDTO.getUserId())) {
+            throw new BusinessException(ResponseCodeEnum.CODE_901);
+        }
         //先清除旧的token
         cleanUserInfo(tokenUserInfoDTO.getUserId());
         // 生成token
@@ -110,17 +123,24 @@ public class RedisComponent {
         tokenUserInfoDTO.setToken(token);
         // 把token存入redis当中，键为userId,以便在后续禁用用户或者想要查询用户token时可以直接删除或者获取
         // 把token的信息tokenUserInfoDTO存入Redis当中
-        redisUtils.setex(Constants.REDIS_KEY_TOKEN_WEB + token,tokenUserInfoDTO,Constants.REDIS_KEY_EXPIRES_DAY * 7);
-        redisUtils.setex(Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId(),token,Constants.REDIS_KEY_EXPIRES_DAY * 7);
+        boolean saved = redisUtils.setex(Constants.REDIS_KEY_TOKEN_WEB + token,tokenUserInfoDTO,Constants.REDIS_KEY_EXPIRES_DAY * 7);
+        boolean indexed = saved && redisUtils.setex(Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId(),token,Constants.REDIS_KEY_EXPIRES_DAY * 7);
+        if (!indexed) {
+            redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
+            redisUtils.compareAndDelete(Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId(), token);
+            throw new BusinessException(ResponseCodeEnum.CODE_500);
+        }
     }
 
     public void cleanUserInfo(String userId) {
-        String token =  (String) redisUtils.get(Constants.REDIS_KEY_TOKEN_USERID_WEB + userId);
+        String token = getCurrentToken(userId);
         if (StringTools.isEmpty(token)) {
             return;
         }
 
         redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
+        redisUtils.compareAndDelete(Constants.REDIS_KEY_TOKEN_USERID_WEB + userId, token);
+        publishSessionRevoked(userId, token);
     }
 
     /**
@@ -128,11 +148,13 @@ public class RedisComponent {
      * @param userId
      */
     public void forceLogout(String userId){
-        String token = (String)redisUtils.get(Constants.REDIS_KEY_TOKEN_USERID_WEB + userId);
+        String token = getCurrentToken(userId);
         if (!StringTools.isEmpty(token)) {
             redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
+            redisUtils.compareAndDelete(Constants.REDIS_KEY_TOKEN_USERID_WEB + userId, token);
         }
-        redisUtils.delete(Constants.REDIS_KEY_TOKEN_USERID_WEB + userId);
+        // 即使用户到 Token 的反向映射已过期，其他节点仍可能保留该用户的 WebSocket 连接。
+        publishSessionRevoked(userId, null);
     }
 
     /**
@@ -148,7 +170,8 @@ public class RedisComponent {
         redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
 
         if (tokenUserInfoDTO != null) {
-            redisUtils.delete(Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId());
+            redisUtils.compareAndDelete(Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId(), token);
+            publishSessionRevoked(tokenUserInfoDTO.getUserId(), token);
         }
     }
 
@@ -157,8 +180,18 @@ public class RedisComponent {
      * @param tokenUserInfoDTO
      */
     public void updateTokenInfo(TokenUserInfoDTO tokenUserInfoDTO) {
-        redisUtils.setex(Constants.REDIS_KEY_TOKEN_WEB + tokenUserInfoDTO.getToken(),tokenUserInfoDTO,Constants.REDIS_KEY_EXPIRES_DAY * 7);
-        redisUtils.setex(Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId(),tokenUserInfoDTO.getToken(),Constants.REDIS_KEY_EXPIRES_DAY * 7);
+        refreshTokenInfo(tokenUserInfoDTO);
+    }
+
+    /** 仅续期仍有效的当前会话，防止已经开始执行的旧请求在退出后重新创建会话。 */
+    public boolean refreshTokenInfo(TokenUserInfoDTO tokenUserInfoDTO) {
+        if (tokenUserInfoDTO == null || StringTools.isEmpty(tokenUserInfoDTO.getUserId())
+                || StringTools.isEmpty(tokenUserInfoDTO.getToken())) {
+            return false;
+        }
+        return redisUtils.replaceSessionIfCurrent(Constants.REDIS_KEY_TOKEN_WEB + tokenUserInfoDTO.getToken(),
+                Constants.REDIS_KEY_TOKEN_USERID_WEB + tokenUserInfoDTO.getUserId(), tokenUserInfoDTO,
+                tokenUserInfoDTO.getToken(), Constants.REDIS_KEY_EXPIRES_DAY * 7);
     }
 
     /**
@@ -167,7 +200,35 @@ public class RedisComponent {
      * @return
      */
     public TokenUserInfoDTO getTokenInfo(String token) {
-        return (TokenUserInfoDTO) redisUtils.get(Constants.REDIS_KEY_TOKEN_WEB + token);
+        if (StringTools.isEmpty(token)) {
+            return null;
+        }
+        Object session = redisUtils.get(Constants.REDIS_KEY_TOKEN_WEB + token);
+        return session instanceof TokenUserInfoDTO ? (TokenUserInfoDTO) session : null;
+    }
+
+    /** 根据用户反向映射获取当前 Token，用于识别被新登录替换的旧会话。 */
+    public String getCurrentToken(String userId) {
+        if (StringTools.isEmpty(userId)) {
+            return null;
+        }
+        Object token = redisUtils.get(Constants.REDIS_KEY_TOKEN_USERID_WEB + userId);
+        return token instanceof String ? (String) token : null;
+    }
+
+    /**
+     * 当用户退出登录时，会话撤销通知
+     * @param userId
+     * @param token
+     */
+    private void publishSessionRevoked(String userId, String token) {
+        try {
+            redissonClient.getTopic(SessionRevokedEvent.TOPIC, StringCodec.INSTANCE)
+                    .publish(JsonUtils.convertObj2Json(new SessionRevokedEvent(userId, token)));
+        } catch (RuntimeException e) {
+            // 会话已成功撤销；通知失败时，Web 节点仍会在每次私有消息推送前重新校验。
+            log.warn("会话撤销通知失败：异常类型={}", e.getClass().getSimpleName());
+        }
     }
 
     /**

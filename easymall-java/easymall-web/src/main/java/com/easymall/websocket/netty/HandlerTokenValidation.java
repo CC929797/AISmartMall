@@ -1,7 +1,5 @@
 package com.easymall.websocket.netty;
 
-import com.easymall.commonent.RedisComponent;
-import com.easymall.entity.dto.TokenUserInfoDTO;
 import com.easymall.websocket.ChannelContextUtils;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
@@ -9,7 +7,6 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
-import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.util.CharsetUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -25,8 +22,6 @@ import java.util.List;
 @Slf4j
 public class HandlerTokenValidation extends SimpleChannelInboundHandler<FullHttpRequest> {
     @Resource
-    private RedisComponent redisComponent;
-    @Resource
     private ChannelContextUtils channelContextUtils;
 
     /**
@@ -37,25 +32,21 @@ public class HandlerTokenValidation extends SimpleChannelInboundHandler<FullHttp
      */
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
-        String uri = request.getUri();
-        QueryStringDecoder queryStringDecoder = new QueryStringDecoder(uri);
+        QueryStringDecoder queryStringDecoder = new QueryStringDecoder(request.uri());
         List<String> tokens = queryStringDecoder.parameters().get("token");
-        if (tokens == null) {
+        // 兼容现有前端带尾斜杠的地址，仍只允许这两个精确路径。
+        String path = queryStringDecoder.path();
+        boolean supportedPath = "/ws".equals(path) || "/ws/".equals(path);
+        if (!supportedPath || tokens == null || tokens.size() != 1
+                || tokens.get(0).isBlank()) {
             sendErrorResponse(ctx);
             return;
         }
-        String token = tokens.get(0);
-        TokenUserInfoDTO tokenUserInfoDTO = redisComponent.getTokenInfo(token);
-        if (tokenUserInfoDTO == null) {
-            log.error("token： {}无效", token);
+        if (!channelContextUtils.addAuthenticatedContext(tokens.get(0), ctx.channel())) {
             sendErrorResponse(ctx);
             return;
         }
-        log.info("token校验成功");
         ctx.fireChannelRead(request.retain());
-
-        channelContextUtils.addContext(tokenUserInfoDTO.getUserId(), ctx.channel());
-
     }
 
     private void sendErrorResponse(ChannelHandlerContext ctx){

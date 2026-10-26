@@ -4,6 +4,8 @@ import java.util.List;
 
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.enums.DefaultTypeEnum;
+import com.easymall.entity.enums.ResponseCodeEnum;
+import com.easymall.exception.BusinessException;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -140,6 +142,7 @@ public class UserAddressServiceImpl implements UserAddressService {
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void updateDefaultAddress(String addressId, String userId) {
+		requireOwnedAddress(addressId, userId);
 		restDefault(userId);
 
 		UserAddress userAddress = new UserAddress();
@@ -149,7 +152,9 @@ public class UserAddressServiceImpl implements UserAddressService {
 		userAddressQuery.setUserId(userId);
 		userAddressQuery.setAddressId(addressId);
 
-		this.userAddressMapper.updateByParam(userAddress, userAddressQuery);
+		if (this.userAddressMapper.updateByParam(userAddress, userAddressQuery) != 1) {
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
 	}
 
 	/**
@@ -159,6 +164,12 @@ public class UserAddressServiceImpl implements UserAddressService {
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void saveAddress(UserAddress userAddress) {
+		if (StringTools.isEmpty(userAddress.getUserId())) {
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
+		if (!StringTools.isEmpty(userAddress.getAddressId())) {
+			requireOwnedAddress(userAddress.getAddressId(), userAddress.getUserId());
+		}
 		//如果新增或修改的时候选择了默认地址，则要把数据库里的默认地址先给设置为未默认状态
 		if (DefaultTypeEnum.DEFAULT.getType().equals(userAddress.getDefaultType())) {
 			//把数据库里的默认地址变为未默认状态
@@ -173,7 +184,19 @@ public class UserAddressServiceImpl implements UserAddressService {
 			userAddressQuery.setAddressId(userAddress.getAddressId());
 			userAddressQuery.setUserId(userAddress.getUserId());
 
-			this.userAddressMapper.updateByParam(userAddress, userAddressQuery);
+			if (this.userAddressMapper.updateByParam(userAddress, userAddressQuery) != 1) {
+				throw new BusinessException(ResponseCodeEnum.CODE_600);
+			}
+		}
+	}
+
+	private void requireOwnedAddress(String addressId, String userId) {
+		if (StringTools.isEmpty(userId) || StringTools.isEmpty(addressId)) {
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
+		UserAddress address = this.userAddressMapper.selectByAddressId(addressId);
+		if (address == null || !userId.equals(address.getUserId())) {
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
 		}
 	}
 

@@ -3,6 +3,7 @@ package com.easymall.controller;
 import com.easymall.annotation.GlobalInterceptor;
 import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
+import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.dto.TokenUserInfoDTO;
 import com.easymall.entity.po.UserInfo;
 import com.easymall.entity.vo.CheckCodeVO;
@@ -40,7 +41,10 @@ public class AccountController extends ABaseController{
         if(tokenUserInfoDTO == null){
             return getSuccessResponseVO(null);
         }
-        redisComponent.saveTokenInfo(tokenUserInfoDTO);
+        // 只续期仍有效的当前会话；认证后若已退出或被封禁，不能通过旧请求重建登录态。
+        if (!redisComponent.refreshTokenInfo(tokenUserInfoDTO)) {
+            throw new BusinessException(ResponseCodeEnum.CODE_901);
+        }
         return getSuccessResponseVO(tokenUserInfoDTO);
     }
 

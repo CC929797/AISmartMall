@@ -3,16 +3,27 @@ package com.easymall.redis;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Component("redisUtils")
 @Slf4j
 public class RedisUtils<V> {
+
+    private static final DefaultRedisScript<Long> COMPARE_AND_DELETE = new DefaultRedisScript<>(
+            "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0",
+            Long.class);
+
+    private static final DefaultRedisScript<Long> REPLACE_CURRENT_SESSION = new DefaultRedisScript<>(
+            "if redis.call('EXISTS', KEYS[1]) == 1 and redis.call('GET', KEYS[2]) == ARGV[2] then "
+                    + "redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[3]); "
+                    + "redis.call('EXPIRE', KEYS[2], ARGV[3]); return 1 end return 0", Long.class);
 
     @Resource
     private RedisTemplate<String, V> redisTemplate;
@@ -36,6 +47,17 @@ public class RedisUtils<V> {
         return key == null ? null : redisTemplate.opsForValue().get(key);
     }
 
+    /** 仅删除仍等于预期值的映射，避免误删并发登录刚写入的新 Token。 */
+    public boolean compareAndDelete(String key, V expectedValue) {
+        return Long.valueOf(1).equals(redisTemplate.execute(COMPARE_AND_DELETE, List.of(key), expectedValue));
+    }
+
+    /** 原子刷新仍存在的当前会话，禁止重新创建已经撤销的会话。 */
+    public boolean replaceSessionIfCurrent(String sessionKey, String userKey, V session, String token, long seconds) {
+        return Long.valueOf(1).equals(redisTemplate.execute(REPLACE_CURRENT_SESSION,
+                List.of(sessionKey, userKey), session, token, seconds));
+    }
+
     /**
      * 普通缓存放入
      *
@@ -48,7 +70,7 @@ public class RedisUtils<V> {
             redisTemplate.opsForValue().set(key, value);
             return true;
         } catch (Exception e) {
-            log.error("设置redisKey:{},value:{}失败", key, value);
+            log.error("Redis write failed: operation=set, exceptionType={}", e.getClass().getSimpleName());
             return false;
         }
     }
@@ -70,7 +92,7 @@ public class RedisUtils<V> {
             }
             return true;
         } catch (Exception e) {
-            log.error("设置redisKey:{},value:{}失败", key, value);
+            log.error("Redis write failed: operation=setex, exceptionType={}", e.getClass().getSimpleName());
             return false;
         }
     }

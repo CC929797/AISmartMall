@@ -25,7 +25,7 @@ public class AgentController extends ABaseController{
     @RequestMapping("/sendMessage")
     @GlobalInterceptor(checkLogin = true)
     public ResponseVO sendMessage(String message) {
-        AgentMessage agentMessage = chatComponent.sendMessage(getTokenUserInfo().getUserId(), message);
+        AgentMessage agentMessage = chatComponent.sendMessage(getCurrentUser(), message);
         return getSuccessResponseVO(agentMessage);
     }
 

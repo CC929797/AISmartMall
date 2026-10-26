@@ -9,6 +9,7 @@ import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.service.OrderCommentService;
+import com.easymall.utils.StringTools;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.*;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -64,7 +65,7 @@ public class OrderCommentController extends ABaseController{
     @GlobalInterceptor(checkLogin = true)
     public ResponseVO getComment(@NotEmpty String orderId){
         OrderComment orderComment = orderCommentService.getOrderCommentByOrderId(orderId);
-        if(!orderComment.getUserId().equals(getTokenUserInfo().getUserId())){
+        if(orderComment == null || !getTokenUserInfo().getUserId().equals(orderComment.getUserId())){
             throw new BusinessException(ResponseCodeEnum.CODE_600);
         }
         return getSuccessResponseVO(orderComment);
@@ -111,14 +112,19 @@ public class OrderCommentController extends ABaseController{
      */
     @RequestMapping("/delMyComment")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO delMyComment(String orderId){
+    public ResponseVO delMyComment(@NotEmpty String orderId){
+        if (StringTools.isEmpty(orderId)) {
+            throw new BusinessException(ResponseCodeEnum.CODE_600);
+        }
         OrderComment orderComment = new OrderComment();
         orderComment.setStatus(CommentStatusEnum.DEL.getStatus());
 
         OrderCommentQuery orderCommentQuery = new OrderCommentQuery();
         orderCommentQuery.setOrderId(orderId);
         orderCommentQuery.setUserId(getTokenUserInfo().getUserId());
-        orderCommentService.updateByParam(orderComment, orderCommentQuery);
+        if (orderCommentService.updateByParam(orderComment, orderCommentQuery) != 1) {
+            throw new BusinessException(ResponseCodeEnum.CODE_600);
+        }
 
         return getSuccessResponseVO(null);
     }

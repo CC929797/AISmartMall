@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-26",
+  "timezone": "Asia/Shanghai",
+  "defect": "WebSocket endpoint trailing-slash compatibility regression",
+  "cause": "Both frontend environment files use /ws/ but the new authentication handler accepted only /ws",
+  "fix": "Accept exactly /ws and /ws/ while retaining all token and user-state checks",
+  "sourceEvidence": {
+    "frontendPaths": [
+      "/ws/",
+      "/ws/"
+    ],
+    "userLogConnectionClosePairs": 6,
+    "modelReplyGenerated": true,
+    "messagePersisted": true
+  },
+  "before": {
+    "tests": 15,
+    "failures": 1,
+    "failedCase": "valid token on the actual frontend /ws/ endpoint",
+    "log": "runtime/phase1/step02/ws-path-fix/before.log"
+  },
+  "focusedAfter": {
+    "tests": 15,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "regression": {
+    "tests": 147,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "modules": [
+      {
+        "name": "easymall-common",
+        "tests": 58
+      },
+      {
+        "name": "easymall-admin",
+        "tests": 15
+      },
+      {
+        "name": "easymall-web",
+        "tests": 74
+      }
+    ],
+    "package": "passed",
+    "seconds": 34.342,
+    "log": "runtime/phase1/step02/ws-path-fix/package-after.log"
+  },
+  "realTransport": {
+    "tests": 4,
+    "failures": 0,
+    "scope": "actual loopback Netty server on ephemeral port, HTTP/WebSocket codecs and JDK client; identity mocked",
+    "acceptedPaths": [
+      "/ws",
+      "/ws/"
+    ],
+    "verified": [
+      "101 upgrade",
+      "private reply delivered",
+      "revoked session closes without another private reply",
+      "invalid token gets 403",
+      "unlisted path gets 403"
+    ]
+  },
+  "existingBaselineIntegration": {
+    "previousTests": 7,
+    "rerunThisTime": false
+  },
+  "userServices": {
+    "restartedByAgent": false,
+    "stoppedByAgent": false,
+    "developmentDataWritten": false,
+    "realModelCalled": false,
+    "realPaymentCalled": false
+  },
+  "activation": "Restart the running EasyMallWebApplication in IDEA and refresh the AI page",
+  "committed": false
+}

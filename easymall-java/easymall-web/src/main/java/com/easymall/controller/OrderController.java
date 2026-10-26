@@ -57,6 +57,7 @@ public class OrderController extends ABaseController{
     public ResponseVO getOrderInfo(@NotEmpty String payOrderId) {
         OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
         orderInfoQuery.setPayOrderId(payOrderId);
+        orderInfoQuery.setUserId(getTokenUserInfo().getUserId());
         List<OrderInfo> orderInfoList = orderInfoService.findListByParam(orderInfoQuery);
         if (orderInfoList.isEmpty()){
             throw new BusinessException(ResponseCodeEnum.CODE_600);

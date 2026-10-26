@@ -1,21 +1,16 @@
 package com.easymall.controller;
-import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.TokenUserInfoDTO;
+import com.easymall.security.CurrentUser;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
-import com.easymall.utils.StringTools;
-import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 
 public class ABaseController {
-    @Resource
-    private RedisComponent redisComponent;
-
     protected static final String STATUC_SUCCESS = "success";
 
     protected static final String STATUC_ERROR = "error";
@@ -52,21 +47,24 @@ public class ABaseController {
     }
 
     protected TokenUserInfoDTO getTokenUserInfo(){
-        if(System.getProperty("dev")!=null){
-            TokenUserInfoDTO tokenUserInfoDTO = new TokenUserInfoDTO();
-            tokenUserInfoDTO = new TokenUserInfoDTO();
-            tokenUserInfoDTO.setUserId("5336131822");
-            tokenUserInfoDTO.setNickName("test001");
-            tokenUserInfoDTO.setToken("test");
-            return tokenUserInfoDTO;
-        }
-
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
-        String token = request.getHeader(Constants.TOKEN_WEB);
-        if(StringTools.isEmpty(token)){
-            return null;
+        CurrentUser user = (CurrentUser) request.getAttribute(CurrentUser.class.getName());
+        if (user == null || user.role() != CurrentUser.Role.USER) { return null; }
+        TokenUserInfoDTO session = new TokenUserInfoDTO();
+        session.setUserId(user.userId());
+        session.setNickName(user.nickName());
+        session.setAvatar(user.avatar());
+        session.setToken(request.getHeader(Constants.TOKEN_WEB));
+        return session;
+    }
+
+    protected CurrentUser getCurrentUser() {
+        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
+        CurrentUser user = (CurrentUser) request.getAttribute(CurrentUser.class.getName());
+        if (user == null || user.role() != CurrentUser.Role.USER) {
+            throw new BusinessException(ResponseCodeEnum.CODE_901);
         }
-        return redisComponent.getTokenInfo(token);
+        return user;
     }
 
     protected String getIpAddr() {

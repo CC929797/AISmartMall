@@ -3,7 +3,12 @@ package com.easymall.controller;
 import com.easymall.EasyMallWebApplication;
 import com.easymall.commonent.EsSearchComponent;
 import com.easymall.commonent.RedisComponent;
+import com.easymall.entity.config.AppConfig;
+import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.PayInfoDTO;
+import com.easymall.entity.dto.TokenUserInfoDTO;
+import com.easymall.entity.dto.MessageSendDTO;
+import com.easymall.websocket.message.MessageHandler;
 import com.easymall.entity.enums.PayChannelEnum;
 import com.easymall.entity.vo.ProductInfoDTO;
 import com.easymall.service.PayChannel;
@@ -25,6 +30,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -39,11 +45,19 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.WebSocket;
+import java.net.http.WebSocketHandshakeException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -56,9 +70,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Explicit integration smoke test against the schema-only baseline environment.
- * Uses real isolated MySQL/Redis/ES, a loopback model fixture and mocked payment.
- * It creates synthetic orders/messages and deliberately does not reset data.
+ * 显式启用的基线集成烟测，使用仅由表结构和合成数据建立的独立环境。
+ * 连接真实的隔离 MySQL、Redis、ES，模型使用本机替身，支付使用 Mock。
+ * 测试产生的合成订单和消息保留作为证据，不重置数据库。
  */
 @EnabledIfSystemProperty(named = "baseline.integration", matches = "true")
 @Import(BaselineSmokeIT.LocalToolConfiguration.class)
@@ -70,6 +84,8 @@ class BaselineSmokeIT {
     private static final String PRODUCT_ID = "BASELINEPROD001";
     private static final String PROPERTY_VALUE_ID = "BASEVALUE001";
     private static final String MODEL_URL = "http://127.0.0.1:18080";
+    private static final String ADMIN_URL = "http://127.0.0.1:6061/api";
+    private static final String SECURITY_USER_ID = "SECUSER002";
 
     @Autowired
     private TestRestTemplate http;
@@ -79,6 +95,15 @@ class BaselineSmokeIT {
 
     @Autowired
     private RedisComponent redisComponent;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private AppConfig appConfig;
+
+    @Autowired
+    private MessageHandler messageHandler;
 
     @Autowired
     private EsSearchComponent esSearchComponent;
@@ -108,7 +133,7 @@ class BaselineSmokeIT {
         require("baseline".equals(System.getProperty("spring.profiles.active")),
                 "Only the baseline profile is permitted");
 
-        // Parse the effective configuration before any application bean is created.
+        // 在创建应用 Bean 前解析实际生效的配置，先确认所有基础设施均指向隔离环境。
         StandardEnvironment environment = new StandardEnvironment();
         ConfigDataEnvironmentPostProcessor.applyTo(environment);
         String jdbcUrl = environment.getProperty("spring.datasource.url", "");
@@ -118,6 +143,7 @@ class BaselineSmokeIT {
                 "A Hikari URL must not override the isolated database");
         requireProperty(environment, "spring.data.redis.host", "127.0.0.1");
         requireProperty(environment, "spring.data.redis.port", "16379");
+        requireProperty(environment, "ws.port", "6051");
         require(!environment.containsProperty("spring.data.redis.url"),
                 "An alternate Redis URL must not override the isolated endpoint");
         for (String key : List.of("spring.data.redis.cluster.nodes",
@@ -145,7 +171,7 @@ class BaselineSmokeIT {
                         .noneMatch(source -> source.getName().contains("application-dev")),
                 "Development ConfigData must not be loaded");
 
-        // MCP transport is outside this smoke test; the provider below is a mock.
+        // 本烟测不连接实际 MCP 服务，下方使用不提供工具的测试替身。
         registry.add("spring.ai.mcp.client.enabled", () -> false);
     }
 
@@ -161,7 +187,7 @@ class BaselineSmokeIT {
 
         @Bean
         ToolCallbackProvider toolCallbackProvider() {
-            // Tool calling inspects this bean during context initialization.
+            // 工具调用组件会在初始化上下文时读取该 Bean。
             return () -> new ToolCallback[0];
         }
     }
@@ -198,8 +224,8 @@ class BaselineSmokeIT {
         ProductInfoDTO indexedProduct = elasticsearchOperations.get(PRODUCT_ID, ProductInfoDTO.class);
         assertThat(indexedProduct).as("The synthetic ES document must be indexed").isNotNull();
         assertThat(indexedProduct.getProductId()).isEqualTo(PRODUCT_ID);
-        // Current contains/wildcard search is case-sensitive against analyzed terms.
-        // The isolated ES check found *Baseline*: 0 hits, *baseline*: 1 hit.
+        // 当前包含匹配和通配符搜索对分词结果区分大小写。
+        // 隔离 ES 实测：*Baseline* 命中 0 条，*baseline* 命中 1 条。
         JsonNode search = get("/product/search?keyWords=baseline&sortType=asc&sortField=price&pageNo=1", null);
         assertThat(fieldValues(search.path("list"), "productId")).contains(PRODUCT_ID);
 
@@ -263,13 +289,13 @@ class BaselineSmokeIT {
                     .isGreaterThan(modelBefore.path("counters").path(counter).asLong());
         }
 
-        // Use the business API to restore this run's stock while retaining evidence.
+        // 通过业务接口恢复本轮占用的库存，同时保留订单记录作为证据。
         MultiValueMap<String, String> cancelForm = new LinkedMultiValueMap<>();
         cancelForm.add("orderId", orderId);
         form("/order/cancelOrder", cancelForm, token);
         assertThat(stock(skuHash)).isEqualTo(stockBefore);
-        // Existing service writes CLOSED(5), even for the user cancellation route.
-        // This records the current baseline; cancellation semantics remain follow-up work.
+        // 现有服务即使经用户取消接口执行，也会写入 CLOSED(5)。
+        // 此处仅记录当前基线行为，取消状态语义留待后续步骤修复。
         assertThat(jdbc.queryForObject("select order_status from order_info where order_id=?",
                 Integer.class, orderId)).isEqualTo(5);
         verify(payment).closeOrder(payOrderId);
@@ -289,7 +315,7 @@ class BaselineSmokeIT {
                         injectedPassword, injectedApiKey)
                 .filter(Objects::nonNull).map(Object::toString).filter(value -> !value.isBlank()).toList();
 
-        // Fail before issuing legacy delete/update requests if a route is accidentally restored.
+        // 若旧路由被意外恢复，必须在发送删除或更新请求之前让测试失败。
         assertThat(requestMappings.getHandlerMethods().keySet().stream()
                 .flatMap(mapping -> mapping.getPatternValues().stream())
                 .noneMatch(path -> path.equals("/userInfo") || path.startsWith("/userInfo/")))
@@ -312,7 +338,9 @@ class BaselineSmokeIT {
         JsonNode automaticLogin = get("/account/autoLogin", token);
         assertCredentialSafe(automaticLogin, secrets);
         assertThat(automaticLogin.path("userId").asText()).isEqualTo(USER_ID);
-        // The current auto-login implementation rotates the token; follow its response.
+        // 刷新现有 Token，防止旧身份快照在会话撤销后创建新的登录态。
+        assertThat(token.equals(automaticLogin.path("token").asText()))
+                .as("automatic login keeps the authenticated token").isTrue();
         token = automaticLogin.path("token").asText();
         assertThat(token).isNotBlank();
         JsonNode profile = get("/account/getUserInfo?userId=" + otherUserId, token);
@@ -356,6 +384,8 @@ class BaselineSmokeIT {
                 .as("automatic login reads the updated nickname from Redis").isTrue();
         assertThat(newAvatar.equals(automaticLoginAfterEdit.path("avatar").asText()))
                 .as("automatic login reads the updated avatar from Redis").isTrue();
+        assertThat(token.equals(automaticLoginAfterEdit.path("token").asText()))
+                .as("profile refresh does not rotate the authenticated token").isTrue();
         token = automaticLoginAfterEdit.path("token").asText();
         JsonNode refreshedProfile = get("/account/getUserInfo", token);
         assertCredentialSafe(refreshedProfile, secrets);
@@ -383,6 +413,427 @@ class BaselineSmokeIT {
         }
         assertThat(otherUserBefore.equals(snapshotUser(otherUserId)))
                 .as("anonymous requests to all legacy routes leave the other user untouched").isTrue();
+    }
+
+    @Test
+    void realHttpKeepsPublicBrowsingAndProtectsPrivateHandlersByDefault() {
+        assertThat(fieldValues(get("/product/loadCategory", null), "categoryId")).contains("B0001");
+        assertThat(get("/order/comment/loadComment?productId=" + PRODUCT_ID + "&pageNo=1", null)
+                .path("list").isArray()).isTrue();
+        assertThat(get("/account/autoLogin", null).isNull()).isTrue();
+        ResponseEntity<String> image = http.getForEntity(
+                url("/file/getResource?sourceName=security/synthetic-missing-public.png"), String.class);
+        assertThat(image.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(image.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_PNG);
+        for (String path : List.of("/file/uploadImage", "/productCart/loadProductCart",
+                "/order/loadMyOrder", "/userAddress/loadDataList", "/agent/loadHistoryMessage",
+                "/account/getUserInfo", "/account/updatePassword")) {
+            assertHttpCode(path, null, 901);
+            assertHttpCode(path, "synthetic-invalid-token", 901);
+        }
+    }
+
+    @Test
+    void realRedisScriptsPreserveNewLoginAndNeverReviveRevokedOrExpiredSnapshots() {
+        prepareSyntheticSecurityUser(SECURITY_USER_ID);
+        try {
+            String oldToken = loginSecurityUser();
+            TokenUserInfoDTO oldSnapshot = redisComponent.getTokenInfo(oldToken);
+            assertThat(oldSnapshot != null).as("the initial synthetic session exists").isTrue();
+            String currentToken = loginSecurityUser();
+            TokenUserInfoDTO currentSnapshot = redisComponent.getTokenInfo(currentToken);
+            assertThat(currentSnapshot != null).isTrue();
+            assertThat(!oldToken.equals(currentToken)).as("a new login replaces the old session").isTrue();
+
+            // 仅重建合成旧会话的键，使用实际 JSON 序列化结果验证比较删除的原子条件。
+            redisTemplate.opsForValue().set(Constants.REDIS_KEY_TOKEN_WEB + oldToken,
+                    oldSnapshot, Duration.ofMinutes(1));
+            redisComponent.cleanToken(oldToken);
+            assertThat(currentToken.equals(redisComponent.getCurrentToken(SECURITY_USER_ID)))
+                    .as("logging out an old snapshot cannot remove the current token index").isTrue();
+            get("/account/getUserInfo", currentToken);
+
+            currentSnapshot.setNickName("Synthetic Redis refresh");
+            redisComponent.updateTokenInfo(currentSnapshot);
+            assertThat("Synthetic Redis refresh".equals(redisComponent.getTokenInfo(currentToken).getNickName()))
+                    .as("a live session can still be refreshed using the actual serializer").isTrue();
+            form("/account/logout", new LinkedMultiValueMap<>(), currentToken);
+            assertHttpCode("/account/getUserInfo", currentToken, 901);
+            redisComponent.updateTokenInfo(currentSnapshot);
+            assertThat(redisComponent.getTokenInfo(currentToken) == null)
+                    .as("profile updates cannot recreate a logged-out session").isTrue();
+            assertThat(redisComponent.getCurrentToken(SECURITY_USER_ID) == null).isTrue();
+
+            String expiringToken = loginSecurityUser();
+            TokenUserInfoDTO expiringSnapshot = redisComponent.getTokenInfo(expiringToken);
+            expireSyntheticToken(expiringToken);
+            await().atMost(Duration.ofSeconds(4)).pollInterval(Duration.ofMillis(50))
+                    .until(() -> redisComponent.getTokenInfo(expiringToken) == null);
+            assertHttpCode("/account/getUserInfo", expiringToken, 901);
+            redisComponent.updateTokenInfo(expiringSnapshot);
+            assertThat(redisComponent.getTokenInfo(expiringToken) == null)
+                    .as("profile updates cannot recreate an expired session").isTrue();
+        } finally {
+            redisComponent.forceLogout(SECURITY_USER_ID);
+        }
+    }
+
+    @Test
+    void realWebSocketsCloseOnLogoutAndExpireEvenWithoutClientTraffic() {
+        prepareSyntheticSecurityUser(SECURITY_USER_ID);
+        try {
+            String logoutToken = loginSecurityUser();
+            try (SocketProbe socket = openSocket(logoutToken)) {
+                MessageSendDTO probe = new MessageSendDTO();
+                probe.setUserId(SECURITY_USER_ID);
+                probe.setMessageId(-2);
+                probe.setAssistantMessage("synthetic-authenticated-websocket-probe");
+                messageHandler.sendMessage(probe);
+                socket.awaitSyntheticMessage();
+                form("/account/logout", new LinkedMultiValueMap<>(), logoutToken);
+                socket.awaitClosed(Duration.ofSeconds(5), "logout revocation");
+                assertHttpCode("/account/getUserInfo", logoutToken, 901);
+            }
+            assertSocketRejected(logoutToken);
+
+            String expiringToken = loginSecurityUser();
+            try (SocketProbe socket = openSocket(expiringToken)) {
+                expireSyntheticToken(expiringToken);
+                // 不发送心跳或私有消息，验证周期扫描能兜底关闭自然过期的连接。
+                socket.awaitClosed(Duration.ofSeconds(20), "idle token expiry");
+                assertHttpCode("/account/getUserInfo", expiringToken, 901);
+            }
+            assertSocketRejected(expiringToken);
+        } finally {
+            redisComponent.forceLogout(SECURITY_USER_ID);
+        }
+    }
+
+    @Test
+    void adminProcessBanImmediatelyClosesWebSocketAndSeparatesUserAndAdminTokens() {
+        prepareSyntheticSecurityUser(SECURITY_USER_ID);
+        String adminToken = loginSyntheticAdmin();
+        try {
+            changeSyntheticUserStatus(adminToken, 1);
+            String userToken = loginSecurityUser();
+            assertAdminCode("/user/loadUser", null, 901);
+            assertAdminCode("/user/loadUser", userToken, 901);
+            assertHttpCode("/account/getUserInfo", adminToken, 901);
+            try (SocketProbe socket = openSocket(userToken)) {
+                // 不发送客户端心跳；管理端与用户端运行在不同 JVM 中，仅通过 Redis 共享撤销通知。
+                changeSyntheticUserStatus(adminToken, 0);
+                socket.awaitClosed(Duration.ofSeconds(5), "cross-process administrator ban");
+                assertHttpCode("/account/getUserInfo", userToken, 901);
+                assertSocketRejected(userToken);
+            }
+        } finally {
+            try {
+                changeSyntheticUserStatus(adminToken, 1);
+            } finally {
+                redisComponent.forceLogout(SECURITY_USER_ID);
+                ResponseEntity<String> logout = http.postForEntity(ADMIN_URL + "/account/logout",
+                        new HttpEntity<>(new LinkedMultiValueMap<>(), adminHeaders(adminToken)), String.class);
+                assertThat(logout.getStatusCode().is2xxSuccessful()).as("synthetic admin cleanup logout").isTrue();
+            }
+        }
+    }
+
+    @Test
+    void bothRealUsersCanReadTheirOwnResourcesButCannotReadOrChangeEachOthersResources() {
+        prepareSyntheticSecurityUser(SECURITY_USER_ID);
+        assertThat(jdbc.queryForObject("select count(*) from user_info where user_id=? and email=?",
+                Integer.class, USER_ID, "baseline@example.invalid")).isEqualTo(1);
+        prepareOwnershipFixture(USER_ID, "AUTH02ORDERA001", "AUTH02PAYA001", "AUTH02ADDRA001", 0);
+        prepareOwnershipFixture(SECURITY_USER_ID, "AUTH02ORDERB001", "AUTH02PAYB001", "AUTH02ADDRB001", 1);
+        String tokenA = loginBaselineUser();
+        String tokenB = loginSecurityUser();
+        try {
+            List<Map<String, Object>> orderRows = ownershipRows("order_info", "order_id",
+                    "AUTH02ORDERA001", "AUTH02ORDERB001");
+            List<Map<String, Object>> commentRows = ownershipRows("order_comment", "order_id",
+                    "AUTH02ORDERA001", "AUTH02ORDERB001");
+            List<Map<String, Object>> addressRows = jdbc.queryForList(
+                    "select * from user_address where user_id in (?,?) order by address_id", USER_ID, SECURITY_USER_ID);
+
+            verifyOwnerAndRejectOther(tokenA, tokenB, USER_ID, "AUTH02ORDERA001", "AUTH02PAYA001", "AUTH02ADDRA001");
+            verifyOwnerAndRejectOther(tokenB, tokenA, SECURITY_USER_ID, "AUTH02ORDERB001", "AUTH02PAYB001", "AUTH02ADDRB001");
+
+            assertThat(orderRows.equals(ownershipRows("order_info", "order_id", "AUTH02ORDERA001", "AUTH02ORDERB001")))
+                    .as("cross-user HTTP requests leave both synthetic orders unchanged").isTrue();
+            assertThat(commentRows.equals(ownershipRows("order_comment", "order_id", "AUTH02ORDERA001", "AUTH02ORDERB001")))
+                    .as("cross-user HTTP requests leave both synthetic comments unchanged").isTrue();
+            assertThat(addressRows.equals(jdbc.queryForList(
+                    "select * from user_address where user_id in (?,?) order by address_id", USER_ID, SECURITY_USER_ID)))
+                    .as("cross-user address edits cannot change either user's address or default flags").isTrue();
+        } finally {
+            redisComponent.cleanToken(tokenA);
+            redisComponent.forceLogout(SECURITY_USER_ID);
+        }
+    }
+
+    private void verifyOwnerAndRejectOther(String ownerToken, String otherToken, String userId,
+                                          String orderId, String payOrderId, String addressId) {
+        assertThat(get("/order/getOrderInfo?payOrderId=" + payOrderId, ownerToken).path("userId").asText())
+                .isEqualTo(userId);
+        assertThat(get("/order/comment/getComment?orderId=" + orderId, ownerToken).path("userId").asText())
+                .isEqualTo(userId);
+        assertThat(fieldValues(get("/userAddress/loadDataList", ownerToken), "addressId")).contains(addressId);
+
+        assertHttpCode("/order/getOrderInfo?payOrderId=" + payOrderId, otherToken, 600);
+        assertHttpCode("/order/comment/getComment?orderId=" + orderId, otherToken, 600);
+        MultiValueMap<String, String> order = new LinkedMultiValueMap<>();
+        order.add("orderId", orderId);
+        assertFormCode("/order/cancelOrder", order, otherToken, 600);
+        MultiValueMap<String, String> comment = new LinkedMultiValueMap<>();
+        comment.add("orderId", orderId);
+        comment.add("commentContent", "Synthetic unauthorized initial review");
+        comment.add("star", "5");
+        assertFormCode("/order/comment/postComment", comment, otherToken, 600);
+        comment.add("reCommentContent", "Synthetic unauthorized follow-up review");
+        assertFormCode("/order/comment/postReComment", comment, otherToken, 600);
+
+        MultiValueMap<String, String> address = new LinkedMultiValueMap<>();
+        address.add("addressId", addressId);
+        address.add("userId", userId);
+        address.add("address", "Synthetic cross-user address injection");
+        address.add("addressee", "Synthetic injection");
+        address.add("phone", "13000000000");
+        address.add("defaultType", "1");
+        assertFormCode("/userAddress/updateAddress", address, otherToken, 600);
+        assertFormCode("/userAddress/updateDefault", address, otherToken, 600);
+    }
+
+    private void prepareOwnershipFixture(String userId, String orderId, String payOrderId,
+                                         String addressId, int defaultType) {
+        assertThat(jdbc.queryForObject("select database()", String.class)).isEqualTo("easymall_test");
+        if (jdbc.queryForObject("select count(*) from order_info where order_id=?", Integer.class, orderId) == 0) {
+            // 已完成状态的合成记录仅用于验证权限，不操作库存或支付渠道。
+            jdbc.update("""
+                    insert into order_info (order_id,amount,user_id,order_time,order_status,pay_order_id,comment_status)
+                    values (?,3999,?,current_timestamp,3,?,1)
+                    """, orderId, userId, payOrderId);
+        }
+        Map<String, Object> existingOrder = jdbc.queryForMap("select * from order_info where order_id=?", orderId);
+        assertThat(userId.equals(existingOrder.get("user_id")) && payOrderId.equals(existingOrder.get("pay_order_id")))
+                .as("only a known synthetic ownership order may be reused").isTrue();
+        if (jdbc.queryForObject("select count(*) from order_comment where order_id=?", Integer.class, orderId) == 0) {
+            jdbc.update("""
+                    insert into order_comment (order_id,product_id,comment_content,comment_time,star,user_id,status)
+                    values (?,?,?,current_timestamp,5,?,0)
+                    """, orderId, PRODUCT_ID, "Synthetic step 02 ownership fixture", userId);
+        }
+        Map<String, Object> existingComment = jdbc.queryForMap("select * from order_comment where order_id=?", orderId);
+        assertThat(userId.equals(existingComment.get("user_id"))
+                && PRODUCT_ID.equals(existingComment.get("product_id"))
+                && "Synthetic step 02 ownership fixture".equals(existingComment.get("comment_content")))
+                .as("only a known synthetic ownership comment may be reused").isTrue();
+        if (jdbc.queryForObject("select count(*) from user_address where address_id=?", Integer.class, addressId) == 0) {
+            jdbc.update("""
+                    insert into user_address (address_id,user_id,address,addressee,phone,default_type)
+                    values (?,?,?,?,?,?)
+                    """, addressId, userId, "Synthetic authorization fixture " + userId,
+                    "Synthetic recipient", "13000000000", defaultType);
+        }
+        Map<String, Object> existingAddress = jdbc.queryForMap("select * from user_address where address_id=?", addressId);
+        assertThat(userId.equals(existingAddress.get("user_id"))
+                && ("Synthetic authorization fixture " + userId).equals(existingAddress.get("address")))
+                .as("only a known synthetic ownership address may be reused").isTrue();
+    }
+
+    private List<Map<String, Object>> ownershipRows(String table, String idColumn, String first, String second) {
+        // 此处 SQL 表名和列名均为测试内部的固定值，不接收请求输入。
+        return jdbc.queryForList("select * from " + table + " where " + idColumn + " in (?,?) order by " + idColumn,
+                first, second);
+    }
+
+    private String loginBaselineUser() {
+        String checkCodeKey = redisComponent.saveCheckCode("11");
+        MultiValueMap<String, String> login = new LinkedMultiValueMap<>();
+        login.add("email", "baseline@example.invalid");
+        login.add("password", StringTools.encodeByMD5("Baseline123"));
+        login.add("checkCodeKey", checkCodeKey);
+        login.add("checkCode", "11");
+        JsonNode result = form("/account/login", login, null);
+        assertThat(result.path("userId").asText()).isEqualTo(USER_ID);
+        assertThat(!result.path("token").asText().isBlank()).isTrue();
+        return result.path("token").asText();
+    }
+
+    private void assertFormCode(String path, MultiValueMap<String, String> body, String token, int expected) {
+        ResponseEntity<JsonNode> response = http.postForEntity(url(path),
+                new HttpEntity<>(body, headers(token, MediaType.APPLICATION_FORM_URLENCODED)), JsonNode.class);
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(Objects.requireNonNull(response.getBody()).path("code").asInt())
+                .as("%s rejects a cross-user operation", path).isEqualTo(expected);
+    }
+
+    private String loginSecurityUser() {
+        String checkCodeKey = redisComponent.saveCheckCode("11");
+        MultiValueMap<String, String> login = new LinkedMultiValueMap<>();
+        login.add("email", "security-b@example.invalid");
+        login.add("password", StringTools.encodeByMD5("SyntheticB123"));
+        login.add("checkCodeKey", checkCodeKey);
+        login.add("checkCode", "11");
+        JsonNode result = form("/account/login", login, null);
+        assertThat(result.path("userId").asText()).isEqualTo(SECURITY_USER_ID);
+        assertThat(!result.path("token").asText().isBlank()).as("synthetic user login issues a token").isTrue();
+        return result.path("token").asText();
+    }
+
+    private String loginSyntheticAdmin() {
+        String checkCodeKey = redisComponent.saveCheckCode("11");
+        MultiValueMap<String, String> login = new LinkedMultiValueMap<>();
+        login.add("account", "baseline-admin");
+        login.add("password", StringTools.encodeByMD5("BaselineAdmin123"));
+        login.add("checkCodeKey", checkCodeKey);
+        login.add("checkCode", "11");
+        JsonNode result = success("synthetic administrator login", http.postForEntity(ADMIN_URL + "/account/login",
+                new HttpEntity<>(login, adminHeaders(null)), JsonNode.class));
+        assertThat(result.isTextual() && !result.asText().isBlank()).as("synthetic admin token is present").isTrue();
+        return result.asText();
+    }
+
+    private void changeSyntheticUserStatus(String adminToken, int status) {
+        assertThat(jdbc.queryForObject("select database()", String.class)).isEqualTo("easymall_test");
+        prepareSyntheticSecurityUser(SECURITY_USER_ID);
+        MultiValueMap<String, String> change = new LinkedMultiValueMap<>();
+        change.add("userId", SECURITY_USER_ID);
+        change.add("status", Integer.toString(status));
+        success("synthetic user administrator status change", http.postForEntity(ADMIN_URL + "/user/changeStatus",
+                new HttpEntity<>(change, adminHeaders(adminToken)), JsonNode.class));
+        assertThat(jdbc.queryForObject("select status from user_info where user_id=?", Integer.class, SECURITY_USER_ID))
+                .as("admin and web use the same isolated synthetic user").isEqualTo(status);
+    }
+
+    private static HttpHeaders adminHeaders(String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        if (token != null) {
+            headers.set(Constants.TOKEN_ADMIN, token);
+        }
+        return headers;
+    }
+
+    private void assertHttpCode(String path, String token, int expected) {
+        ResponseEntity<JsonNode> response = http.exchange(url(path), HttpMethod.GET,
+                new HttpEntity<>(headers(token, null)), JsonNode.class);
+        assertThat(response.getStatusCode().is2xxSuccessful()).as("%s preserves the response envelope", path).isTrue();
+        assertThat(Objects.requireNonNull(response.getBody()).path("code").asInt())
+                .as("%s business code", path).isEqualTo(expected);
+    }
+
+    private void assertAdminCode(String path, String token, int expected) {
+        ResponseEntity<JsonNode> response = http.exchange(ADMIN_URL + path, HttpMethod.GET,
+                new HttpEntity<>(adminHeaders(token)), JsonNode.class);
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(Objects.requireNonNull(response.getBody()).path("code").asInt())
+                .as("admin %s business code", path).isEqualTo(expected);
+    }
+
+    private void expireSyntheticToken(String token) {
+        TokenUserInfoDTO session = redisComponent.getTokenInfo(token);
+        assertThat(session != null && SECURITY_USER_ID.equals(session.getUserId()))
+                .as("only the dedicated synthetic user's live token may be expired").isTrue();
+        assertThat(redisTemplate.expire(Constants.REDIS_KEY_TOKEN_WEB + token, Duration.ofSeconds(1))).isTrue();
+    }
+
+    private SocketProbe openSocket(String token) {
+        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
+        ProbeListener listener = new ProbeListener();
+        try {
+            WebSocket socket = client.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(3))
+                    .buildAsync(socketUri(token), listener).get(5, TimeUnit.SECONDS);
+            assertThat(!listener.closed.isDone()).as("the verified synthetic socket starts open").isTrue();
+            return new SocketProbe(client, socket, listener);
+        } catch (Exception e) {
+            client.shutdownNow();
+            // 异常消息或原因可能包含连接地址，不能把其中的合成 Token 写入日志。
+            throw new AssertionError("Synthetic WebSocket handshake failed: " + e.getClass().getSimpleName());
+        }
+    }
+
+    private void assertSocketRejected(String token) {
+        try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()) {
+            try {
+                WebSocket socket = client.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(3))
+                        .buildAsync(socketUri(token), new ProbeListener()).get(5, TimeUnit.SECONDS);
+                socket.abort();
+                throw new AssertionError("An invalid synthetic session must not upgrade to WebSocket");
+            } catch (ExecutionException e) {
+                assertThat(e.getCause() instanceof WebSocketHandshakeException)
+                        .as("invalid sessions are rejected during the HTTP handshake").isTrue();
+                assertThat(((WebSocketHandshakeException) e.getCause()).getResponse().statusCode()).isEqualTo(403);
+            } catch (Exception e) {
+                throw new AssertionError("Synthetic rejected-handshake probe failed: " + e.getClass().getSimpleName());
+            }
+        }
+    }
+
+    private URI socketUri(String token) {
+        assertThat(appConfig.getWsPort()).as("only the isolated baseline WebSocket endpoint is allowed").isEqualTo(6051);
+        // 与现有前端环境配置保持一致，覆盖实际使用的带尾斜杠地址。
+        return URI.create("ws://127.0.0.1:6051/ws/?token=" + token);
+    }
+
+    private static final class ProbeListener implements WebSocket.Listener {
+        private final CompletableFuture<Boolean> closed = new CompletableFuture<>();
+        private final CompletableFuture<String> text = new CompletableFuture<>();
+        private final StringBuilder fragments = new StringBuilder();
+
+        @Override
+        public void onOpen(WebSocket webSocket) {
+            webSocket.request(1);
+        }
+
+        @Override
+        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+            fragments.append(data);
+            if (last) {
+                text.complete(fragments.toString());
+                fragments.setLength(0);
+            }
+            webSocket.request(1);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+            closed.complete(true);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public void onError(WebSocket webSocket, Throwable error) {
+            // 服务端撤销会话时可能直接关闭 TCP，不发送关闭帧；不记录可能带连接地址的异常详情。
+            closed.complete(true);
+        }
+    }
+
+    private record SocketProbe(HttpClient client, WebSocket socket, ProbeListener listener) implements AutoCloseable {
+        void awaitSyntheticMessage() {
+            try {
+                String payload = listener.text.get(5, TimeUnit.SECONDS);
+                assertThat(payload.contains("synthetic-authenticated-websocket-probe"))
+                        .as("authenticated private data traverses the Redis topic and real WebSocket encoder").isTrue();
+            } catch (Exception e) {
+                throw new AssertionError("Synthetic WebSocket data probe failed: " + e.getClass().getSimpleName());
+            }
+        }
+
+        void awaitClosed(Duration timeout, String operation) {
+            try {
+                assertThat(listener.closed.get(timeout.toMillis(), TimeUnit.MILLISECONDS)).as(operation).isTrue();
+            } catch (Exception e) {
+                throw new AssertionError("Synthetic WebSocket did not close for " + operation + ": "
+                        + e.getClass().getSimpleName());
+            }
+        }
+
+        @Override
+        public void close() {
+            socket.abort();
+            client.shutdownNow();
+        }
     }
 
     private void prepareSyntheticSecurityUser(String userId) {
@@ -465,7 +916,7 @@ class BaselineSmokeIT {
     private JsonNode success(String operation, ResponseEntity<JsonNode> response) {
         assertThat(response.getStatusCode().is2xxSuccessful()).as("%s HTTP status", operation).isTrue();
         JsonNode envelope = Objects.requireNonNull(response.getBody());
-        // Do not print entire responses: login data includes a synthetic token.
+        // 登录响应包含合成 Token，因此断言失败时也不打印完整响应。
         assertThat(envelope.path("code").asInt()).as("%s business code", operation).isEqualTo(200);
         return envelope.path("data");
     }

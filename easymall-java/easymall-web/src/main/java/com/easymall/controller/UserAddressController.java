@@ -3,9 +3,11 @@ package com.easymall.controller;
 import com.easymall.annotation.GlobalInterceptor;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.TokenUserInfoDTO;
+import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.po.UserAddress;
 import com.easymall.entity.query.UserAddressQuery;
 import com.easymall.entity.vo.ResponseVO;
+import com.easymall.exception.BusinessException;
 import com.easymall.service.UserAddressService;
 import com.easymall.utils.StringTools;
 import com.easymall.valid.CreateGroup;
@@ -71,11 +73,16 @@ public class UserAddressController extends ABaseController{
 	@RequestMapping("/delAddress")
 	@GlobalInterceptor(checkLogin = true)
 	public ResponseVO delAddress(@NotEmpty String addressId){
+		if (StringTools.isEmpty(addressId)) {
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
 		UserAddressQuery userAddressQuery = new UserAddressQuery();
 		userAddressQuery.setUserId(getTokenUserInfo().getUserId());
 		userAddressQuery.setAddressId(addressId);
 
-		userAddressService.deleteByParam(userAddressQuery);
+		if (userAddressService.deleteByParam(userAddressQuery) != 1) {
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
 		return getSuccessResponseVO(null);
 	}
 

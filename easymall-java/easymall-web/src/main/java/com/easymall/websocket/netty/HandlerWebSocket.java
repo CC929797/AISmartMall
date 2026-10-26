@@ -6,19 +6,14 @@ package com.easymall.websocket.netty;
  * @Date 2023/12/17 10:10
  */
 
-import com.easymall.commonent.RedisComponent;
-import com.easymall.entity.constants.Constants;
-import io.netty.channel.Channel;
+import com.easymall.websocket.ChannelContextUtils;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -30,7 +25,7 @@ import org.springframework.stereotype.Component;
 public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketFrame> {
 
     @Resource
-    private RedisComponent redisComponent;
+    private ChannelContextUtils channelContextUtils;
 
     /**
      * 当通道就绪后会调用此方法，通常我们会在这里做一些初始化操作
@@ -40,6 +35,7 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
      */
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
+        ctx.fireChannelActive();
         log.info("有新的连接加入。。。");
     }
 
@@ -51,7 +47,17 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
      */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
+        channelContextUtils.removeContext(ctx.channel());
+        ctx.fireChannelInactive();
         log.info("有连接已经断开。。。");
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
+        if (evt instanceof WebSocketServerProtocolHandler.HandshakeComplete) {
+            channelContextUtils.completeHandshake(ctx.channel());
+        }
+        ctx.fireUserEventTriggered(evt);
     }
 
     /**
@@ -63,10 +69,8 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
      */
     @Override
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, TextWebSocketFrame textWebSocketFrame) {
-        //接收心跳
-        String text = textWebSocketFrame.text();
-        log.info("收到心跳消息：{}", text);
-
-        //channelHandlerContext.channel().writeAndFlush(new TextWebSocketFrame("pong"));
+        // 现有前端发送 "ping"，无需返回文本消息。
+        // 每个数据帧都须重新校验会话，退出或封禁后的心跳也不例外。
+        channelContextUtils.isAuthenticated(channelHandlerContext.channel());
     }
 }

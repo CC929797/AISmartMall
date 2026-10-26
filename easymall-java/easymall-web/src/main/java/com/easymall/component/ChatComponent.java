@@ -18,6 +18,7 @@ import com.easymall.utils.DateUtil;
 import com.easymall.utils.JsonUtils;
 import com.easymall.utils.StringTools;
 import com.easymall.websocket.ChannelContextUtils;
+import com.easymall.security.CurrentUser;
 import com.easymall.websocket.message.MessageHandler;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -65,14 +66,20 @@ public class ChatComponent {
 
     /**
      * 发送消息
-     * @param userId
+     * @param currentUser 启动异步任务前获取的不可变认证身份快照
      * @param message
      * @return
      */
-    public AgentMessage sendMessage(String userId,String message) {
-        AgentMessage agentMessage = agentMessageService.saveMessage(userId, message);
+    public AgentMessage sendMessage(CurrentUser currentUser,String message) {
+        if (currentUser == null || currentUser.role() != CurrentUser.Role.USER
+                || StringTools.isEmpty(currentUser.userId())) {
+            throw new com.easymall.exception.BusinessException(ResponseCodeEnum.CODE_901);
+        }
+        AgentMessage agentMessage = agentMessageService.saveMessage(currentUser.userId(), message);
 
         ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
+            // 异步任务显式携带可信身份快照，不从请求或 ThreadLocal 中读取当前用户。
+            agentMessage.setUserId(currentUser.userId());
             assistantAnswer(agentMessage);
         });
 
