@@ -103,6 +103,10 @@
 	<sql id="query_condition">
 	 <where>
 			<include refid="base_condition_filed" />
+			<if test="query.productNameFuzzy != null and query.productNameFuzzy != ''">
+				and exists (select 1 from order_item filter_item where filter_item.order_id = o.order_id
+				and filter_item.product_name like concat('%', #{query.productNameFuzzy}, '%'))
+			</if>
 			<if test="query.orderIdFuzzy!= null  and query.orderIdFuzzy!=''">
 				 and  o.order_id like concat('%', #{query.orderIdFuzzy}, '%')
 			</if>
@@ -160,7 +164,8 @@
 		 </if>
 	     <include refid="query_condition" />
 		 <if test="query.orderBy!=null">
-			 order by ${query.orderBy}
+			 <bind name="safeOrderBy" value="@com.easymall.validation.sort.SqlSortWhitelist@forMapper('OrderInfoMapper', query.orderBy)" />
+             order by ${safeOrderBy}
 		 </if>
 		 <if test="query.simplePage!=null">
 			 limit #{query.simplePage.start},#{query.simplePage.end}

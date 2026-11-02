@@ -38,6 +38,6 @@ public enum SearchFieldTypeEnum {
             return null;
         }
         Optional<SearchFieldTypeEnum> result = Arrays.stream(SearchFieldTypeEnum.values()).filter(value -> value.getFieldType().equals(fieldType)).findFirst();
-        return result == null ? null : result.get();
+        return result.orElse(null);
     }
 }

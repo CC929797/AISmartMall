@@ -38,6 +38,6 @@ public enum SearchSortTypeEnum {
             return null;
         }
         Optional<SearchSortTypeEnum> result = Arrays.stream(SearchSortTypeEnum.values()).filter(value -> value.getType().equals(type)).findFirst();
-        return result == null ? null : result.get();
+        return result.orElse(null);
     }
 }

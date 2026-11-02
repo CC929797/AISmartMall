@@ -1,5 +1,7 @@
 package com.easymall.entity.query;
 import com.easymall.entity.enums.PageSize;
+import com.easymall.validation.InputLimits;
+import com.easymall.validation.InputValidator;
 
 
 public class SimplePage {
@@ -14,6 +16,8 @@ public class SimplePage {
 	}
 
 	public SimplePage(Integer pageNo, int countTotal, int pageSize) {
+		if (pageNo != null && pageNo > 0) { InputValidator.optionalPageNo(pageNo); }
+		if (pageSize > 0) { InputValidator.optionalPageSize(pageSize); }
 		if (null == pageNo) {
 			pageNo = 0;
 		}
@@ -24,6 +28,8 @@ public class SimplePage {
 	}
 
 	public SimplePage(int start, int end) {
+		InputValidator.requireRange(start, 0, InputLimits.MAX_PAGE_NO * InputLimits.MAX_PAGE_SIZE);
+		InputValidator.requireRange(end, 1, InputLimits.MAX_PAGE_SIZE);
 		this.start = start;
 		this.end = end;
 	}
@@ -66,6 +72,7 @@ public class SimplePage {
 	}
 
 	public void setPageNo(int pageNo) {
+		InputValidator.optionalPageNo(pageNo);
 		this.pageNo = pageNo;
 	}
 
@@ -82,10 +89,12 @@ public class SimplePage {
 	}
 
 	public void setStart(int start) {
+		InputValidator.requireRange(start, 0, InputLimits.MAX_PAGE_NO * InputLimits.MAX_PAGE_SIZE);
 		this.start = start;
 	}
 
 	public void setEnd(int end) {
+		InputValidator.requireRange(end, 1, InputLimits.MAX_PAGE_SIZE);
 		this.end = end;
 	}
 
@@ -95,6 +104,7 @@ public class SimplePage {
 	}
 
 	public void setPageSize(int pageSize) {
+		InputValidator.optionalPageSize(pageSize);
 		this.pageSize = pageSize;
 	}
 

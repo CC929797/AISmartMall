@@ -83,7 +83,7 @@
 				 and  a.biz_data like concat('%', #{query.bizDataFuzzy}, '%')
 			</if>
 		    <if test="query.maxMessageId!=null">
-				 <![CDATA[ and a.message_id<#{query.maxMessageId} ]]>
+				 <![CDATA[ and a.message_id<=#{query.maxMessageId} ]]>
 		    </if>
 	 </where>
 	</sql>
@@ -92,7 +92,8 @@
 	<select id="selectList" resultMap="base_result_map" >
 		 SELECT <include refid="base_column_list" /> FROM agent_message a <include refid="query_condition" />
 		 <if test="query.orderBy!=null">
-			 order by ${query.orderBy}
+			 <bind name="safeOrderBy" value="@com.easymall.validation.sort.SqlSortWhitelist@forMapper('AgentMessageMapper', query.orderBy)" />
+             order by ${safeOrderBy}
 		 </if>
 		 <if test="query.simplePage!=null">
 			 limit #{query.simplePage.start},#{query.simplePage.end}

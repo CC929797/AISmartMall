@@ -1,5 +1,7 @@
 package com.easymall.service.Impl;
 
+import com.easymall.validation.AiCommentInputs;
+
 import java.util.Date;
 import java.util.List;
 
@@ -137,6 +139,8 @@ public class AgentMessageServiceImpl implements AgentMessageService {
 	 */
 	@Override
 	public AgentMessage saveMessage(String userId, String userMessage) {
+		// 服务可能由非 HTTP 入口调用，必须在插入消息前检查身份和文本规模。
+		AiCommentInputs.requireMessage(userId, userMessage);
 		AgentMessage agentMessage = new AgentMessage();
 		agentMessage.setUserMessage(userMessage);
 		agentMessage.setUserId(userId);
@@ -175,6 +179,7 @@ public class AgentMessageServiceImpl implements AgentMessageService {
 	 */
 	@Override
 	public void cancelMessage(String userId, Integer messageId) {
+		AiCommentInputs.requireMessageId(userId, messageId);
 		AgentMessage agentMessage = new AgentMessage();
 		agentMessage.setAssistantMessage("用户取消");
 		agentMessage.setStatus(AgentMessageStatusEnum.CANCEL.getStatus());

@@ -1,5 +1,7 @@
 package com.easymall.entity.query;
 
+import com.easymall.validation.InputValidator;
+
 
 public class BaseParam {
 	private SimplePage simplePage;
@@ -19,6 +21,7 @@ public class BaseParam {
 	}
 
 	public void setPageNo(Integer pageNo) {
+		InputValidator.optionalPageNo(pageNo);
 		this.pageNo = pageNo;
 	}
 
@@ -27,6 +30,7 @@ public class BaseParam {
 	}
 
 	public void setPageSize(Integer pageSize) {
+		InputValidator.optionalPageSize(pageSize);
 		this.pageSize = pageSize;
 	}
 

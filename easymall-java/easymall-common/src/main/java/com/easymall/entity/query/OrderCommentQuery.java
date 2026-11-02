@@ -8,6 +8,18 @@ import java.util.Date;
  */
 public class OrderCommentQuery extends BaseParam {
 
+	/** 后台评论页面的昵称、商品名称筛选，与持久化评论字段分离。 */
+	private String nickNameFuzzy;
+	private String productNameFuzzy;
+
+	public String getNickNameFuzzy() { return nickNameFuzzy; }
+
+	public void setNickNameFuzzy(String nickNameFuzzy) { this.nickNameFuzzy = nickNameFuzzy; }
+
+	public String getProductNameFuzzy() { return productNameFuzzy; }
+
+	public void setProductNameFuzzy(String productNameFuzzy) { this.productNameFuzzy = productNameFuzzy; }
+
 
 	/**
 	 * 订单ID

@@ -836,6 +836,105 @@ class BaselineSmokeIT {
         }
     }
 
+    @Test
+    void invalidInputsCannotWriteBusinessRowsOrInvokeExternalWork() {
+        assertThat(jdbc.queryForObject("select database()", String.class)).isEqualTo("easymall_test");
+        String token = loginBaselineUser();
+        Map<String, Integer> rowsBefore = inputBoundaryRowCounts();
+        Integer stockBefore = stock(StringTools.encodeByMD5(PROPERTY_VALUE_ID));
+        JsonNode modelBefore = modelHealth();
+        try {
+            Map<String, Object> item = Map.of("productId", PRODUCT_ID, "propertyValueIds", PROPERTY_VALUE_ID, "buyCount", 1);
+            List<Object> invalidLists = new java.util.ArrayList<>();
+            invalidLists.add(null);
+            invalidLists.add(List.of());
+            invalidLists.add(java.util.Collections.singletonList(null));
+            for (int quantity : List.of(-1, 0, 100)) {
+                invalidLists.add(List.of(Map.of("productId", PRODUCT_ID, "propertyValueIds", PROPERTY_VALUE_ID, "buyCount", quantity)));
+            }
+            invalidLists.add(List.of(item, item));
+            invalidLists.add(java.util.Collections.nCopies(51, item));
+            for (Object items : invalidLists) {
+                Map<String, Object> order = new HashMap<>();
+                order.put("payMethod", "alipay_pc");
+                order.put("addressId", "BASEADDR000001");
+                order.put("orderFrom", 0);
+                order.put("orderList", items);
+                assertInputJsonRejected("/order/postOrder", order, token);
+            }
+            for (String quantity : List.of("0", "-1", "100")) {
+                MultiValueMap<String, String> cart = new LinkedMultiValueMap<>();
+                cart.add("productId", PRODUCT_ID);
+                cart.add("propertyValueIds", PROPERTY_VALUE_ID);
+                cart.add("buyCount", quantity);
+                assertFormCode("/productCart/add2Cart", cart, token, 600);
+            }
+            for (String message : List.of(" ", "界".repeat(1001))) {
+                MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+                form.add("message", message);
+                assertFormCode("/agent/sendMessage", form, token, 600);
+            }
+            for (String star : List.of("0", "6")) {
+                MultiValueMap<String, String> comment = new LinkedMultiValueMap<>();
+                comment.add("orderId", "AUTH02ORDERA001");
+                comment.add("commentContent", "Synthetic invalid rating");
+                comment.add("star", star);
+                assertFormCode("/order/comment/postComment", comment, token, 600);
+            }
+            assertHttpCode("/product/loadProduct?pageNo=0", null, 600);
+            assertHttpCode("/product/search?keyWords=baseline&sortField=unknown", null, 600);
+            MultiValueMap<String, String> internal = new LinkedMultiValueMap<>();
+            internal.add("orderBy", "order_time desc; select 1");
+            assertFormCode("/order/loadMyOrder", internal, token, 600);
+            assertThat(inputBoundaryRowCounts()).as("非法请求不得产生订单、购物车、评论或AI消息记录").isEqualTo(rowsBefore);
+            assertThat(stock(StringTools.encodeByMD5(PROPERTY_VALUE_ID))).isEqualTo(stockBefore);
+            JsonNode modelAfter = modelHealth();
+            for (String counter : List.of("chatRequests", "embeddingRequests")) {
+                assertThat(modelAfter.path("counters").path(counter).asLong())
+                        .as("非法AI输入不能触发本地模型替身").isEqualTo(modelBefore.path("counters").path(counter).asLong());
+            }
+            org.mockito.Mockito.verifyNoInteractions(payment);
+        } finally {
+            redisComponent.cleanToken(token);
+        }
+    }
+
+    @Test
+    void realAdminListUsesWhitelistedSortAndBoundedPaging() {
+        String token = loginSyntheticAdmin();
+        try {
+            JsonNode list = success("bounded synthetic admin list", http.exchange(
+                    ADMIN_URL + "/user/loadUser?pageNo=1&pageSize=1&sortField=joinTime&sortDirection=desc",
+                    HttpMethod.GET, new HttpEntity<>(adminHeaders(token)), JsonNode.class));
+            assertThat(list.path("pageSize").asInt()).isEqualTo(1);
+            assertThat(list.path("list").size()).isLessThanOrEqualTo(1);
+            assertAdminCode("/user/loadUser?pageSize=101", token, 600);
+            assertAdminCode("/user/loadUser?sortField=password&sortDirection=asc", token, 600);
+            assertAdminCode("/user/loadUser?sortField=joinTime&sortDirection=invalid", token, 600);
+            assertAdminCode("/user/loadUser?orderBy=password", token, 600);
+            assertAdminCode("/user/loadUser?simplePage.pageSize=10000", token, 600);
+        } finally {
+            http.postForEntity(ADMIN_URL + "/account/logout",
+                    new HttpEntity<>(new LinkedMultiValueMap<>(), adminHeaders(token)), String.class);
+        }
+    }
+
+    private Map<String, Integer> inputBoundaryRowCounts() {
+        Map<String, Integer> counts = new HashMap<>();
+        // 表名均为本测试的固定常量，不接收请求提供的 SQL 标识符。
+        for (String table : List.of("order_info", "order_item", "order_logistics_info", "product_cart", "agent_message", "order_comment")) {
+            counts.put(table, jdbc.queryForObject("select count(*) from " + table, Integer.class));
+        }
+        return counts;
+    }
+
+    private void assertInputJsonRejected(String path, Object body, String token) {
+        ResponseEntity<JsonNode> response = http.postForEntity(url(path),
+                new HttpEntity<>(body, headers(token, MediaType.APPLICATION_JSON)), JsonNode.class);
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(Objects.requireNonNull(response.getBody()).path("code").asInt()).isEqualTo(600);
+    }
+
     private void prepareSyntheticSecurityUser(String userId) {
         Integer count = jdbc.queryForObject("select count(*) from user_info where user_id=?",
                 Integer.class, userId);

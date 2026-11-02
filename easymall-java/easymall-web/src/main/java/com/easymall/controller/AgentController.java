@@ -7,9 +7,17 @@ import com.easymall.entity.query.AgentMessageQuery;
 import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.service.AgentMessageService;
+import com.easymall.security.CurrentUser;
+import com.easymall.validation.AiCommentInputs;
+import com.easymall.validation.InputLimits;
+import com.easymall.validation.InputValidator;
 import jakarta.annotation.Resource;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.extern.slf4j.Slf4j;
-import org.bouncycastle.asn1.cms.PasswordRecipientInfo;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,8 +32,10 @@ public class AgentController extends ABaseController{
 
     @RequestMapping("/sendMessage")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO sendMessage(String message) {
-        AgentMessage agentMessage = chatComponent.sendMessage(getCurrentUser(), message);
+    public ResponseVO sendMessage(@NotBlank @Size(max = InputLimits.MAX_MESSAGE_LENGTH) String message) {
+        CurrentUser currentUser = getCurrentUser();
+        AiCommentInputs.requireMessage(currentUser.userId(), message);
+        AgentMessage agentMessage = chatComponent.sendMessage(currentUser, message);
         return getSuccessResponseVO(agentMessage);
     }
 
@@ -37,7 +47,9 @@ public class AgentController extends ABaseController{
      */
     @RequestMapping("/loadHistoryMessage")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO loadHistoryMessage(Integer pageNo,Integer maxMessageId) {
+    public ResponseVO loadHistoryMessage(@Min(1) @Max(InputLimits.MAX_PAGE_NO) Integer pageNo, @Min(1) Integer maxMessageId) {
+        InputValidator.optionalPageNo(pageNo);
+        if (maxMessageId != null) { InputValidator.requireRange(maxMessageId, 1, Integer.MAX_VALUE); }
         AgentMessageQuery agentMessageQuery = new AgentMessageQuery();
         agentMessageQuery.setOrderBy("message_id desc");
         agentMessageQuery.setPageNo(pageNo);
@@ -54,8 +66,10 @@ public class AgentController extends ABaseController{
      */
     @RequestMapping("/cancelMessage")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO cancelMessage(Integer messageId) {
-        chatComponent.cancelMessage(getTokenUserInfo().getUserId(),messageId);
+    public ResponseVO cancelMessage(@NotNull @Min(1) Integer messageId) {
+        String userId = getTokenUserInfo().getUserId();
+        AiCommentInputs.requireMessageId(userId, messageId);
+        chatComponent.cancelMessage(userId,messageId);
         return getSuccessResponseVO(null);
     }
 }

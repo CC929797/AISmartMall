@@ -7,12 +7,14 @@ import com.easymall.entity.enums.DateTimePatternEnum;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.query.OrderInfoQuery;
 import com.easymall.entity.query.ProductSkuQuery;
+import com.easymall.entity.dto.request.AdminStockListRequest;
 import com.easymall.entity.query.UserInfoQuery;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.entity.vo.TodayDataVO;
 import com.easymall.service.*;
 import com.easymall.utils.DateUtil;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -115,9 +117,8 @@ public class HomeController extends ABaseController{
      * @return
      */
     @RequestMapping("/loadLessStockProduct")
-    public ResponseVO loadLessStockProduct(){
-        ProductSkuQuery query = new ProductSkuQuery();
-        query.setLessStock(Constants.LENGTH_10);
+    public ResponseVO loadLessStockProduct(@Valid AdminStockListRequest request){
+        ProductSkuQuery query = request.toQuery();
         return getSuccessResponseVO(productSkuService.findListByPage4ListVO(query));
     }
 

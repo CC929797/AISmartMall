@@ -1,19 +1,28 @@
 package com.easymall.entity.dto;
 
-import jakarta.validation.constraints.NotEmpty;
+import com.easymall.validation.InputLimits;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public class PostOrderItemDTO {
 
-    @NotEmpty
+    @NotBlank
+    @Size(max = 15)
     private String productId;
 
-    @NotEmpty
+    @NotBlank
+    @Size(max = 500)
     private String propertyValueIds;
 
     @NotNull
+    @Min(1)
+    @Max(InputLimits.MAX_BUY_COUNT)
     private Integer buyCount;
 
+    @Size(max = 300)
     private String remark;
 
     public String getProductId() {

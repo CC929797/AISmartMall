@@ -1,6 +1,7 @@
 package com.easymall.controller;
 
 import com.easymall.entity.dto.ProductSaveDTO;
+import com.easymall.entity.dto.request.AdminProductListRequest;
 import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.entity.po.ProductInfo;
 import com.easymall.entity.vo.ResponseVO;
@@ -10,6 +11,7 @@ import com.easymall.valid.CreateGroup;
 import com.easymall.valid.UpdateGroup;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,14 +36,8 @@ public class ProductInfoController extends ABaseController{
 	 * 根据条件分页查询
 	 */
 	@RequestMapping("/loadProduct")
-	public ResponseVO loadProductList(String productNameFuzzy, Integer pageNo, String categoryIdOrPCategoryId, Integer commendType,Integer status) {
-		ProductInfoQuery query = new ProductInfoQuery();
-		query.setPageNo(pageNo);
-		query.setProductNameFuzzy(productNameFuzzy);
-		query.setCommendType(commendType);
-		query.setOrderBy("p.create_time desc");
-		query.setCategoryIdOrPCategoryId(categoryIdOrPCategoryId);
-		query.setStatus(status);
+	public ResponseVO loadProductList(@Valid AdminProductListRequest request) {
+		ProductInfoQuery query = request.toQuery();
 
 		return getSuccessResponseVO(productInfoService.findListByPageListVO(query));
 	}

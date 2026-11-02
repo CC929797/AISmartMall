@@ -19,6 +19,7 @@ import com.easymall.utils.JsonUtils;
 import com.easymall.utils.StringTools;
 import com.easymall.websocket.ChannelContextUtils;
 import com.easymall.security.CurrentUser;
+import com.easymall.validation.AiCommentInputs;
 import com.easymall.websocket.message.MessageHandler;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -71,10 +72,11 @@ public class ChatComponent {
      * @return
      */
     public AgentMessage sendMessage(CurrentUser currentUser,String message) {
-        if (currentUser == null || currentUser.role() != CurrentUser.Role.USER
-                || StringTools.isEmpty(currentUser.userId())) {
+        if (currentUser == null || currentUser.role() != CurrentUser.Role.USER || StringTools.isEmpty(currentUser.userId())) {
             throw new com.easymall.exception.BusinessException(ResponseCodeEnum.CODE_901);
         }
+        // 异步任务提交前完成校验，非法输入不能写消息或启动模型调用。
+        AiCommentInputs.requireMessage(currentUser.userId(), message);
         AgentMessage agentMessage = agentMessageService.saveMessage(currentUser.userId(), message);
 
         ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
@@ -367,7 +369,7 @@ public class ChatComponent {
      * @param messageId 消息ID
      */
     public void cancelMessage(String userId,Integer messageId) {
-        //
+        AiCommentInputs.requireMessageId(userId, messageId);
         agentMessageService.cancelMessage(userId,messageId);
         redisComponent.cancelMessage(userId, messageId);
     }

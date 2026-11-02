@@ -1,23 +1,34 @@
 package com.easymall.entity.dto;
 
 import jakarta.validation.Valid;
+import com.easymall.validation.InputLimits;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
 public class PostOrderDTO {
 
-    @NotEmpty
+    @NotBlank
+    @Size(max = 20)
     private String payMethod;
 
-    @NotEmpty
+    @NotBlank
+    @Size(max = 15)
     private String addressId;
 
+    @NotEmpty
+    @Size(max = InputLimits.MAX_ORDER_ITEMS)
     @Valid
-    private List<PostOrderItemDTO> orderList;
+    private List<@NotNull PostOrderItemDTO> orderList;
 
     @NotNull
+    @Min(0)
+    @Max(1)
     private Integer orderFrom;
 
     public Integer getOrderFrom() {

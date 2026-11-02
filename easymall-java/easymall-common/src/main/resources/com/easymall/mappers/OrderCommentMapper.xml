@@ -87,6 +87,14 @@
 	<sql id="query_condition">
 	 <where>
 			<include refid="base_condition_filed" />
+			<if test="query.nickNameFuzzy != null and query.nickNameFuzzy != ''">
+				and exists (select 1 from user_info filter_user where filter_user.user_id = o.user_id
+				and filter_user.nick_name like concat('%', #{query.nickNameFuzzy}, '%'))
+			</if>
+			<if test="query.productNameFuzzy != null and query.productNameFuzzy != ''">
+				and exists (select 1 from product_info filter_product where filter_product.product_id = o.product_id
+				and filter_product.product_name like concat('%', #{query.productNameFuzzy}, '%'))
+			</if>
 			<if test="query.orderIdFuzzy!= null  and query.orderIdFuzzy!=''">
 				 and  o.order_id like concat('%', #{query.orderIdFuzzy}, '%')
 			</if>
@@ -142,7 +150,8 @@
 		 <include refid="extendQueryCommon"/>
 		 <include refid="query_condition" />
 		 <if test="query.orderBy!=null">
-			 order by ${query.orderBy}
+			 <bind name="safeOrderBy" value="@com.easymall.validation.sort.SqlSortWhitelist@forMapper('OrderCommentMapper', query.orderBy)" />
+             order by ${safeOrderBy}
 		 </if>
 		 <if test="query.simplePage!=null">
 			 limit #{query.simplePage.start},#{query.simplePage.end}

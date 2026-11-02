@@ -23,6 +23,7 @@ import com.easymall.entity.query.SimplePage;
 import com.easymall.mappers.OrderCommentMapper;
 import com.easymall.service.OrderCommentService;
 import com.easymall.utils.StringTools;
+import com.easymall.validation.AiCommentInputs;
 import org.springframework.transaction.annotation.Transactional;
 
 
@@ -153,6 +154,8 @@ public class OrderCommentServiceImpl implements OrderCommentService {
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void postComment(String userId, String orderId, String commentContent, String commentImages, Integer star) {
+		// 先校验输入，再查询归属和修改状态，MCP 等直接调用也不能绕过规模限制。
+		AiCommentInputs.requireComment(userId, orderId, commentContent, commentImages, star);
 		OrderInfo orderInfo = orderInfoMapper.selectByOrderId(orderId);
 		if (orderInfo == null || !orderInfo.getUserId().equals(userId)) {
 			throw new BusinessException(ResponseCodeEnum.CODE_600);
@@ -205,6 +208,7 @@ public class OrderCommentServiceImpl implements OrderCommentService {
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void postReComment(String userId, String orderId, String reCommentContent, String reCommentImages) {
+		AiCommentInputs.requireReComment(userId, orderId, reCommentContent, reCommentImages);
 		OrderInfo orderInfo = orderInfoMapper.selectByOrderId(orderId);
 		if (orderInfo == null || !orderInfo.getUserId().equals(userId)) {
 			throw new BusinessException(ResponseCodeEnum.CODE_600);

@@ -68,7 +68,8 @@
 	<select id="selectList" resultMap="base_result_map" >
 		 SELECT <include refid="base_column_list" /> FROM rag_question r <include refid="query_condition" />
 		 <if test="query.orderBy!=null">
-			 order by ${query.orderBy}
+			 <bind name="safeOrderBy" value="@com.easymall.validation.sort.SqlSortWhitelist@forMapper('RagQuestionMapper', query.orderBy)" />
+             order by ${safeOrderBy}
 		 </if>
 		 <if test="query.simplePage!=null">
 			 limit #{query.simplePage.start},#{query.simplePage.end}

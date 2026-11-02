@@ -1,6 +1,7 @@
 package com.easymall.controller;
 
 import com.easymall.commonent.RedisComponent;
+import com.easymall.entity.dto.request.AdminUserListRequest;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.enums.UserStatusEnum;
 import com.easymall.entity.po.UserInfo;
@@ -12,6 +13,7 @@ import com.easymall.exception.BusinessException;
 import com.easymall.service.UserInfoService;
 import com.easymall.utils.CopyTools;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,11 +27,11 @@ public class UserController extends ABaseController{
 
     /**
      * 查看所有用户信息
-     * @param userInfoQuery 用户信息查询条件
+     * @param request 页面允许提交的用户筛选和分页条件
      */
     @RequestMapping("/loadUser")
-    public ResponseVO loadUser(UserInfoQuery userInfoQuery) {
-        userInfoQuery.setOrderBy("u.join_time desc");
+    public ResponseVO loadUser(@Valid AdminUserListRequest request) {
+        UserInfoQuery userInfoQuery = request.toQuery();
         PaginationResultVO<UserInfo> userPage = userInfoService.findListByPage(userInfoQuery);
         PaginationResultVO<UserAdminVO> responsePage = new PaginationResultVO<>();
         responsePage.setTotalCount(userPage.getTotalCount());

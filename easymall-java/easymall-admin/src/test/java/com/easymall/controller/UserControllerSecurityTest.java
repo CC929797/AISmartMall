@@ -2,6 +2,7 @@ package com.easymall.controller;
 
 import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
+import com.easymall.entity.dto.request.AdminUserListRequest;
 import com.easymall.entity.po.UserInfo;
 import com.easymall.entity.query.UserInfoQuery;
 import com.easymall.entity.vo.PaginationResultVO;
@@ -62,7 +63,7 @@ class UserControllerSecurityTest {
         when(userInfoService.findListByPage(any(UserInfoQuery.class)))
                 .thenReturn(page(List.of(user())));
 
-        PaginationResultVO<?> result = (PaginationResultVO<?>) controller.loadUser(new UserInfoQuery()).getData();
+        PaginationResultVO<?> result = (PaginationResultVO<?>) controller.loadUser(new AdminUserListRequest()).getData();
 
         // Avoid printing an entity that could include synthetic sensitive values.
         assertThat(result.getList().get(0) instanceof UserAdminVO)
@@ -82,8 +83,7 @@ class UserControllerSecurityTest {
         String body = mockMvc.perform(get("/user/loadUser")
                         .param("pageNo", "2")
                         .param("nickNameFuzzy", "fixture")
-                        .param("status", "1")
-                        .param("orderBy", "client-supplied-order"))
+                        .param("status", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.totalCount").value(42))

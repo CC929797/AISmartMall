@@ -4,6 +4,7 @@ import com.easymall.entity.enums.PageSize;
 import com.easymall.entity.enums.ProductStatusEnum;
 import com.easymall.entity.enums.SearchFieldTypeEnum;
 import com.easymall.entity.enums.SearchSortTypeEnum;
+import com.easymall.entity.dto.request.ProductSearchRequest;
 import com.easymall.entity.po.ProductInfo;
 import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.entity.vo.PaginationResultVO;
@@ -100,6 +101,16 @@ public class EsSearchComponent {
     public PaginationResultVO<ProductInfoDTO> searchProduct(String keyWords,
             BigDecimal priceFrom, BigDecimal priceTo,
             String sortType, String softField, Integer pageNo){
+        //封装请求参数，统一进行校验
+        ProductSearchRequest request = new ProductSearchRequest();
+        request.setKeyWords(keyWords);
+        request.setPriceFrom(priceFrom);
+        request.setPriceTo(priceTo);
+        request.setSortType(sortType);
+        request.setSortField(softField);
+        request.setPageNo(pageNo);
+        // 非法输入必须在异常兜底之前拒绝，不能伪装为“未找到商品”。
+        request.validate();
         try {
             pageNo = pageNo == null ? 1 : pageNo;
             pageNo = pageNo - 1;

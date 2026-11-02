@@ -16,6 +16,7 @@ import com.easymall.entity.query.*;
 import com.easymall.exception.BusinessException;
 import com.easymall.mappers.*;
 import com.easymall.service.PayChannel;
+import com.easymall.validation.InputValidator;
 import jakarta.annotation.Resource;
 
 import jodd.util.ArraysUtil;
@@ -167,6 +168,16 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public PayInfoDTO postOrder(String userId, PostOrderDTO postOrderDTO) {
+		// 服务层再次校验，确保内部调用也不能绕过数量、长度与嵌套明细约束。
+		InputValidator.requireText(userId, 15);
+		InputValidator.validateBean(postOrderDTO);
+		Set<List<String>> submittedSkus = new HashSet<>();
+		for (PostOrderItemDTO item : postOrderDTO.getOrderList()) {
+			// 明确拒绝重复商品与 SKU，避免一批库存 SQL 对同一 SKU 重复处理。
+			if (!submittedSkus.add(List.of(item.getProductId(), item.getPropertyValueIds()))) {
+				throw new BusinessException(ResponseCodeEnum.CODE_600);
+			}
+		}
 		PayChannelEnum payChannelEnum = PayChannelEnum.getByPayScene(postOrderDTO.getPayMethod());
 		if (payChannelEnum == null) {
 			throw new BusinessException(ResponseCodeEnum.CODE_600);

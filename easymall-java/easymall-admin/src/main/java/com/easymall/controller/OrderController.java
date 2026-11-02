@@ -1,6 +1,8 @@
 package com.easymall.controller;
 
 import com.easymall.entity.dto.OrderStatusDTO;
+import com.easymall.entity.dto.request.AdminOrderListRequest;
+import com.easymall.entity.dto.request.AdminCommentListRequest;
 import com.easymall.entity.enums.CommentStatusEnum;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.po.OrderComment;
@@ -12,6 +14,7 @@ import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.service.*;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -40,14 +43,12 @@ public class OrderController extends ABaseController{
 
     /**
      * 管理端查看所有订单
-     * @param orderInfoQuery
+     * @param request 页面允许提交的订单筛选和分页条件
      * @return
      */
     @RequestMapping("/loadOrder")
-    public ResponseVO loadOrder(OrderInfoQuery orderInfoQuery){
-        orderInfoQuery.setOrderBy("o.order_time desc");
-        orderInfoQuery.setQueryItems(true);
-        orderInfoQuery.setQueryUser(true);
+    public ResponseVO loadOrder(@Valid AdminOrderListRequest request){
+        OrderInfoQuery orderInfoQuery = request.toQuery();
         PaginationResultVO<OrderInfo> resultVO = this.orderInfoService.findListByPage(orderInfoQuery);
 
         return getSuccessResponseVO(resultVO);
@@ -99,14 +100,12 @@ public class OrderController extends ABaseController{
 
     /**
      * 获取到所有评论
-     * @param query
+     * @param request 页面允许提交的评论筛选和分页条件
      * @return
      */
     @RequestMapping("/loadComment")
-    public ResponseVO loadComment(OrderCommentQuery query){
-        query.setOrderBy("o.comment_time desc");
-        query.setQueryProduct(true);
-        query.setQueryUserInfo(true);
+    public ResponseVO loadComment(@Valid AdminCommentListRequest request){
+        OrderCommentQuery query = request.toQuery();
         return getSuccessResponseVO(orderCommentService.findListByPage(query));
     }
 

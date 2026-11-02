@@ -10,6 +10,17 @@ import java.util.Date;
  */
 public class OrderInfoQuery extends BaseParam {
 
+	/** 后台订单页面允许的商品名称模糊条件，仅由请求 DTO 映射赋值。 */
+	private String productNameFuzzy;
+
+	public String getProductNameFuzzy() {
+		return productNameFuzzy;
+	}
+
+	public void setProductNameFuzzy(String productNameFuzzy) {
+		this.productNameFuzzy = productNameFuzzy;
+	}
+
 
 	/**
 	 * 订单ID

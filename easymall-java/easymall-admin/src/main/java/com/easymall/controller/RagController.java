@@ -1,10 +1,12 @@
 package com.easymall.controller;
 
 import com.easymall.entity.po.RagQuestion;
+import com.easymall.entity.dto.request.AdminRagListRequest;
 import com.easymall.entity.query.RagQuestionQuery;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.service.RagQuestionService;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,12 +18,12 @@ public class RagController extends ABaseController{
 
     /**
      * 根据条件查询rag问题列表
-     * @param questionQuery
+     * @param request 页面允许提交的知识库筛选和分页条件
      * @return
      */
     @RequestMapping("/loadRagQuestion")
-    public ResponseVO loadRagQuestion(RagQuestionQuery questionQuery) {
-        questionQuery.setOrderBy("r.question_id desc");
+    public ResponseVO loadRagQuestion(@Valid AdminRagListRequest request) {
+        RagQuestionQuery questionQuery = request.toQuery();
         return getSuccessResponseVO(ragQuestionService.findListByPage(questionQuery));
     }
 

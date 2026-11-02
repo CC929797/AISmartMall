@@ -1,0 +1,548 @@
+{
+  "step": "03",
+  "date": "2026-10-28",
+  "timezone": "Asia/Shanghai",
+  "status": "implemented_and_interface_verified",
+  "baseline": "8a40eec",
+  "runtime": {
+    "java": "Microsoft JDK 21.0.11",
+    "maven": "3.9.14",
+    "isolatedDatabase": "127.0.0.1:13306/easymall_test",
+    "redis": "127.0.0.1:16379",
+    "elasticsearch": "127.0.0.1:19200",
+    "model": "local fixed synthetic fixture",
+    "admin": "127.0.0.1:6061"
+  },
+  "ordinary": {
+    "previous": 147,
+    "tests": 403,
+    "added": 256,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "modules": [
+      {
+        "name": "easymall-common",
+        "tests": 250,
+        "suites": [
+          {
+            "name": "com.easymall.config.BaselineTestConfigTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.entity.dto.PostOrderValidationTest",
+            "tests": 11,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.entity.po.UserInfoSerializationTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.entity.query.SimplePageTest",
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.security.RedisSessionLoggingTest",
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.security.RedisSessionRevocationTest",
+            "tests": 14,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.security.UserAuthenticationServiceTest",
+            "tests": 15,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.AiMessageInputBoundaryTest",
+            "tests": 13,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.BusinessResourceOwnershipTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.CartInputBoundaryTest",
+            "tests": 17,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.CommentInputBoundaryTest",
+            "tests": 27,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.OrderInputBoundaryTest",
+            "tests": 24,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.UserAddressOwnershipTest",
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.utils.JsonUtilsLoggingTest",
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.PaginationInputBoundaryTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.sort.ListRequestContractTest",
+            "tests": 24,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.sort.MapperSortBoundaryTest",
+            "tests": 51,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.sort.ProductSearchContractTest",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.sort.ProductSearchInputTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      },
+      {
+        "name": "easymall-admin",
+        "tests": 28,
+        "suites": [
+          {
+            "name": "com.easymall.controller.AdminListHttpContractTest",
+            "tests": 12,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.AdminListRequestBoundaryTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.UserControllerSecurityTest",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.interceptor.AppInterceptorSecurityTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      },
+      {
+        "name": "easymall-web",
+        "tests": 125,
+        "suites": [
+          {
+            "name": "com.easymall.component.ChatInputBoundaryTest",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.AiCommentControllerBoundaryTest",
+            "tests": 8,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.CartRequestBoundaryTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.ProductControllerBaselineTest",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.RequestInputBoundaryTest",
+            "tests": 33,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.UserAccountSecurityTest",
+            "tests": 21,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.UserResourceBoundaryTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.WebAuthenticationBoundaryTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.ChannelContextSecurityRegressionTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.ChannelContextSecurityTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.netty.WebSocketAuthenticationTest",
+            "tests": 15,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.netty.WebSocketEndpointCompatibilityTest",
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.WebSocketSessionRevocationListenerTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      }
+    ]
+  },
+  "package": {
+    "status": "passed",
+    "seconds": 25.85,
+    "log": "runtime/phase1/step03/03-package-after.log",
+    "modules": [
+      "common",
+      "admin",
+      "web",
+      "mcp"
+    ],
+    "ignoredTestFailures": false
+  },
+  "integration": {
+    "previous": 7,
+    "tests": 9,
+    "added": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suiteSeconds": 28.251,
+    "verifySeconds": 56.586,
+    "log": "runtime/phase1/step03/03-integration.log",
+    "cases": [
+      {
+        "name": "realWebSocketsCloseOnLogoutAndExpireEvenWithoutClientTraffic",
+        "seconds": 14.926
+      },
+      {
+        "name": "realAdminListUsesWhitelistedSortAndBoundedPaging",
+        "seconds": 0.582
+      },
+      {
+        "name": "adminProcessBanImmediatelyClosesWebSocketAndSeparatesUserAndAdminTokens",
+        "seconds": 0.256
+      },
+      {
+        "name": "invalidInputsCannotWriteBusinessRowsOrInvokeExternalWork",
+        "seconds": 0.329
+      },
+      {
+        "name": "userProfileBoundaryAndClosedCrudProtectBothSyntheticUsers",
+        "seconds": 0.191
+      },
+      {
+        "name": "bothRealUsersCanReadTheirOwnResourcesButCannotReadOrChangeEachOthersResources",
+        "seconds": 0.242
+      },
+      {
+        "name": "realHttpKeepsPublicBrowsingAndProtectsPrivateHandlersByDefault",
+        "seconds": 0.052
+      },
+      {
+        "name": "realRedisScriptsPreserveNewLoginAndNeverReviveRevokedOrExpiredSnapshots",
+        "seconds": 1.122
+      },
+      {
+        "name": "browseLoginSearchOrderAndAiCompleteAgainstIsolatedServices",
+        "seconds": 1.205
+      }
+    ],
+    "verified": [
+      "invalid order lists and quantities reject without writes",
+      "duplicate SKU rejects before stock mutation",
+      "invalid cart quantity does not write rows",
+      "invalid AI input does not call the model fixture",
+      "invalid stars return 600",
+      "stock and six business-table row counts unchanged after invalid requests",
+      "actual admin sort paging and binding guards return expected codes",
+      "prior commerce AI profile ownership logout expiry ban and WebSocket cases still pass"
+    ]
+  },
+  "adminFilters": [
+    {
+      "filter": "orders",
+      "baselineHasRows": true,
+      "missingNameRows": 0,
+      "quotedInputRows": 0,
+      "code": 200
+    },
+    {
+      "filter": "commentProducts",
+      "baselineHasRows": true,
+      "missingNameRows": 0,
+      "quotedInputRows": 0,
+      "code": 200
+    },
+    {
+      "filter": "commentUsers",
+      "baselineHasRows": true,
+      "missingNameRows": 0,
+      "quotedInputRows": 0,
+      "code": 200
+    }
+  ],
+  "frontends": [
+    {
+      "name": "web",
+      "status": "passed",
+      "seconds": 10.81,
+      "indexSha256": "AF5934989C4390570C59FDE0223F870C482438B808661808C91BB1EFA4BC97DC"
+    },
+    {
+      "name": "admin",
+      "status": "passed",
+      "seconds": 31.24,
+      "indexSha256": "485B6D6754E3CA5456DFF3D89B689E68419F49C6D7DB60CDA8F8310FDF9C33F8"
+    }
+  ],
+  "limits": {
+    "pageNo": "1..100000, omitted uses default",
+    "pageSize": "1..100",
+    "esPageNo": "1..666 at fixed size 15/default 10000 result window",
+    "orderItems": "1..50",
+    "buyCount": "1..99",
+    "duplicateSku": "reject",
+    "aiText": "nonblank, at most 1000 UTF-16 characters",
+    "comment": "nonblank, at most 300",
+    "stars": "1..5",
+    "commentImages": "at most 5 comma-separated paths, total at most 300",
+    "aiAttachments": "unsupported, form/query/multipart rejected"
+  },
+  "sql": {
+    "guardedMapperCount": 16,
+    "rawQueryOrderByInterpolationRemoved": true,
+    "categorySortUsesParameter": true,
+    "adminListsUsingRequestDtos": 6,
+    "identifiersFromFixedWhitelist": true,
+    "adminProductAndNicknameFiltersUsePreparedParameters": true
+  },
+  "beforeFix": [
+    {
+      "suite": "PostOrderValidationTest",
+      "tests": 11,
+      "failures": 10,
+      "errors": 0
+    },
+    {
+      "suite": "CartInputBoundaryTest",
+      "tests": 13,
+      "failures": 13,
+      "errors": 0
+    },
+    {
+      "suite": "OrderInputBoundaryTest",
+      "tests": 22,
+      "failures": 19,
+      "errors": 0
+    },
+    {
+      "suite": "PaginationInputBoundaryTest",
+      "tests": 10,
+      "failures": 9,
+      "errors": 0
+    },
+    {
+      "suite": "RequestInputBoundaryTest",
+      "tests": 22,
+      "failures": 19,
+      "errors": 1
+    },
+    {
+      "suite": "AiMessageInputBoundaryTest",
+      "tests": 13,
+      "failures": 11,
+      "errors": 0
+    },
+    {
+      "suite": "CommentInputBoundaryTest",
+      "tests": 27,
+      "failures": 25,
+      "errors": 0
+    },
+    {
+      "suite": "MapperSortBoundaryTest",
+      "tests": 49,
+      "failures": 16,
+      "errors": 0
+    },
+    {
+      "suite": "ProductSearchInputTest",
+      "tests": 10,
+      "failures": 10,
+      "errors": 0
+    },
+    {
+      "suite": "AdminListRequestBoundaryTest",
+      "tests": 1,
+      "failures": 1,
+      "errors": 0
+    },
+    {
+      "suite": "ChatInputBoundaryTest",
+      "tests": 3,
+      "failures": 3,
+      "errors": 0
+    },
+    {
+      "suite": "AiCommentControllerBoundaryTest",
+      "tests": 8,
+      "failures": 5,
+      "errors": 0
+    }
+  ],
+  "safety": {
+    "databaseSchemaChanged": false,
+    "passwordProtocolChanged": false,
+    "realModelCalled": false,
+    "realPaymentCalled": false,
+    "modelErrors": 0,
+    "bulkFilesDeleted": false,
+    "fixturesReset": false,
+    "gitCommitted": false,
+    "existingChangesPreserved": true
+  },
+  "limitations": [
+    "browser click-through and performance stress not separately measured",
+    "only specified order cart paging AI comment boundaries are covered, not all possible entity validation",
+    "unknown JSON properties may be ignored but DTOs cannot bind internal Query fields",
+    "existing cancellation-state and shutdown-retry defects remain",
+    "full order idempotency inventory concurrency and real payment remain later roadmap work"
+  ],
+  "recheck": {
+    "date": "2026-10-28",
+    "conclusion": "implementation_and_previous_verification_complete",
+    "ordinaryTestsRerun": 403,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "packagePassed": true,
+    "bothFrontendBuildsPassed": true,
+    "previousIntegrationEvidenceCrossChecked": true,
+    "integrationRerun": false,
+    "dockerStarted": false,
+    "businessCodeChanged": false,
+    "results": "runtime/phase1/step03/recheck-20261028/results.json"
+  },
+  "endState": {
+    "ownedAdminStopped": true,
+    "ownedModelStopped": true,
+    "isolatedContainersStopped": true,
+    "deletedFiles": false,
+    "deletedVolumes": false,
+    "resetDatabase": false,
+    "remainingTestPorts": [],
+    "availableDevelopmentPorts": [
+      3306
+    ],
+    "dockerDesktopStartedForTests": true,
+    "dockerEngineLeftRunning": true,
+    "laterReadOnlyDockerApiReachable": false,
+    "laterReadOnlyDockerApiError": "dockerDesktopLinuxEngine pipe unavailable; engine not restarted"
+  }
+}

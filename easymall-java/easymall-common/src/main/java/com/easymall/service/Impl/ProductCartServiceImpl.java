@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.enums.ProductStatusEnum;
+import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.po.ProductInfo;
 import com.easymall.entity.po.ProductPropertyValue;
 import com.easymall.entity.po.ProductSku;
@@ -25,6 +26,8 @@ import com.easymall.entity.po.ProductCart;
 import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.mappers.ProductCartMapper;
 import com.easymall.service.ProductCartService;
+import com.easymall.validation.InputLimits;
+import com.easymall.validation.InputValidator;
 import com.easymall.utils.StringTools;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -180,16 +183,14 @@ public class ProductCartServiceImpl implements ProductCartService {
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void add2Cart(ProductCart cart) {
+		if (cart == null) {
+			throw new BusinessException(ResponseCodeEnum.CODE_600);
+		}
+		InputValidator.requireText(cart.getUserId(), 15);
+		InputValidator.requireText(cart.getProductId(), 15);
+		InputValidator.requireText(cart.getPropertyValueIds(), 500);
+		InputValidator.requireRange(cart.getBuyCount(), 1, InputLimits.MAX_BUY_COUNT);
 		Date curDate = new Date();
-
-		ProductCartQuery productCartQuery = new ProductCartQuery();
-		productCartQuery.setProductId(cart.getProductId());
-		productCartQuery.setUserId(cart.getUserId());
-
-		ProductCart productCart = new ProductCart();
-		productCart.setLastUpdateTime(new Date(curDate.getTime()-1000));
-		this.productCartMapper.updateByParam(productCart,productCartQuery);
-
 		String propertyValueIdHash = StringTools.encodeByMD5(cart.getPropertyValueIds());
 
 		//判断添加的商品是否存在
@@ -201,6 +202,24 @@ public class ProductCartServiceImpl implements ProductCartService {
 		// 判断商品是否是第一次添加进购物车
 		ProductCart dbCart = this.productCartMapper.selectByProductIdAndPropertyValueIdHashAndUserId(cart.getProductId(),
 				propertyValueIdHash, cart.getUserId());
+		int totalQuantity = cart.getBuyCount();
+		if (dbCart != null) {
+			InputValidator.requireRange(dbCart.getBuyCount(), 1, InputLimits.MAX_BUY_COUNT);
+			long sum = (long) dbCart.getBuyCount() + cart.getBuyCount();
+			if (sum > InputLimits.MAX_BUY_COUNT) {
+				throw new BusinessException(ResponseCodeEnum.CODE_600);
+			}
+			totalQuantity = (int) sum;
+		}
+
+		// 校验全部通过后才调整同商品的展示顺序，非法数量请求不能提前写入更新时间。
+		ProductCartQuery productCartQuery = new ProductCartQuery();
+		productCartQuery.setProductId(cart.getProductId());
+		productCartQuery.setUserId(cart.getUserId());
+		ProductCart productCart = new ProductCart();
+		productCart.setLastUpdateTime(new Date(curDate.getTime()-1000));
+		this.productCartMapper.updateByParam(productCart, productCartQuery);
+
 		if(dbCart == null) {
 			String cartId = StringTools.getRandomString(Constants.LENGTH_15);
 			cart.setCartId(cartId);
@@ -209,7 +228,17 @@ public class ProductCartServiceImpl implements ProductCartService {
 			cart.setCreateTime(curDate);
 			this.add(cart);
 		}else {
-			this.productCartMapper.updateCartBuyCount(dbCart.getCartId(),cart.getBuyCount());
+			ProductCart update = new ProductCart();
+			update.setBuyCount(totalQuantity);
+			update.setLastUpdateTime(curDate);
+			ProductCartQuery current = new ProductCartQuery();
+			current.setCartId(dbCart.getCartId());
+			current.setUserId(cart.getUserId());
+			// 带上读取时的数量做条件更新；并发变化时拒绝并回滚，不能突破累加上限。
+			current.setBuyCount(dbCart.getBuyCount());
+			if (this.productCartMapper.updateByParam(update, current) != 1) {
+				throw new BusinessException(ResponseCodeEnum.CODE_600);
+			}
 		}
 	}
 

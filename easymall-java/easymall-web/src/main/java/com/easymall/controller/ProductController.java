@@ -2,6 +2,7 @@ package com.easymall.controller;
 
 
 import com.easymall.commonent.EsSearchComponent;
+import com.easymall.entity.dto.request.ProductSearchRequest;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.enums.CommendTypeEnum;
 import com.easymall.entity.enums.ProductStatusEnum;
@@ -96,6 +97,14 @@ public class ProductController extends ABaseController {
                              BigDecimal priceTo,
                              String sortType,
                              String sortField,@Min(1) Integer pageNo) {
+        ProductSearchRequest request = new ProductSearchRequest();
+        request.setKeyWords(keyWords);
+        request.setPriceFrom(priceFrom);
+        request.setPriceTo(priceTo);
+        request.setSortType(sortType);
+        request.setSortField(sortField);
+        request.setPageNo(pageNo);
+        request.validate();
         return getSuccessResponseVO(esSearchComponent.searchProduct(keyWords, priceFrom, priceTo, sortType, sortField, pageNo));
     }
 

@@ -86,7 +86,8 @@
 		     LEFT JOIN sys_product_property sp ON s.category_id = sp.category_id
 		 </if>
 		 <if test="query.orderBy!=null">
-			 order by ${query.orderBy}
+			 <bind name="safeOrderBy" value="@com.easymall.validation.sort.SqlSortWhitelist@forMapper('SysCategoryMapper', query.orderBy)" />
+             order by ${safeOrderBy}
 		 </if>
 		 <if test="query.simplePage!=null">
 			 limit #{query.simplePage.start},#{query.simplePage.end}
@@ -279,7 +280,7 @@
 
 	<select id="updateSortBatch">
 		<foreach collection="sysCategoryList" separator=";" item="item">
-              update sys_category set sort = ${item.sort} where category_id = #{item.categoryId}
+              update sys_category set sort = #{item.sort} where category_id = #{item.categoryId}
 		</foreach>
 	</select>
 

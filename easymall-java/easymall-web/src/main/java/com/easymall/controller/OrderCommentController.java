@@ -9,7 +9,9 @@ import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.service.OrderCommentService;
-import com.easymall.utils.StringTools;
+import com.easymall.validation.AiCommentInputs;
+import com.easymall.validation.InputLimits;
+import com.easymall.validation.InputValidator;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.*;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,7 +29,10 @@ public class OrderCommentController extends ABaseController{
      * @param pageNo 页码
      */
     @RequestMapping("/loadComment")
-    public ResponseVO loadComment(@NotEmpty String productId,Integer pageNo){
+    public ResponseVO loadComment(@NotBlank @Size(max = 15) String productId,
+                                  @Min(1) @Max(InputLimits.MAX_PAGE_NO) Integer pageNo){
+        InputValidator.requireText(productId, 15);
+        InputValidator.optionalPageNo(pageNo);
         OrderCommentQuery orderCommentQuery = new OrderCommentQuery();
         orderCommentQuery.setProductId(productId);
         orderCommentQuery.setPageNo(pageNo);
@@ -49,11 +54,13 @@ public class OrderCommentController extends ABaseController{
      */
     @RequestMapping("/postComment")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO postComment(@NotEmpty String orderId,
-                                  @NotEmpty @Size(max = 300) String commentContent,
+    public ResponseVO postComment(@NotBlank @Size(max = 32) String orderId,
+                                  @NotBlank @Size(max = InputLimits.MAX_COMMENT_LENGTH) String commentContent,
                                   @Size(max = 300) String commentImages,
                                   @NotNull @Max(5) @Min(1) Integer star){
-        orderCommentService.postComment(getTokenUserInfo().getUserId(),orderId,commentContent,commentImages,star);
+        String userId = getTokenUserInfo().getUserId();
+        AiCommentInputs.requireComment(userId, orderId, commentContent, commentImages, star);
+        orderCommentService.postComment(userId,orderId,commentContent,commentImages,star);
         return getSuccessResponseVO(null);
 
     }
@@ -63,7 +70,8 @@ public class OrderCommentController extends ABaseController{
      */
     @RequestMapping("/getComment")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO getComment(@NotEmpty String orderId){
+    public ResponseVO getComment(@NotBlank @Size(max = 32) String orderId){
+        InputValidator.requireText(orderId, 32);
         OrderComment orderComment = orderCommentService.getOrderCommentByOrderId(orderId);
         if(orderComment == null || !getTokenUserInfo().getUserId().equals(orderComment.getUserId())){
             throw new BusinessException(ResponseCodeEnum.CODE_600);
@@ -80,10 +88,12 @@ public class OrderCommentController extends ABaseController{
      */
     @RequestMapping("/postReComment")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO postReComment(@NotEmpty String orderId,
-                                  @NotEmpty @Size(max = 300) String reCommentContent,
+    public ResponseVO postReComment(@NotBlank @Size(max = 32) String orderId,
+                                  @NotBlank @Size(max = InputLimits.MAX_COMMENT_LENGTH) String reCommentContent,
                                   @Size(max = 300) String reCommentImages){
-        orderCommentService.postReComment(getTokenUserInfo().getUserId(),orderId,reCommentContent,reCommentImages);
+        String userId = getTokenUserInfo().getUserId();
+        AiCommentInputs.requireReComment(userId, orderId, reCommentContent, reCommentImages);
+        orderCommentService.postReComment(userId,orderId,reCommentContent,reCommentImages);
         return getSuccessResponseVO(null);
     }
 
@@ -94,7 +104,8 @@ public class OrderCommentController extends ABaseController{
      */
     @RequestMapping("/loadMyComment")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO loadMyComment(Integer pageNo){
+    public ResponseVO loadMyComment(@Min(1) @Max(InputLimits.MAX_PAGE_NO) Integer pageNo){
+        InputValidator.optionalPageNo(pageNo);
         OrderCommentQuery orderCommentQuery = new OrderCommentQuery();
         orderCommentQuery.setUserId(getTokenUserInfo().getUserId());
         orderCommentQuery.setPageNo(pageNo);
@@ -112,10 +123,8 @@ public class OrderCommentController extends ABaseController{
      */
     @RequestMapping("/delMyComment")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO delMyComment(@NotEmpty String orderId){
-        if (StringTools.isEmpty(orderId)) {
-            throw new BusinessException(ResponseCodeEnum.CODE_600);
-        }
+    public ResponseVO delMyComment(@NotBlank @Size(max = 32) String orderId){
+        InputValidator.requireText(orderId, 32);
         OrderComment orderComment = new OrderComment();
         orderComment.setStatus(CommentStatusEnum.DEL.getStatus());
 
