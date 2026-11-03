@@ -1,0 +1,1 @@
+import{_ as t}from"./C7zSKAz2.js";import{_ as e,g as o,u as s,a,c as r,p as c,o as _}from"./Cbj3vaMJ.js";import"./NOZJJR5E.js";const n={class:"product-list"},p={__name:"CategoryProduct",setup(u){const{proxy:d}=o();return s(),a(),(m,i)=>(_(),r("div",n,[c(t)]))}},x=e(p,[["__scopeId","data-v-24c040b3"]]);export{x as default};

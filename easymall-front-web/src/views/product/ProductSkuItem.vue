@@ -33,7 +33,7 @@
         </div>
       </div>
       <div class="label product-count">
-        <el-input-number v-model="data.buyCount" :min="1" />
+        <el-input-number v-model="data.buyCount" :min="1" :max="99" />
       </div>
       <div class="label product-price">
         <Price :price="data.price * data.buyCount" :size="16"></Price>

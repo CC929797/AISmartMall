@@ -52,5 +52,5 @@ app.config.globalProperties.Verify = Verify;
 app.config.globalProperties.productMainImageCount = 5;
 app.config.globalProperties.imageThumbnailSuffix = "_thumbnail"
 //图片后缀
-app.config.globalProperties.imageAccept = ".jpg,.png,.gif,.bmp,.webp";
+app.config.globalProperties.imageAccept = ".jpg,.jpeg,.png";
 app.mount('#app')

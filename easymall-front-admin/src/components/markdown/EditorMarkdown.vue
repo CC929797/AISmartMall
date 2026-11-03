@@ -1,7 +1,7 @@
 <template>
   <MdEditor :noEcharts="true" :toolbars="toolbars" :modelValue="modelValue" previewTheme="vuepress"
     :codeFoldable="false" :noPrettier="true" :showToolbarName="true" @onChange="change" @onUploadImg="onUploadImg"
-    @onHtmlChanged="htmlChanged"></MdEditor>
+    @onHtmlChanged="htmlChanged" :sanitize="sanitizeMarkdown" noMermaid></MdEditor>
 </template>
 
 <script setup>
@@ -16,6 +16,7 @@ const router = useRouter()
 import Request from '@/utils/Request.js'
 import { Api } from '@/utils/Api.js'
 import { MdEditor, config } from 'md-editor-v3'
+import { sanitizeMarkdown, secureMarkdown } from '@/utils/markdownSecurity.js'
 import 'md-editor-v3/lib/style.css'
 
 import screenfull from 'screenfull'
@@ -61,6 +62,7 @@ const toolbars = [
 ]
 
 config({
+  markdownItConfig: secureMarkdown,
   editorConfig: {
     renderDelay: 100,
   },
@@ -133,23 +135,12 @@ defineExpose({
 })
 
 const onUploadImg = async (files, callback) => {
-  const res = await Promise.all(
-    files.map((file) => {
-      return new Promise(async (rev, rej) => {
-        const result = await Request({
-          url: Api.uploadImage,
-          params: {
-            file: file,
-          },
-        })
-        if (!result) {
-          return
-        }
-        rev(Api.sourcePath + result.data)
-      })
-    })
-  )
-  callback(res)
+  const results = await Promise.all(files.map(async (file) => {
+    const result = await Request({ url: Api.uploadImage, params: { file } })
+    return result ? Api.sourcePath + result.data : null
+  }))
+  // 被拒绝的图片不插入正文，也不会留下永不结束的上传 Promise。
+  callback(results.filter(Boolean))
 }
 </script>
 

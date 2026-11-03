@@ -46,7 +46,9 @@ const props = defineProps({
 const emits = defineEmits(['update:modelValue'])
 const selectImage = async (file) => {
   const result = await uploadImage(file.file, true)
-  emits('update:modelValue', result)
+  if (result) {
+    emits('update:modelValue', result)
+  }
 }
 
 </script>

@@ -24,7 +24,7 @@ const connectWs = () => {
         return
     };
     isConnecting = true;
-    console.log(`尝试连接... (重试次数: ${retryCount}/${maxRetries}), ws: ${wsUrl}`);
+    console.log(`尝试连接... (重试次数: ${retryCount}/${maxRetries})`);
     try {
         ws = new WebSocket(wsUrl);
         ws.onopen = () => {
@@ -56,7 +56,7 @@ const connectWs = () => {
             }
         };
     } catch (error) {
-        console.error("ws连接失败", error)
+        console.error("ws连接失败")
         handleReconnect();
     }
 };

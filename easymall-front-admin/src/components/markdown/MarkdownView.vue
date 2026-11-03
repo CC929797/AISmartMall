@@ -2,7 +2,7 @@
   <div class="md-preview-panel" v-if="modelValue">
     <div class="md-preview">
       <MdPreview :noEcharts="true" previewTheme="vuepress" :codeFoldable="false" id="preview" :modelValue="modelValue"
-        noMermaid />
+        noMermaid :sanitize="sanitizeMarkdown" />
     </div>
   </div>
 </template>
@@ -10,6 +10,7 @@
 //需要额外引入 1、 npm install screenfull  cropperjs  highlight.js prettier --save
 //2、npm install markdown-it-link-attributes --save 新窗口打开
 import { MdPreview, MdCatalog, config } from 'md-editor-v3'
+import { sanitizeMarkdown, secureMarkdown } from '@/utils/markdownSecurity.js'
 import 'md-editor-v3/lib/style.css'
 
 import screenfull from 'screenfull'
@@ -24,6 +25,7 @@ import katex from 'katex'
 
 import LinkAttr from 'markdown-it-link-attributes'
 config({
+  markdownItConfig: secureMarkdown,
   editorExtensions: {
     prettier: {
       prettierInstance: prettier,

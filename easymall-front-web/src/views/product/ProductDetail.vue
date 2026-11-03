@@ -56,7 +56,7 @@
         <div class="buy-count-panel">
           <div class="buy-count-label">数量</div>
           <div class="buy-count-input">
-            <el-input-number v-model="buyCount" :min="1" size="large" />
+            <el-input-number v-model="buyCount" :min="1" :max="99" size="large" />
           </div>
         </div>
         <div class="buy-panel">

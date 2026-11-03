@@ -46,7 +46,9 @@ const props = defineProps({
 const selectImage = async (file) => {
   // imageCoverCutRef.value.show()
   const result = await uploadImage(file.file, true)
-  emits('update:modelValue', result)
+  if (result) {
+    emits('update:modelValue', result)
+  }
 }
 const emits = defineEmits(['update:modelValue'])
 </script>

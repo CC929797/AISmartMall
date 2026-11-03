@@ -46,5 +46,5 @@ app.config.globalProperties.Alert = Alert;
 app.config.globalProperties.Verify = Verify;
 app.config.globalProperties.bodyWidth = 1300
 app.config.globalProperties.imageThumbnailSuffix = "_thumbnail"
-app.config.globalProperties.imageAccept = ".jpg,.png,.gif,.bmp,.webp";
+app.config.globalProperties.imageAccept = ".jpg,.jpeg,.png";
 app.mount('#app')

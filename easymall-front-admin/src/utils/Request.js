@@ -26,7 +26,7 @@ instance.interceptors.request.use(
         return config;
     },
     (error) => {
-        if (error.config.showLoading && loading) {
+        if (error.config?.showLoading && loading) {
             loading.close();
         }
         Message.error("请求发送失败");
@@ -59,15 +59,20 @@ instance.interceptors.response.use(
         }
     },
     (error) => {
-        if (error.config.showLoading && loading) {
+        if (error.config?.showLoading && loading) {
             loading.close();
         }
-        return Promise.reject({ showError: true, msg: "网络异常" })
+        return Promise.reject({ showError: true, msg: error.response?.data?.info || (error.response?.status === 413 ? "图片或请求超过大小限制" : "网络异常") })
     }
 );
 
 const request = (config) => {
     const { url, params, dataType, showLoading = true, responseType = responseTypeJson, showError = true } = config;
+    if (url === '/file/uploadImage' && params?.file instanceof File &&
+        (!/\.(jpe?g|png)$/i.test(params.file.name) || params.file.size > 5 * 1024 * 1024 || params.file.size === 0)) {
+        Message.error('请选择不超过5 MiB的JPG/JPEG或PNG图片');
+        return Promise.resolve(null);
+    }
     let contentType = contentTypeForm;
     if (dataType != null && dataType == 'json') {
         contentType = contentTypeJson;
@@ -81,7 +86,8 @@ const request = (config) => {
     }
     const adminToken = localStorage.getItem('adminToken');
     let headers = {
-        'Content-Type': contentType,
+        // FormData 的 boundary 由浏览器生成；JSON 保留明确类型。
+        ...(contentType === contentTypeJson ? { 'Content-Type': contentTypeJson } : {}),
         'X-Requested-With': 'XMLHttpRequest',
         "adminToken": adminToken
     }
