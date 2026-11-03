@@ -53,6 +53,13 @@ public class RedisComponent {
     }
 
     /**
+     * 登录和注册只使用原子消费，普通读取仅供测试检查是否已消费。
+     */
+    public String consumeCheckCode(String checkCodeKey) {
+        return (String) redisUtils.getAndDelete(Constants.REDIS_KEY_CHECK_CODE + checkCodeKey);
+    }
+
+    /**
      * 验证码用过一次后，删除Redis当中的验证码
      */
     public void deleteCheckCode(String checkCodeKey) {

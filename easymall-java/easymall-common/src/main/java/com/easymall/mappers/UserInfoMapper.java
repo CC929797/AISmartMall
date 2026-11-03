@@ -6,6 +6,10 @@ import org.apache.ibatis.annotations.Param;
  * 用户信息 数据库操作接口
  */
 public interface UserInfoMapper<T,P> extends BaseMapper<T,P> {
+    /** 仅替换本次校验过且仍未改变的密码，避免覆盖并发改密。 */
+    int replacePasswordIfCurrent(@Param("userId") String userId,
+                                 @Param("expected") String expected,
+                                 @Param("encoded") String encoded);
 
 	/**
 	 * 根据UserId更新

@@ -242,7 +242,7 @@ CREATE TABLE `user_info` (
   `nick_name` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '昵称',
   `avatar` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '头像',
   `email` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '邮箱',
-  `password` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '密码',
+  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '密码哈希',
   `sex` tinyint(1) DEFAULT NULL COMMENT '0:女 1:男 2:未知',
   `join_time` datetime NOT NULL COMMENT '加入时间',
   `last_login_time` datetime DEFAULT NULL COMMENT '最后登录时间',

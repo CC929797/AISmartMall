@@ -61,7 +61,11 @@ class WebAuthenticationBoundaryTest {
     }
 
     @AfterEach
-    void stop() { if (context != null) { context.close(); } }
+    void stop() {
+        if (context != null) {
+            context.close();
+        }
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"/future/private", "/account/futurePrivate", "/product/futurePrivate",
@@ -89,7 +93,11 @@ class WebAuthenticationBoundaryTest {
             mvc.perform(post("/account/getUserInfo")).andExpect(jsonPath("$.code").value(901));
             verifyNoInteractions(redis);
         } finally {
-            if (original == null) { System.clearProperty("dev"); } else { System.setProperty("dev", original); }
+            if (original == null) {
+                System.clearProperty("dev");
+            } else {
+                System.setProperty("dev", original);
+            }
         }
     }
 
@@ -116,6 +124,9 @@ class WebAuthenticationBoundaryTest {
     @EnableAspectJAutoProxy(proxyTargetClass = true)
     @Import({WebAuthenticationConfiguration.class, UserAuthenticationService.class})
     static class Fixture {
+        @Bean com.easymall.security.LoginAbuseProtection loginAbuseProtection() {
+            return mock(com.easymall.security.LoginAbuseProtection.class);
+        }
         @Bean AccountController accountController() { return new AccountController(); }
         @Bean FileController fileController() { return new FileController(); }
         @Bean ProbeController probeController() { return new ProbeController(); }

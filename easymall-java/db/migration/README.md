@@ -2,6 +2,8 @@
 
 本目录在阶段 0 建立，用于保存后续经过审核的结构迁移。当前没有新增业务表、字段或约束，也没有配置 Flyway / Liquibase 自动执行迁移。
 
+步骤04新增 V20261103_01__expand_password_hash.sql，扩容现有密码列并调整为区分大小写的排序规则。已在隔离 easymall_test 验证；已有开发库需按[密码迁移记录](../../docs/verification/04-password-migration.md)单独执行，应用不会自动运行该脚本。
+
 ## 使用顺序
 
 1. 使用只读账号，在明确选中的测试库运行 `../inspection/schema-baseline.sql`，记录实际字段、长度、索引和约束。

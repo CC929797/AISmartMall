@@ -583,4 +583,9 @@
 		select <include refid="base_column_list" /> from user_info u where nick_name=#{nickName}
 	</select>
 
+    <!-- 密码哈希区分大小写，条件更新必须比较完整编码。 -->
+    <update id="replacePasswordIfCurrent">
+        UPDATE user_info SET password = #{encoded}
+        WHERE user_id = #{userId} AND BINARY password = BINARY #{expected}
+    </update>
 </mapper>

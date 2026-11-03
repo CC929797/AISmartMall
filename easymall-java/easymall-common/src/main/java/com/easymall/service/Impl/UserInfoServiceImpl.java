@@ -11,6 +11,8 @@ import com.easymall.entity.enums.UserStatusEnum;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.utils.CopyTools;
+import com.easymall.security.PasswordService;
+import com.easymall.security.CredentialLock;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -36,6 +38,10 @@ public class UserInfoServiceImpl implements UserInfoService {
 	private UserInfoMapper<UserInfo, UserInfoQuery> userInfoMapper;
 	@Resource
 	private RedisComponent redisComponent;
+	@Resource
+	private PasswordService passwordService;
+	@Resource
+	private CredentialLock credentialLock;
 
 	/**
 	 * 根据条件查询列表
@@ -190,6 +196,8 @@ public class UserInfoServiceImpl implements UserInfoService {
 
 	@Override
 	public void register(String email, String nickName, String registerPassword) {
+		//校验注册的密码格式
+		passwordService.validateNewPassword(registerPassword);
 		//查询邮箱是否被注册
 		UserInfo userInfo = this.userInfoMapper.selectByEmail(email);
 		if (userInfo != null) {
@@ -206,7 +214,7 @@ public class UserInfoServiceImpl implements UserInfoService {
 		userInfo.setUserId(userId);
 		userInfo.setEmail(email);
 		userInfo.setNickName(nickName);
-		userInfo.setPassword(StringTools.encodeByMD5(registerPassword));
+		userInfo.setPassword(passwordService.encode(registerPassword));
 		userInfo.setJoinTime(new Date());
 		userInfo.setStatus(UserStatusEnum.ENABLE.getStatus());
 		userInfo.setSex(UserSexEnum.SECRECY.getType());
@@ -216,7 +224,7 @@ public class UserInfoServiceImpl implements UserInfoService {
 	@Override
 	public TokenUserInfoDTO login(String email, String password,String ip) {
 		UserInfo userInfo = this.userInfoMapper.selectByEmail(email);
-		if (userInfo == null || !userInfo.getPassword().equals(password)) {
+		if (userInfo == null || !passwordService.matches(password, userInfo.getPassword())) {
 			throw new BusinessException("账号或者密码错误");
 		}
 
@@ -224,16 +232,26 @@ public class UserInfoServiceImpl implements UserInfoService {
 			throw new BusinessException("账号已被封禁");
 		}
 
-		UserInfo updateInfo = new UserInfo();
-		updateInfo.setLastLoginTime(new Date());
-		updateInfo.setLastLoginIp(ip);
-		this.userInfoMapper.updateByUserId(updateInfo,userInfo.getUserId());
-
-		TokenUserInfoDTO tokenUserInfoDTO = CopyTools.copy(userInfo, TokenUserInfoDTO.class);
-
-		redisComponent.saveTokenInfo(tokenUserInfoDTO);
-
-		return tokenUserInfoDTO;
+		// 高成本哈希在锁外进行，锁内重新确认密码和状态，禁止旧密码签发新会话。
+		String upgraded = passwordService.needsUpgrade(userInfo.getPassword()) ? passwordService.encode(password) : null;
+		//使用CredentialLock进行密码升级和会话签发的互斥,分布式锁的方式，确保在登录的过程中不会出现密码升级和会话签发的并发情况
+		return credentialLock.withUser(userInfo.getUserId(), () -> {
+			UserInfo current = userInfoMapper.selectByUserId(userInfo.getUserId());
+			if (current == null || !userInfo.getPassword().equals(current.getPassword())
+					|| !UserStatusEnum.ENABLE.getStatus().equals(current.getStatus())) {
+				throw new BusinessException("账号状态或密码已变化，请重新登录");
+			}
+			if (upgraded != null && userInfoMapper.replacePasswordIfCurrent(current.getUserId(), current.getPassword(), upgraded) != 1) {
+				throw new BusinessException("密码已变化，请重新登录");
+			}
+			UserInfo updateInfo = new UserInfo();
+			updateInfo.setLastLoginTime(new Date());
+			updateInfo.setLastLoginIp(ip);
+			userInfoMapper.updateByUserId(updateInfo, current.getUserId());
+			TokenUserInfoDTO tokenUserInfoDTO = CopyTools.copy(current, TokenUserInfoDTO.class);
+			redisComponent.saveTokenInfo(tokenUserInfoDTO);
+			return tokenUserInfoDTO;
+		});
 	}
 
 	/**
@@ -244,16 +262,29 @@ public class UserInfoServiceImpl implements UserInfoService {
 	 */
 	@Override
 	public void updatePassword(String userId, String oldPassword, String password) {
+		passwordService.validateNewPassword(password);
 		UserInfo userInfo = this.userInfoMapper.selectByUserId(userId);
 		if (userInfo == null) {
 			throw new BusinessException("用户不存在");
 		}
-		if (!userInfo.getPassword().equals(StringTools.encodeByMD5(oldPassword))) {
+		if (!passwordService.matches(oldPassword, userInfo.getPassword())) {
 			throw new BusinessException("原始密码错误");
 		}
-		UserInfo updateInfo = new UserInfo();
-		updateInfo.setPassword(StringTools.encodeByMD5(password));
-		this.userInfoMapper.updateByUserId(updateInfo,userId);
+		String encoded = passwordService.encode(password);
+		//使用CredentialLock进行密码升级和会话签发的互斥,分布式锁的方式，确保在修改密码的过程中不会出现登录和会话签发的并发情况
+		credentialLock.withUser(userId, () -> {
+			UserInfo current = userInfoMapper.selectByUserId(userId);
+			if (current == null || !userInfo.getPassword().equals(current.getPassword())
+					|| !UserStatusEnum.ENABLE.getStatus().equals(current.getStatus())) {
+				throw new BusinessException("账号状态或密码已变化，请重新登录");
+			}
+			// 先撤销会话再写密码：撤销失败时不改密；数据库失败时旧会话也不会残留。
+			redisComponent.forceLogout(userId);
+			if (userInfoMapper.replacePasswordIfCurrent(userId, current.getPassword(), encoded) != 1) {
+				throw new BusinessException("密码已变化，请重新登录");
+			}
+			return null;
+		});
 	}
 
 

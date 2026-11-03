@@ -12,3 +12,5 @@ runtime
 *.pem
 *.p12
 *.pfx
+*.password-migration.tmp
+*.private.yml

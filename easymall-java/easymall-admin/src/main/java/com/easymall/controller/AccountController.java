@@ -7,6 +7,15 @@ import com.easymall.entity.vo.CheckCodeVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.utils.StringTools;
+import com.easymall.security.PasswordService;
+import com.easymall.security.LoginAbuseProtection;
+import com.easymall.security.ClientIpResolver;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Size;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import com.wf.captcha.ArithmeticCaptcha;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotEmpty;
@@ -20,11 +29,18 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/account")
 @Slf4j
+@Validated
 public class AccountController extends ABaseController {
     @Resource
     private RedisComponent redisComponent;
     @Resource
     private AppConfig appConfig;
+    @Resource
+    private PasswordService passwordService;
+    @Resource
+    private LoginAbuseProtection loginAbuseProtection;
+    @Resource
+    private ClientIpResolver clientIpResolver;
 
     /**
      * 生成验证码图片
@@ -32,6 +48,8 @@ public class AccountController extends ABaseController {
      */
     @RequestMapping("/checkCode")
     public ResponseVO checkCode() {
+        // 验证码申请限速
+        loginAbuseProtection.checkCaptchaIssue("admin", clientIp());
         ArithmeticCaptcha captcha = new ArithmeticCaptcha(100, 42);
         String code = captcha.text();
         String checkCodeBase64 = captcha.toBase64();
@@ -50,27 +68,49 @@ public class AccountController extends ABaseController {
      * @param checkCodeKey 验证码key
      * @return Token
      */
-    @RequestMapping("/login")
-    public ResponseVO login(@NotEmpty String account,
-                        @NotEmpty String password,
-                        @NotEmpty String checkCode,
-                        @NotEmpty String checkCodeKey) {
+    @PostMapping("/login")
+    public ResponseVO login(@NotEmpty @Size(max = 150) String account,
+                        @NotEmpty @Size(max = 256) String password,
+                        @NotEmpty @Size(max = 8) String checkCode,
+                        @NotEmpty @Size(max = 128) String checkCodeKey) {
+        // 登录限速(管理员登录限速)
+        loginAbuseProtection.checkLogin("admin", account, clientIp());
         try {
             //校验验证码
-            if (!checkCode.equalsIgnoreCase(redisComponent.getCheckCode(checkCodeKey))) {
+            //校验验证码的时候是直接获取并清除Redis存储的验证码
+            if (!checkCode.equalsIgnoreCase(redisComponent.consumeCheckCode(checkCodeKey))) {
                 throw new BusinessException("验证码错误");
             }
-
-            if (!account.equalsIgnoreCase(appConfig.getAdminAccount()) || !password.equalsIgnoreCase(StringTools.encodeByMD5(appConfig.getAdminPassword()))) {
+            //获取到管理员密码的哈希值(因为管理员目前只能用admin的)
+            String encoded = appConfig.getAdminPasswordHash();
+            if (!passwordService.isModernEncoding(encoded)) {
+                throw new BusinessException("请先将管理员配置迁移为 admin.password-hash");
+            }
+            if (!account.equalsIgnoreCase(appConfig.getAdminAccount()) || !passwordService.matches(password, encoded)) {
                 throw new BusinessException("账号或密码错误");
             }
             //生成Token,并把用户名保存到Redis
             String token = redisComponent.saveTokenInfoAdmin(account);
+            //登录失败的次数清零
+            loginAbuseProtection.succeeded("admin", account);
             return getSuccessResponseVO(token);
+        } catch (BusinessException e) {
+            //登录失败的次数加1
+            loginAbuseProtection.failed("admin", account);
+            throw e;
         } finally {
             //删除验证码
             redisComponent.deleteCheckCode(checkCodeKey);
         }
+    }
+
+    /**
+     * 获取客户端IP
+     * @return
+     */
+    private String clientIp() {
+        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
+        return clientIpResolver.resolve(request.getRemoteAddr(), request.getHeader("X-Forwarded-For"));
     }
 
     @RequestMapping("/logout")

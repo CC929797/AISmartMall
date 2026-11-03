@@ -6,6 +6,7 @@ import com.easymall.entity.dto.TokenUserInfoDTO;
 import com.easymall.entity.po.UserInfo;
 import com.easymall.service.UserInfoService;
 import com.easymall.security.UserAuthenticationService;
+import com.easymall.security.LoginAbuseProtection;
 import com.easymall.security.WebAuthenticationConfiguration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -72,6 +73,7 @@ class UserAccountSecurityTest {
         context.addBeanFactoryPostProcessor(factory -> {
             factory.registerSingleton("userInfoService", users);
             factory.registerSingleton("redisComponent", redis);
+            factory.registerSingleton("loginAbuseProtection", mock(LoginAbuseProtection.class));
         });
         context.register(WebFixture.class);
         context.refresh();
@@ -80,7 +82,9 @@ class UserAccountSecurityTest {
 
     @AfterEach
     void closeContext() {
-        if (context != null) { context.close(); }
+        if (context != null) {
+            context.close();
+        }
     }
 
     @ParameterizedTest
@@ -165,7 +169,10 @@ class UserAccountSecurityTest {
     @Test
     void loginAndAutoLoginKeepTheirSafeTokenResponse() throws Exception {
         TokenUserInfoDTO token = session();
-        when(redis.getCheckCode("synthetic-check-key")).thenReturn("7");
+        UserInfo rateOwner = new UserInfo();
+        rateOwner.setUserId(USER_A);
+        when(users.getUserInfoByEmail("a@example.invalid")).thenReturn(rateOwner);
+        when(redis.consumeCheckCode("synthetic-check-key")).thenReturn("7");
         when(users.login(eq("a@example.invalid"), eq("synthetic-digest"), anyString())).thenReturn(token);
         String login = mvc.perform(post("/account/login").param("email", "a@example.invalid")
                         .param("password", "synthetic-digest").param("checkCodeKey", "synthetic-check-key")
@@ -174,6 +181,7 @@ class UserAccountSecurityTest {
         assertSafe(login);
         assertThat(JSON.readTree(login).path("data").size()).isEqualTo(4);
         verify(redis).deleteCheckCode("synthetic-check-key");
+        verify(context.getBean(LoginAbuseProtection.class)).checkAccountFailures("web", "user:" + USER_A);
 
         when(redis.getTokenInfo(TOKEN_A)).thenReturn(token);
         when(redis.refreshTokenInfo(any())).thenReturn(true);

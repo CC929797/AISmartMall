@@ -50,6 +50,8 @@ mvn "-Dmaven.repo.local=$baselineRepo" -Dmaven.test.skip=false -DskipTests=false
 
 步骤 02 另覆盖默认鉴权、真实 Redis Lua 防会话复活、Token 退出/过期、真实 WebSocket 撤销、Admin 跨进程封禁和 A/B 订单/地址/评论隔离。测试仅操作已守卫的合成用户与 fixture；新增完成态订单/评价/地址保留作为证据，封禁测试在 finally 中解封并撤销会话。完整对比与限制见 [步骤 02 验证记录](../docs/verification/02-authentication-boundary.md)。
 
+步骤04起，已有测试库还需先执行密码字段扩容脚本，已有管理员local配置需运行convert-admin-password.ps1迁移为admin.password-hash；新的prepare配置已使用合成哈希。登录表单统一提交原密码。完整集成增加旧账号升级、新注册、改密撤销Token/真实WebSocket、验证码并发消费和登录限速验证。开发库迁移、工具参数及页面验收见[步骤04记录](../docs/verification/04-password-migration.md)。
+
 结束后在模型和合成管理端终端按 Ctrl+C，使用以下命令停止本次测试容器并保留所有卷和数据：
 
 ```powershell

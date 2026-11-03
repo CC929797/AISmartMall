@@ -33,7 +33,7 @@ project:
   folder: ${PROJECT_FOLDER:./runtime/files/}
 admin:
   account: ${ADMIN_ACCOUNT:}
-  password: ${ADMIN_PASSWORD:}
+  password-hash: ${ADMIN_PASSWORD_HASH:}
 #日志级别
 log:
   root:

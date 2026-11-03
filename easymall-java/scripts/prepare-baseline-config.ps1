@@ -30,7 +30,8 @@ $values = @{
     AI_CHAT_MODEL = 'baseline-chat'
     AI_EMBEDDING_MODEL = 'baseline-embedding'
     ADMIN_ACCOUNT = 'baseline-admin'
-    ADMIN_PASSWORD = 'BaselineAdmin123'
+    # 仅用于隔离环境的公开合成账号；不得用于真实部署。
+    ADMIN_PASSWORD_HASH = '$argon2id$v=19$m=19456,t=2,p=1$Q0/3Z7MCSRiXEbY4OJTvRw$jtolzBoGP5evamacES81VFe4LHJuWN5mblchF6i9yK4'
 }
 foreach ($module in @('web', 'admin', 'mcp')) {
     $samplePath = Join-Path $backendRoot "config/local/$module.example.yml"

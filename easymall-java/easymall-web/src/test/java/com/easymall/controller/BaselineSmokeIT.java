@@ -13,6 +13,8 @@ import com.easymall.entity.enums.PayChannelEnum;
 import com.easymall.entity.vo.ProductInfoDTO;
 import com.easymall.service.PayChannel;
 import com.easymall.utils.StringTools;
+import com.easymall.security.PasswordService;
+import com.easymall.security.LoginAbuseProtection;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -95,6 +97,13 @@ class BaselineSmokeIT {
 
     @Autowired
     private RedisComponent redisComponent;
+    @Autowired
+    private PasswordService passwordService;
+    @Autowired
+    private LoginAbuseProtection loginAbuseProtection;
+    @Autowired
+    private com.easymall.mappers.UserInfoMapper<com.easymall.entity.po.UserInfo,
+            com.easymall.entity.query.UserInfoQuery> passwordMapper;
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
@@ -210,7 +219,7 @@ class BaselineSmokeIT {
         assertThat(redisComponent.getCheckCode(checkCodeKey)).isEqualTo("7");
         MultiValueMap<String, String> loginForm = new LinkedMultiValueMap<>();
         loginForm.add("email", "baseline@example.invalid");
-        loginForm.add("password", StringTools.encodeByMD5("Baseline123"));
+        loginForm.add("password", "Baseline123");
         loginForm.add("checkCodeKey", checkCodeKey);
         loginForm.add("checkCode", "7");
         JsonNode login = form("/account/login", loginForm, null);
@@ -324,7 +333,7 @@ class BaselineSmokeIT {
         String checkCodeKey = redisComponent.saveCheckCode("9");
         MultiValueMap<String, String> loginForm = new LinkedMultiValueMap<>();
         loginForm.add("email", "baseline@example.invalid");
-        loginForm.add("password", StringTools.encodeByMD5("Baseline123"));
+        loginForm.add("password", "Baseline123");
         loginForm.add("checkCodeKey", checkCodeKey);
         loginForm.add("checkCode", "9");
         JsonNode login = form("/account/login", loginForm, null);
@@ -426,10 +435,14 @@ class BaselineSmokeIT {
         assertThat(image.getStatusCode().value()).isEqualTo(404);
         for (String path : List.of("/productCart/loadProductCart",
                 "/order/loadMyOrder", "/userAddress/loadDataList", "/agent/loadHistoryMessage",
-                "/account/getUserInfo", "/account/updatePassword")) {
+                "/account/getUserInfo")) {
             assertHttpCode(path, null, 901);
             assertHttpCode(path, "synthetic-invalid-token", 901);
         }
+        // 改密仅接受 POST；鉴权回归必须使用接口实际支持的方法。
+        assertFormCode("/account/updatePassword", new LinkedMultiValueMap<>(), null, 901);
+        assertFormCode("/account/updatePassword", new LinkedMultiValueMap<>(), "synthetic-invalid-token", 901);
+        assertHttpCode("/account/updatePassword", null, 600);
     }
 
     @Test
@@ -645,11 +658,119 @@ class BaselineSmokeIT {
                 first, second);
     }
 
+    @Test
+    void passwordMigrationAndChangeRevokeRealHttpAndWebSocketSessions() {
+        String id = "PW" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String email = id + "@example.invalid";
+        String original = "Synthetic123";
+        String changed = "Synthetic456";
+        String legacy = StringTools.encodeByMD5(original);
+        jdbc.update("INSERT INTO user_info(user_id,nick_name,email,password,status,sex,join_time) VALUES(?,?,?,?,1,2,NOW())",
+                id, "密码迁移" + id, email, legacy);
+        assertThat(jdbc.queryForObject("SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS "
+                + "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_info' AND COLUMN_NAME='password'", Integer.class))
+                .isEqualTo(255);
+        passwordLogin(email, "WrongPassword123", 600);
+        passwordLogin(email, legacy, 600);
+        assertThat(legacy.equals(jdbc.queryForObject("SELECT password FROM user_info WHERE user_id=?", String.class, id)))
+                .as("wrong password and client digest do not migrate records").isTrue();
+        passwordLogin(email, original, 200);
+        String migrated = jdbc.queryForObject("SELECT password FROM user_info WHERE user_id=?", String.class, id);
+        assertThat(passwordService.isModernEncoding(migrated) && passwordService.matches(original, migrated))
+                .as("the original password is upgraded to a complete modern encoding").isTrue();
+        assertThat(passwordMapper.replacePasswordIfCurrent(id, migrated.toUpperCase(java.util.Locale.ROOT), migrated))
+                .as("the real SQL compare-and-set is case sensitive").isEqualTo(0);
+        String token = passwordLogin(email, original, 200).path("data").path("token").asText();
+        assertThat(token.isBlank()).isFalse();
+        assertThat(migrated.equals(jdbc.queryForObject("SELECT password FROM user_info WHERE user_id=?", String.class, id)))
+                .as("subsequent login keeps the current encoding").isTrue();
+        MultiValueMap<String, String> change = new LinkedMultiValueMap<>();
+        change.add("oldPassword", original);
+        change.add("password", "123");
+        assertFormCode("/account/updatePassword", change, token, 600);
+        change.set("oldPassword", "WrongPassword123");
+        change.set("password", changed);
+        assertFormCode("/account/updatePassword", change, token, 600);
+        assertHttpCode("/account/getUserInfo", token, 200);
+        try (SocketProbe socket = openSocket(token)) {
+            change.set("oldPassword", original);
+            assertFormCode("/account/updatePassword", change, token, 200);
+            socket.awaitClosed(Duration.ofSeconds(5), "password change revocation");
+        }
+        assertHttpCode("/account/getUserInfo", token, 901);
+        assertSocketRejected(token);
+        passwordLogin(email, original, 600);
+        String newToken = passwordLogin(email, changed, 200).path("data").path("token").asText();
+        assertHttpCode("/account/getUserInfo", newToken, 200);
+        String stored = jdbc.queryForObject("SELECT password FROM user_info WHERE user_id=?", String.class, id);
+        assertThat(passwordService.isModernEncoding(stored) && passwordService.matches(changed, stored)
+                && !passwordService.matches(original, stored)).as("only the new password verifies").isTrue();
+        redisComponent.forceLogout(id);
+
+        // 新注册通过真实 HTTP 和数据库验证，不复用被迁移的旧账号。
+        String registrationEmail = "registration-" + email;
+        MultiValueMap<String, String> registration = new LinkedMultiValueMap<>();
+        registration.add("email", registrationEmail);
+        registration.add("nickName", "注册测试" + id);
+        registration.add("registerPassword", original);
+        registration.add("checkCodeKey", redisComponent.saveCheckCode("7"));
+        registration.add("checkCode", "7");
+        form("/account/register", registration, null);
+        String registered = jdbc.queryForObject("SELECT password FROM user_info WHERE email=?", String.class, registrationEmail);
+        assertThat(passwordService.isModernEncoding(registered) && passwordService.matches(original, registered))
+                .as("new registration stores a complete modern encoding immediately").isTrue();
+        JsonNode registeredLogin = passwordLogin(registrationEmail, original, 200);
+        redisComponent.forceLogout(registeredLogin.path("data").path("userId").asText());
+    }
+
+    @Test
+    void redisCaptchaConsumptionAndLoginLimitsAreAtomicAndExpiring() {
+        String key = redisComponent.saveCheckCode("7");
+        var consumers = java.util.stream.IntStream.range(0, 10)
+                .mapToObj(index -> CompletableFuture.supplyAsync(() -> redisComponent.consumeCheckCode(key))).toList();
+        assertThat(consumers.stream().map(CompletableFuture::join).filter("7"::equals).count()).isEqualTo(1);
+        assertThat(redisComponent.getCheckCode(key)).isNull();
+        String realm = "fixture-" + java.util.UUID.randomUUID();
+        for (int index = 0; index < 5; index++) {
+            loginAbuseProtection.checkLogin(realm, "synthetic-account", "192.0.2.5");
+            loginAbuseProtection.failed(realm, "synthetic-account");
+        }
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                loginAbuseProtection.checkLogin(realm, "synthetic-account", "192.0.2.6"))
+                .isInstanceOf(com.easymall.exception.BusinessException.class);
+        String rateKey = "easymall:auth:failure:" + realm + ":"
+                + org.apache.commons.codec.digest.DigestUtils.sha256Hex("synthetic-account");
+        assertThat(redisTemplate.getExpire(rateKey, TimeUnit.SECONDS)).isBetween(1L, 300L);
+        loginAbuseProtection.succeeded(realm, "synthetic-account");
+        loginAbuseProtection.checkLogin(realm, "synthetic-account", "192.0.2.6");
+        for (int index = 0; index < 20; index++) {
+            loginAbuseProtection.checkCaptchaIssue(realm, "192.0.2.7");
+        }
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                loginAbuseProtection.checkCaptchaIssue(realm, "192.0.2.7"))
+                .isInstanceOf(com.easymall.exception.BusinessException.class);
+    }
+
+    private JsonNode passwordLogin(String email, String password, int expected) {
+        String key = redisComponent.saveCheckCode("7");
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("email", email);
+        body.add("password", password);
+        body.add("checkCodeKey", key);
+        body.add("checkCode", "7");
+        ResponseEntity<JsonNode> response = http.postForEntity(url("/account/login"),
+                new HttpEntity<>(body, headers(null, MediaType.APPLICATION_FORM_URLENCODED)), JsonNode.class);
+        JsonNode result = Objects.requireNonNull(response.getBody());
+        assertThat(result.path("code").asInt()).isEqualTo(expected);
+        assertThat(redisComponent.getCheckCode(key)).isNull();
+        return result;
+    }
+
     private String loginBaselineUser() {
         String checkCodeKey = redisComponent.saveCheckCode("11");
         MultiValueMap<String, String> login = new LinkedMultiValueMap<>();
         login.add("email", "baseline@example.invalid");
-        login.add("password", StringTools.encodeByMD5("Baseline123"));
+        login.add("password", "Baseline123");
         login.add("checkCodeKey", checkCodeKey);
         login.add("checkCode", "11");
         JsonNode result = form("/account/login", login, null);
@@ -670,7 +791,7 @@ class BaselineSmokeIT {
         String checkCodeKey = redisComponent.saveCheckCode("11");
         MultiValueMap<String, String> login = new LinkedMultiValueMap<>();
         login.add("email", "security-b@example.invalid");
-        login.add("password", StringTools.encodeByMD5("SyntheticB123"));
+        login.add("password", "SyntheticB123");
         login.add("checkCodeKey", checkCodeKey);
         login.add("checkCode", "11");
         JsonNode result = form("/account/login", login, null);
@@ -683,7 +804,7 @@ class BaselineSmokeIT {
         String checkCodeKey = redisComponent.saveCheckCode("11");
         MultiValueMap<String, String> login = new LinkedMultiValueMap<>();
         login.add("account", "baseline-admin");
-        login.add("password", StringTools.encodeByMD5("BaselineAdmin123"));
+        login.add("password", "BaselineAdmin123");
         login.add("checkCodeKey", checkCodeKey);
         login.add("checkCode", "11");
         JsonNode result = success("synthetic administrator login", http.postForEntity(ADMIN_URL + "/account/login",

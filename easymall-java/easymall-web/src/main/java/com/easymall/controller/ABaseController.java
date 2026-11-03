@@ -6,11 +6,15 @@ import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
 import jakarta.servlet.http.HttpServletRequest;
+import com.easymall.security.ClientIpResolver;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 
 public class ABaseController {
+    @Autowired(required = false)
+    private ClientIpResolver clientIpResolver = new ClientIpResolver("");
     protected static final String STATUC_SUCCESS = "success";
 
     protected static final String STATUC_ERROR = "error";
@@ -49,7 +53,9 @@ public class ABaseController {
     protected TokenUserInfoDTO getTokenUserInfo(){
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         CurrentUser user = (CurrentUser) request.getAttribute(CurrentUser.class.getName());
-        if (user == null || user.role() != CurrentUser.Role.USER) { return null; }
+        if (user == null || user.role() != CurrentUser.Role.USER) {
+            return null;
+        }
         TokenUserInfoDTO session = new TokenUserInfoDTO();
         session.setUserId(user.userId());
         session.setNickName(user.nickName());
@@ -69,32 +75,7 @@ public class ABaseController {
 
     protected String getIpAddr() {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
-        String ip = request.getHeader("x-forwarded-for");
-        if (ip != null && ip.length() != 0 && !"unknown".equalsIgnoreCase(ip)) {
-            // 多次反向代理后会有多个ip值，第一个ip才是真实ip
-            if (ip.indexOf(",") != -1) {
-                ip = ip.split(",")[0];
-            }
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_CLIENT_IP");
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_X_FORWARDED_FOR");
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("X-Real-IP");
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        return ip;
+        return clientIpResolver.resolve(request.getRemoteAddr(), request.getHeader("X-Forwarded-For"));
     }
 
 }

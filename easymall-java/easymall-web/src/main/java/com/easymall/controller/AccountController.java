@@ -11,6 +11,8 @@ import com.easymall.entity.vo.ResponseVO;
 import com.easymall.entity.vo.UserInfoVO;
 import com.easymall.exception.BusinessException;
 import com.easymall.service.UserInfoService;
+import com.easymall.security.LoginAbuseProtection;
+import org.springframework.web.bind.annotation.PostMapping;
 import com.easymall.utils.CopyTools;
 import com.wf.captcha.ArithmeticCaptcha;
 import jakarta.annotation.Resource;
@@ -31,6 +33,8 @@ public class AccountController extends ABaseController{
     private RedisComponent redisComponent;
     @Resource
     private UserInfoService userInfoService;
+    @Resource
+    private LoginAbuseProtection loginAbuseProtection;
 
     /**
      * 自动登录
@@ -54,6 +58,8 @@ public class AccountController extends ABaseController{
      */
     @RequestMapping("/checkCode")
     public ResponseVO checkCode() {
+        //验证码限速(根据验证码发送的次数进行限速 60秒内最多20次)
+        loginAbuseProtection.checkCaptchaIssue("web", getIpAddr());
         ArithmeticCaptcha captcha = new ArithmeticCaptcha(100, 42);
         String code = captcha.text();
         String checkCodeBase64 = captcha.toBase64();
@@ -64,16 +70,17 @@ public class AccountController extends ABaseController{
         return getSuccessResponseVO(checkCodeVO);
     }
 
-    @RequestMapping("/register")
+    @PostMapping("/register")
     public ResponseVO register(@NotEmpty @Email @Size(max = 150) String email,
                                @NotEmpty @Size(max = 20) String nickName ,
                                @NotEmpty @Pattern(regexp = Constants.REGEX_PASSWORD) String registerPassword,
-                               @NotEmpty String checkCodeKey,
-                               @NotEmpty String checkCode) {
+                               @NotEmpty @Size(max = 128) String checkCodeKey,
+                               @NotEmpty @Size(max = 8) String checkCode) {
 
-
-        try{
-            if (!checkCode.equalsIgnoreCase(redisComponent.getCheckCode(checkCodeKey))) {
+        //注册限速(根据注册的次数进行限速 10分钟内最多10次)
+        loginAbuseProtection.checkRegistration(getIpAddr());
+        try {
+            if (!checkCode.equalsIgnoreCase(redisComponent.consumeCheckCode(checkCodeKey))) {
                 throw new BusinessException("图片验证码不正确");
             }
             userInfoService.register(email, nickName, registerPassword);
@@ -84,23 +91,33 @@ public class AccountController extends ABaseController{
         }
     }
 
-    @RequestMapping("/login")
+    @PostMapping("/login")
     public ResponseVO login(@NotEmpty @Email @Size(max = 150) String email,
-                            @NotEmpty String password,
-                            @NotEmpty String checkCodeKey,
-                            @NotEmpty String checkCode) {
+                            @NotEmpty @Size(max = 256) String password,
+                            @NotEmpty @Size(max = 128) String checkCodeKey,
+                            @NotEmpty @Size(max = 8) String checkCode) {
 
 
-        try{
-            if (!checkCode.equalsIgnoreCase(redisComponent.getCheckCode(checkCodeKey))) {
+        String ip = getIpAddr();
+        //登录源限速(根据登录的次数进行限速 60秒内最多30次)
+        loginAbuseProtection.checkLoginSource("web", ip);
+        // 已存在账号以数据库身份计数，避免邮箱大小写或排序规则等价写法绕过限制。
+        UserInfo rateUser = userInfoService.getUserInfoByEmail(email);
+        String rateAccount = rateUser == null ? "email:" + email : "user:" + rateUser.getUserId();
+        loginAbuseProtection.checkAccountFailures("web", rateAccount);
+        try {
+            if (!checkCode.equalsIgnoreCase(redisComponent.consumeCheckCode(checkCodeKey))) {
                 throw new BusinessException("图片验证码不正确");
             }
 
             //获取登录的ip
-            String ip = getIpAddr();
             TokenUserInfoDTO tokenUserInfoDTO = userInfoService.login(email, password, ip);
+            loginAbuseProtection.succeeded("web", rateAccount);
             return getSuccessResponseVO(tokenUserInfoDTO);
-        }finally {
+        } catch (BusinessException e) {
+            loginAbuseProtection.failed("web", rateAccount);
+            throw e;
+        } finally {
             // 无论是登录成功还是失败都会删除旧的验证码的Redis中的key，重新生成验证码和验证码的key
             redisComponent.deleteCheckCode(checkCodeKey);
         }
@@ -123,9 +140,12 @@ public class AccountController extends ABaseController{
      * @param password
      * @return
      */
-    @RequestMapping("/updatePassword")
+    @PostMapping("/updatePassword")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO updatePassword(@NotEmpty String oldPassword,@NotEmpty String password) {
+    public ResponseVO updatePassword(@NotEmpty @Size(max = 256) String oldPassword,
+                                    @NotEmpty @Pattern(regexp = Constants.REGEX_PASSWORD) String password) {
+        //修改密码限速(根据修改密码的次数进行限速 10分钟内最多10次)
+        loginAbuseProtection.checkPasswordChange(getTokenUserInfo().getUserId());
         userInfoService.updatePassword(getTokenUserInfo().getUserId(), oldPassword, password);
         return getSuccessResponseVO(null);
     }

@@ -15,8 +15,8 @@ public class AppConfig {
     @Value("${admin.account:}")
     private String adminAccount;
 
-    @Value("${admin.password:}")
-    private String adminPassword;
+    @Value("${admin.password-hash:}")
+    private String adminPasswordHash;
 
     @Value("${project.folder:}")
     private String projectFolder;
@@ -116,7 +116,7 @@ public class AppConfig {
         return adminAccount;
     }
 
-    public String getAdminPassword() {
-        return adminPassword;
+    public String getAdminPasswordHash() {
+        return adminPasswordHash;
     }
 }

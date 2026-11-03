@@ -47,6 +47,11 @@ public class RedisUtils<V> {
         return key == null ? null : redisTemplate.opsForValue().get(key);
     }
 
+    /** 原子读取并消费验证码，同一验证码最多有一个并发请求能取得。 */
+    public V getAndDelete(String key) {
+        return key == null ? null : redisTemplate.opsForValue().getAndDelete(key);
+    }
+
     /** 仅删除仍等于预期值的映射，避免误删并发登录刚写入的新 Token。 */
     public boolean compareAndDelete(String key, V expectedValue) {
         return Long.valueOf(1).equals(redisTemplate.execute(COMPARE_AND_DELETE, List.of(key), expectedValue));

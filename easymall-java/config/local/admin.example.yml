@@ -28,7 +28,7 @@ project:
   auto-checkpay: false
 admin:
   account: ${ADMIN_ACCOUNT}
-  password: ${ADMIN_PASSWORD}
+  password-hash: ${ADMIN_PASSWORD_HASH}
 logging:
   level:
     root: INFO
