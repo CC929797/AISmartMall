@@ -35,3 +35,18 @@ logging:
 log:
   root:
     level: info
+
+# 图片校验的硬上限不可通过配置放大；以下值可以按演示需要收紧。
+security:
+  images:
+    max-bytes: 5242880
+    max-dimension: 4096
+    max-pixels: 12000000
+    requests-per-minute: 20
+    daily-bytes: 104857600
+  logging:
+    model-summary: false
+payment:
+  mode: ${PAYMENT_MODE:sandbox}
+logistics:
+  mode: ${LOGISTICS_MODE:disabled}

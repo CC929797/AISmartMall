@@ -175,7 +175,7 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 		orderInfoQuery.setOrderStatus(OrderStatusEnum.PAID.getStatus());
 		Integer updateCount = orderInfoMapper.updateByParam(updateOrderInfo, orderInfoQuery);
 
-		if (updateCount == 0){
+		if (updateCount == 0) {
 			throw new BusinessException("订单不是待发货状态");
 		}
 
@@ -183,7 +183,9 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 		orderLogisticsInfoMapper.updateByOrderId(orderLogisticsInfo,orderLogisticsInfo.getOrderId());
 
 		//加入队列，模拟物流
-		redisComponent.addOrder2LogisticsQueue(10,orderLogisticsInfo.getOrderId());
+		if ("simulated".equals(appConfig.getLogisticsMode())) {
+			redisComponent.addOrder2LogisticsQueue(10,orderLogisticsInfo.getOrderId());
+		}
 
 		//获取到物流信息当中的发货地址
 		OrderLogisticsInfo dbInfo = this.getOrderLogisticsInfoByOrderId(orderInfo.getOrderId());
@@ -206,6 +208,9 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 	 */
 	@Override
 	public void mockOrderLogistics(String orderId) {
+		if (!"simulated".equals(appConfig.getLogisticsMode())) {
+			return;
+		}
 		String[] logisticsCenters = {
 				"北京市大兴区礼贤镇礼贤物流园3号中转站",
 				"上海市浦东新区祝桥镇空港六路256号中通航空中转中心",
@@ -265,7 +270,7 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 			return;
 		}
 
-		if (OrderStatusEnum.REFUNDED.getStatus().equals(orderInfo.getOrderStatus())){
+		if (OrderStatusEnum.REFUNDED.getStatus().equals(orderInfo.getOrderStatus())) {
 			OrderLogisticsInfo logisticsInfo = new OrderLogisticsInfo();
 			logisticsInfo.setLogisticsStatus(LogisticsStatusEnum.CANCELLED.getStatus());
 			this.orderLogisticsInfoMapper.updateByOrderId(logisticsInfo, orderId);
@@ -277,10 +282,10 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 		Integer recordCount = this.orderLogisticsInfoRecordMapper.selectCount(query);
 
 		String address = null;
-		if (recordCount >= 5){
+		if (recordCount >= 5) {
 			OrderLogisticsInfo orderLogisticsInfo = this.orderLogisticsInfoMapper.selectByOrderId(orderId);
 			address = orderLogisticsInfo.getReceiverAddress();
-		}else {
+		} else {
 			Integer randomIndex = StringTools.getRandomNumberRange(0,logisticsCenters.length);
 			address = logisticsCenters[randomIndex];
 			redisComponent.addOrder2LogisticsQueue(StringTools.getRandomNumberRange(1,5),orderId);
@@ -291,7 +296,7 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 		record.setOrderId(orderId);
 		this.orderLogisticsInfoRecordMapper.insert(record);
 
-		if (recordCount >= 5){
+		if (recordCount >= 5) {
 			OrderLogisticsInfo logisticsInfo = new OrderLogisticsInfo();
 			logisticsInfo.setLogisticsStatus(LogisticsStatusEnum.DELIVERED.getStatus());
 			this.orderLogisticsInfoMapper.updateByOrderId(logisticsInfo, orderId);

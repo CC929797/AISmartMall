@@ -2,7 +2,7 @@
 <configuration scan="true" scanPeriod="30 seconds">
 
     <springProperty scope="context" name="log.path" source="project.folder"/>
-    <springProperty scope="context" name="log.root.level" source="log.root.level"/>
+    <springProperty scope="context" name="log.root.level" source="log.root.level" defaultValue="INFO"/>
 
     <property name="LOG_FOLDER" value="logs"/>
     <property name="LOG_FILE_NAME" value="easymall-web.log"/>
@@ -48,6 +48,15 @@
     <logger name="org.mybatis.spring.mapper" level="INFO"/>
     <logger name="io.lettuce.core" level="ERROR"/>
     <logger name="sun.rmi.transport.tcp" level="ERROR"/>
+    <!-- 避免 SQL 参数、SDK 请求和模型正文随根级别进入日志。 -->
+    <logger name="com.easymall.mappers" level="WARN"/>
+    <logger name="org.springframework.ai" level="OFF"/>
+    <logger name="com.alipay" level="OFF"/>
+    <logger name="org.apache.http.wire" level="WARN"/>
+    <logger name="org.apache.hc.client5.http.wire" level="WARN"/>
+    <logger name="reactor.netty.http.client" level="WARN"/>
+    <logger name="org.redisson" level="WARN"/>
+    <logger name="io.netty.handler" level="WARN"/>
     <!-- 根日志配置 -->
     <root level="${log.root.level}">
         <appender-ref ref="CONSOLE"/>

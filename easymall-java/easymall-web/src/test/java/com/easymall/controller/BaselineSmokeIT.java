@@ -423,9 +423,8 @@ class BaselineSmokeIT {
         assertThat(get("/account/autoLogin", null).isNull()).isTrue();
         ResponseEntity<String> image = http.getForEntity(
                 url("/file/getResource?sourceName=security/synthetic-missing-public.png"), String.class);
-        assertThat(image.getStatusCode().is2xxSuccessful()).isTrue();
-        assertThat(image.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_PNG);
-        for (String path : List.of("/file/uploadImage", "/productCart/loadProductCart",
+        assertThat(image.getStatusCode().value()).isEqualTo(404);
+        for (String path : List.of("/productCart/loadProductCart",
                 "/order/loadMyOrder", "/userAddress/loadDataList", "/agent/loadHistoryMessage",
                 "/account/getUserInfo", "/account/updatePassword")) {
             assertHttpCode(path, null, 901);
@@ -926,6 +925,85 @@ class BaselineSmokeIT {
             counts.put(table, jdbc.queryForObject("select count(*) from " + table, Integer.class));
         }
         return counts;
+    }
+
+    @Autowired private com.easymall.files.ImageUploadQuota imageQuota;
+
+    @Test
+    void realUploadsRequireIdentityReencodeAndKeepPublicImagesReadable() throws Exception {
+        String token = loginBaselineUser();
+        String admin = loginSyntheticAdmin();
+        try {
+            var image = new java.awt.image.BufferedImage(320, 160, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            var bytes = new java.io.ByteArrayOutputStream();
+            assertThat(javax.imageio.ImageIO.write(image, "png", bytes)).isTrue();
+            assertThat(uploadFixture(url("/file/uploadImage"), null, "fixture.png", bytes.toByteArray()).path("code").asInt()).isEqualTo(901);
+            assertThat(uploadFixture(ADMIN_URL + "/file/uploadImage", null, "fixture.png", bytes.toByteArray()).path("code").asInt()).isEqualTo(901);
+            for (boolean backend : List.of(false, true)) {
+                String base = backend ? ADMIN_URL : "http://127.0.0.1:" + port + "/api";
+                String credential = backend ? admin : token;
+                JsonNode result = uploadFixture(base + "/file/uploadImage", credential, "fixture.png", bytes.toByteArray());
+                assertThat(result.path("code").asInt()).isEqualTo(200);
+                String source = result.path("data").asText();
+                assertThat(source).matches("[0-9]{6}/[a-f0-9]{32}\\.png");
+                ResponseEntity<byte[]> original = http.getForEntity(base + "/file/getResource?sourceName=" + source, byte[].class);
+                assertThat(original.getStatusCode().value()).isEqualTo(200);
+                assertThat(original.getHeaders().getFirst("X-Content-Type-Options")).isEqualTo("nosniff");
+                assertThat(javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(original.getBody())).getWidth()).isEqualTo(320);
+                ResponseEntity<byte[]> thumb = http.getForEntity(base + "/file/getResource?sourceName=" + source.replace(".png", "_thumbnail.png"), byte[].class);
+                assertThat(thumb.getStatusCode().value()).isEqualTo(200);
+                assertThat(javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(thumb.getBody())).getWidth()).isEqualTo(200);
+                assertThat(uploadFixture(base + "/file/uploadImage", credential, "fake.png", "<svg onload='alert(1)'/>".getBytes()).path("code").asInt()).isEqualTo(600);
+                assertThat(uploadFixture(base + "/file/uploadImage", credential, "fake.svg", bytes.toByteArray()).path("code").asInt()).isEqualTo(600);
+                assertThat(uploadFixture(base + "/file/uploadImage", credential, "huge.png", new byte[5 * 1024 * 1024 + 1]).path("code").asInt()).isEqualTo(600);
+                for (String path : List.of("../secret.png", "C:/private.png", "month/../../secret.png")) {
+                    ResponseEntity<JsonNode> rejected = http.getForEntity(base + "/file/getResource?sourceName=" + path, JsonNode.class);
+                    assertThat(rejected.getBody().path("code").asInt()).isEqualTo(600);
+                }
+            }
+        } finally {
+            redisComponent.cleanToken(token);
+            http.postForEntity(ADMIN_URL + "/account/logout", new HttpEntity<>(new LinkedMultiValueMap<>(), adminHeaders(admin)), String.class);
+        }
+    }
+
+    private JsonNode uploadFixture(String endpoint, String credential, String name, byte[] bytes) {
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", new org.springframework.core.io.ByteArrayResource(bytes) {
+            @Override public String getFilename() { return name; }
+        });
+        form.add("createThumbnail", "true");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        if (credential != null) {
+            headers.set(endpoint.startsWith(ADMIN_URL) ? Constants.TOKEN_ADMIN : Constants.TOKEN_WEB, credential);
+        }
+        ResponseEntity<JsonNode> response = http.postForEntity(endpoint, new HttpEntity<>(form, headers), JsonNode.class);
+        assertThat(response.getBody()).isNotNull();
+        return response.getBody();
+    }
+
+    @Test
+    void realRedisUploadLimitsAreAtomicAndStopAtExactDailyBudget() throws Exception {
+        var identity = new com.easymall.security.CurrentUser("UPLOAD" + java.util.UUID.randomUUID(), null, null, com.easymall.security.CurrentUser.Role.USER);
+        var workers = java.util.concurrent.Executors.newFixedThreadPool(8);
+        try {
+            List<java.util.concurrent.Callable<Boolean>> calls = java.util.stream.IntStream.range(0, 40).mapToObj(index -> (java.util.concurrent.Callable<Boolean>) () -> {
+                try { imageQuota.checkAttempt(identity); return true; }
+                catch (com.easymall.exception.BusinessException expected) { return false; }
+            }).toList();
+            int accepted = 0;
+            for (var result : workers.invokeAll(calls)) {
+                if (result.get()) {
+                    accepted++;
+                }
+            }
+            assertThat(accepted).isEqualTo(20);
+        } finally { workers.shutdownNow(); }
+        imageQuota.reserveBytes(identity, 100L * 1024 * 1024 - 1);
+        org.junit.jupiter.api.Assertions.assertThrows(com.easymall.exception.BusinessException.class, () -> imageQuota.reserveBytes(identity, 2));
+        imageQuota.reserveBytes(identity, 1);
+        org.junit.jupiter.api.Assertions.assertThrows(com.easymall.exception.BusinessException.class, () -> imageQuota.reserveBytes(identity, 1));
     }
 
     private void assertInputJsonRejected(String path, Object body, String token) {

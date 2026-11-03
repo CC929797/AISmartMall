@@ -39,7 +39,7 @@ public class RedisComponent {
      * @param code
      * @return
      */
-    public String saveCheckCode(String code){
+    public String saveCheckCode(String code) {
         String checkCodeKey = UUID.randomUUID().toString();
         redisUtils.setex(Constants.REDIS_KEY_CHECK_CODE + checkCodeKey, code, 60 * 10);
         return checkCodeKey;
@@ -147,7 +147,7 @@ public class RedisComponent {
      * 强制退出登录
      * @param userId
      */
-    public void forceLogout(String userId){
+    public void forceLogout(String userId) {
         String token = getCurrentToken(userId);
         if (!StringTools.isEmpty(token)) {
             redisUtils.delete(Constants.REDIS_KEY_TOKEN_WEB + token);
@@ -280,7 +280,7 @@ public class RedisComponent {
      * @param delaySeconds
      * @param orderId
      */
-    public void addOrder2LogisticsQueue(Integer delaySeconds,String orderId){
+    public void addOrder2LogisticsQueue(Integer delaySeconds,String orderId) {
         long expireTime = System.currentTimeMillis() + delaySeconds * 1000;
         redisUtils.zsetAdd(Constants.REDIS_KEY_ORDER_LOGISTICS_QUEUE,orderId,expireTime);
     }
@@ -311,8 +311,8 @@ public class RedisComponent {
         RBlockingDeque<RagDataDTO> queue = redissonClient.getBlockingDeque(queueName, JsonJacksonCodec.INSTANCE);
         try {
             queue.put(data);
-        }catch (Exception e){
-            log.error("发送消息失败",e);
+        }catch (Exception e) {
+            log.error("发送消息失败，异常类型={}", e.getClass().getSimpleName());
         }
     }
 
@@ -320,7 +320,7 @@ public class RedisComponent {
      * 获取redis当中存储的提示语
      * @param key 提示语的key
      */
-    public String getPrompt(String key){
+    public String getPrompt(String key) {
         return (String) redisUtils.get(Constants.REDIS_KEY_PROMPT + key);
     }
 
@@ -329,7 +329,7 @@ public class RedisComponent {
      * @param key 提示语的key
      * @param value 提示语的值
      */
-    public void savePrompt(String key,String value){
+    public void savePrompt(String key,String value) {
         redisUtils.set(Constants.REDIS_KEY_PROMPT + key,value);
     }
 
@@ -337,7 +337,7 @@ public class RedisComponent {
      * 删除redis当中存储的提示语
      * @param key 提示语的key
      */
-    public void cleanPrompt(String key){
+    public void cleanPrompt(String key) {
         redisUtils.delete(Constants.REDIS_KEY_PROMPT + key);
     }
 

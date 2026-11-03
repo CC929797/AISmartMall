@@ -73,10 +73,25 @@ alipay:
   appCertPath: ${ALIPAY_APP_CERT_PATH:unconfigured}
   alipayPublicCertPath: ${ALIPAY_PUBLIC_CERT_PATH:unconfigured}
   alipayRootCertPath: ${ALIPAY_ROOT_CERT_PATH:unconfigured}
-  serverUrl: ${ALIPAY_SERVER_URL:http://127.0.0.1:1}
+  serverUrl: ${ALIPAY_SERVER_URL:https://openapi-sandbox.dl.alipaydev.com/gateway.do}
 logging:
   level:
     root: INFO
 log:
   root:
     level: info
+
+# 图片校验的硬上限不可通过配置放大；以下值可以按演示需要收紧。
+security:
+  images:
+    max-bytes: 5242880
+    max-dimension: 4096
+    max-pixels: 12000000
+    requests-per-minute: 20
+    daily-bytes: 104857600
+  logging:
+    model-summary: false
+payment:
+  mode: ${PAYMENT_MODE:sandbox}
+logistics:
+  mode: ${LOGISTICS_MODE:disabled}

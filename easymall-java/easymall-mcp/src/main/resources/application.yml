@@ -1,16 +1,16 @@
 server:
   port: 8084
+spring:
   main:
     web-application-type: reactive
-spring:
   servlet:
     multipart:
       max-file-size: 5MB
       max-request-size: 10MB
   datasource:
-    url: jdbc:mysql://localhost:3306/xxx?allowMultiQueries=true&useSSL=false&serverTimezone=GMT%2B8&characterEncoding=utf8
-    username: root
-    password: xxx
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/easymall?allowMultiQueries=true&useSSL=false&serverTimezone=GMT%2B8&characterEncoding=utf8}
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   task:
     scheduling:
@@ -35,13 +35,13 @@ mybatis:
     map-underscore-to-camel-case: true
 #项目目录
 project:
-  folder: xxx #自定义文件夹
-  auto-checkpay: true #自动检查支付订单
+  folder: ${PROJECT_FOLDER:./runtime/files/}
+  auto-checkpay: false #自动检查支付订单
 #支付宝
 alipay:
-  appid: xxx   # 沙箱
-  appPrivateKey: xxx
-  appCertPath: xxx
-  alipayPublicCertPath: xxx
-  alipayRootCertPath: xxx
-  serverUrl: xxx
+  appid: ${ALIPAY_APP_ID:}   # 沙箱
+  appPrivateKey: ${ALIPAY_PRIVATE_KEY:}
+  appCertPath: ${ALIPAY_APP_CERT_PATH:}
+  alipayPublicCertPath: ${ALIPAY_PUBLIC_CERT_PATH:}
+  alipayRootCertPath: ${ALIPAY_ROOT_CERT_PATH:}
+  serverUrl: ${ALIPAY_SERVER_URL:https://openapi-sandbox.dl.alipaydev.com/gateway.do}

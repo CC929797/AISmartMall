@@ -1,0 +1,889 @@
+{
+  "step": "05",
+  "date": "2026-11-02",
+  "timezone": "Asia/Shanghai",
+  "baseline": "3c022c5",
+  "status": "implemented_and_automatically_verified",
+  "manualAcceptance": "pending_user",
+  "ordinary": {
+    "before": 403,
+    "tests": 471,
+    "added": 68,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "modules": [
+      {
+        "name": "easymall-common",
+        "tests": 310,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "suites": [
+          {
+            "name": "com.easymall.config.BaselineTestConfigTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.entity.dto.PostOrderValidationTest",
+            "tests": 11,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.entity.po.UserInfoSerializationTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.entity.query.SimplePageTest",
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.files.DemoPaymentProfileTest",
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.files.FileUtilsSecurityTest",
+            "tests": 40,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.files.ImageUploadQuotaTest",
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.files.PaymentGatewayPolicyTest",
+            "tests": 14,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.security.RedisSessionLoggingTest",
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.security.RedisSessionRevocationTest",
+            "tests": 14,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.security.UserAuthenticationServiceTest",
+            "tests": 15,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.AiMessageInputBoundaryTest",
+            "tests": 13,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.BusinessResourceOwnershipTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.CartInputBoundaryTest",
+            "tests": 17,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.CommentInputBoundaryTest",
+            "tests": 27,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.OrderInputBoundaryTest",
+            "tests": 24,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.service.UserAddressOwnershipTest",
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.utils.JsonUtilsLoggingTest",
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.PaginationInputBoundaryTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.sort.ListRequestContractTest",
+            "tests": 24,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.sort.MapperSortBoundaryTest",
+            "tests": 51,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.sort.ProductSearchContractTest",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.validation.sort.ProductSearchInputTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      },
+      {
+        "name": "easymall-admin",
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "suites": [
+          {
+            "name": "com.easymall.controller.AdminListHttpContractTest",
+            "tests": 12,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.AdminListRequestBoundaryTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.UserControllerSecurityTest",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.interceptor.AppInterceptorSecurityTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      },
+      {
+        "name": "easymall-web",
+        "tests": 133,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "suites": [
+          {
+            "name": "com.easymall.component.ChatInputBoundaryTest",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.component.LoggerAdvisorSecurityTest",
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.component.SimulatedLogisticsBoundaryTest",
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.AiCommentControllerBoundaryTest",
+            "tests": 8,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.CartRequestBoundaryTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.ProductControllerBaselineTest",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.RequestInputBoundaryTest",
+            "tests": 33,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.UserAccountSecurityTest",
+            "tests": 21,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.UserResourceBoundaryTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.controller.WebAuthenticationBoundaryTest",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.ChannelContextSecurityRegressionTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.ChannelContextSecurityTest",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.netty.WebSocketAuthenticationTest",
+            "tests": 15,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.netty.WebSocketEndpointCompatibilityTest",
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "name": "com.easymall.websocket.WebSocketSessionRevocationListenerTest",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      }
+    ]
+  },
+  "package": {
+    "status": "passed",
+    "seconds": 31.259,
+    "modules": [
+      "common",
+      "admin",
+      "web",
+      "mcp"
+    ],
+    "log": "runtime/phase1/step05/05-package-final-verified.log",
+    "testFailuresIgnored": false
+  },
+  "integration": {
+    "tests": 11,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suiteSeconds": 29.026,
+    "log": "runtime/phase1/step05/05-integration-final.log",
+    "cases": [
+      "realWebSocketsCloseOnLogoutAndExpireEvenWithoutClientTraffic",
+      "realAdminListUsesWhitelistedSortAndBoundedPaging",
+      "adminProcessBanImmediatelyClosesWebSocketAndSeparatesUserAndAdminTokens",
+      "invalidInputsCannotWriteBusinessRowsOrInvokeExternalWork",
+      "userProfileBoundaryAndClosedCrudProtectBothSyntheticUsers",
+      "realUploadsRequireIdentityReencodeAndKeepPublicImagesReadable",
+      "bothRealUsersCanReadTheirOwnResourcesButCannotReadOrChangeEachOthersResources",
+      "realRedisUploadLimitsAreAtomicAndStopAtExactDailyBudget",
+      "realHttpKeepsPublicBrowsingAndProtectsPrivateHandlersByDefault",
+      "realRedisScriptsPreserveNewLoginAndNeverReviveRevokedOrExpiredSnapshots",
+      "browseLoginSearchOrderAndAiCompleteAgainstIsolatedServices"
+    ],
+    "realDependencies": [
+      "isolated MySQL 13306",
+      "Redis 16379",
+      "ES 19200",
+      "admin 6061",
+      "loopback WebSocket"
+    ],
+    "model": "local synthetic fixture",
+    "payment": "Mockito fixture",
+    "verified": [
+      "web and admin anonymous upload refused",
+      "valid upload reencoded and original plus thumbnail publicly readable",
+      "forged and SVG uploads refused",
+      "web and admin 5 MiB plus 1 byte returns 600 without connection reset",
+      "out-of-root paths refused",
+      "40 concurrent real Redis rate reservations accept exactly 20",
+      "daily 100 MiB boundary rejects overflow without consuming final byte",
+      "prior commerce auth ownership AI and WS regressions preserved"
+    ]
+  },
+  "frontends": [
+    {
+      "name": "web",
+      "domTests": 21,
+      "failures": 0,
+      "skipped": 0,
+      "build": "passed",
+      "buildSeconds": 10.8,
+      "parser": "markdown-it 14.3.3",
+      "sanitizer": "DOMPurify 3.4.17",
+      "log": "runtime/phase1/step05/05-frontend-web-final.log"
+    },
+    {
+      "name": "admin",
+      "domTests": 21,
+      "failures": 0,
+      "skipped": 0,
+      "build": "passed",
+      "buildSeconds": 15.22,
+      "parser": "markdown-it 14.3.3",
+      "sanitizer": "DOMPurify 3.4.17",
+      "log": "runtime/phase1/step05/05-frontend-admin-final.log"
+    }
+  ],
+  "limits": {
+    "newFormats": [
+      "jpg",
+      "jpeg",
+      "png"
+    ],
+    "maxBytes": 5242880,
+    "maxWidth": 4096,
+    "maxHeight": 4096,
+    "maxPixels": 12000000,
+    "parallelDecodersPerInstance": 2,
+    "requestsPerIdentityPer60SecondWindow": 20,
+    "dailyStoredBytesPerIdentity": 104857600,
+    "dayZone": "UTC",
+    "byteBudgetIncludesThumbnail": true,
+    "quotaReservationRetainedOnDiskFailure": true,
+    "legacyReadFormats": [
+      "jpg",
+      "jpeg",
+      "png",
+      "gif",
+      "bmp",
+      "webp"
+    ]
+  },
+  "staticChecks": {
+    "publicYamlFilesParsed": 7,
+    "logbackXmlFilesParsed": 3,
+    "sensitiveFeatureScan": {
+      "candidateFileCount": 335,
+      "findingCount": 0,
+      "findings": [],
+      "scope": "Git跟踪与未忽略的待提交文件中的已知凭据特征；不包含私有配置、Git历史或供应商侧轮换检查"
+    },
+    "newLogMarkerHits": 0,
+    "knownLogMarkersOnly": true,
+    "modelErrors": 0
+  },
+  "safety": {
+    "schemaChanged": false,
+    "fixturesReset": false,
+    "realModelOrPaymentCalled": false,
+    "credentialsPrinted": false,
+    "bulkFilesDeleted": false,
+    "gitCommitted": false,
+    "step04PasswordProtocolChanged": false,
+    "existingPrivateConfigsPreserved": true,
+    "priorFrontendChangesPreserved": true
+  },
+  "endState": {
+    "stoppedOwnedProcesses": [
+      "model",
+      "admin"
+    ],
+    "baselineContainersStopped": true,
+    "remainingTestPorts": [],
+    "deletedContainers": false,
+    "deletedVolumes": false,
+    "resetDatabase": false,
+    "dockerEngineStartedByThisTurn": false,
+    "developmentContainersStopped": false
+  },
+  "acceptanceFixtureDirectory": "runtime/phase1/step05/acceptance",
+  "limitations": [
+    "browser click-through remains for user acceptance",
+    "path checks assume upload tree is not writable by untrusted OS identities",
+    "daily quota is not lifetime disk quota",
+    "legacy images and historical logs not migrated or deleted",
+    "known credential feature scan does not audit all history",
+    "full payment/refund state safety and MCP identity remain later steps",
+    "complex raw HTML SVG MathML and arbitrary inline styles are outside the Markdown allowlist"
+  ],
+  "mcpStartupFix": {
+    "date": "2026-11-02",
+    "timezone": "Asia/Shanghai",
+    "status": "fixed_and_verified",
+    "before": {
+      "tests": 4,
+      "failures": 3,
+      "log": "runtime/phase1/step05/mcp-startup-fix/before.log"
+    },
+    "ordinary": {
+      "tests": 478.0,
+      "added": 7,
+      "failures": 0.0,
+      "errors": 0.0,
+      "skipped": 0.0,
+      "modules": [
+        {
+          "name": "easymall-common",
+          "tests": 313.0,
+          "failures": 0.0,
+          "errors": 0.0,
+          "skipped": 0.0,
+          "suites": [
+            {
+              "name": "com.easymall.config.BaselineTestConfigTest",
+              "tests": 1,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.entity.dto.PostOrderValidationTest",
+              "tests": 11,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.entity.po.UserInfoSerializationTest",
+              "tests": 7,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.entity.query.SimplePageTest",
+              "tests": 4,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.files.DemoPaymentProfileTest",
+              "tests": 2,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.files.FileUtilsSecurityTest",
+              "tests": 40,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.files.ImageMultipartIsolationTest",
+              "tests": 3,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.files.ImageUploadQuotaTest",
+              "tests": 4,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.files.PaymentGatewayPolicyTest",
+              "tests": 14,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.security.RedisSessionLoggingTest",
+              "tests": 2,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.security.RedisSessionRevocationTest",
+              "tests": 14,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.security.UserAuthenticationServiceTest",
+              "tests": 15,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.service.AiMessageInputBoundaryTest",
+              "tests": 13,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.service.BusinessResourceOwnershipTest",
+              "tests": 7,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.service.CartInputBoundaryTest",
+              "tests": 17,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.service.CommentInputBoundaryTest",
+              "tests": 27,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.service.OrderInputBoundaryTest",
+              "tests": 24,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.service.UserAddressOwnershipTest",
+              "tests": 6,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.utils.JsonUtilsLoggingTest",
+              "tests": 2,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.validation.PaginationInputBoundaryTest",
+              "tests": 10,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.validation.sort.ListRequestContractTest",
+              "tests": 24,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.validation.sort.MapperSortBoundaryTest",
+              "tests": 51,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.validation.sort.ProductSearchContractTest",
+              "tests": 5,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.validation.sort.ProductSearchInputTest",
+              "tests": 10,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            }
+          ]
+        },
+        {
+          "name": "easymall-admin",
+          "tests": 28.0,
+          "failures": 0.0,
+          "errors": 0.0,
+          "skipped": 0.0,
+          "suites": [
+            {
+              "name": "com.easymall.controller.AdminListHttpContractTest",
+              "tests": 12,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.controller.AdminListRequestBoundaryTest",
+              "tests": 1,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.controller.UserControllerSecurityTest",
+              "tests": 5,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.interceptor.AppInterceptorSecurityTest",
+              "tests": 10,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            }
+          ]
+        },
+        {
+          "name": "easymall-web",
+          "tests": 133.0,
+          "failures": 0.0,
+          "errors": 0.0,
+          "skipped": 0.0,
+          "suites": [
+            {
+              "name": "com.easymall.component.ChatInputBoundaryTest",
+              "tests": 3,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.component.LoggerAdvisorSecurityTest",
+              "tests": 6,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.component.SimulatedLogisticsBoundaryTest",
+              "tests": 2,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.controller.AiCommentControllerBoundaryTest",
+              "tests": 8,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.controller.CartRequestBoundaryTest",
+              "tests": 7,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.controller.ProductControllerBaselineTest",
+              "tests": 5,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.controller.RequestInputBoundaryTest",
+              "tests": 33,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.controller.UserAccountSecurityTest",
+              "tests": 21,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.controller.UserResourceBoundaryTest",
+              "tests": 10,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.controller.WebAuthenticationBoundaryTest",
+              "tests": 7,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.websocket.ChannelContextSecurityRegressionTest",
+              "tests": 1,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.websocket.ChannelContextSecurityTest",
+              "tests": 10,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.websocket.netty.WebSocketAuthenticationTest",
+              "tests": 15,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.websocket.netty.WebSocketEndpointCompatibilityTest",
+              "tests": 4,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            },
+            {
+              "name": "com.easymall.websocket.WebSocketSessionRevocationListenerTest",
+              "tests": 1,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            }
+          ]
+        },
+        {
+          "name": "easymall-mcp",
+          "tests": 4.0,
+          "failures": 0.0,
+          "errors": 0.0,
+          "skipped": 0.0,
+          "suites": [
+            {
+              "name": "com.easymall.McpServletIsolationTest",
+              "tests": 4,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0
+            }
+          ]
+        }
+      ]
+    },
+    "package": {
+      "status": "passed",
+      "modules": 4,
+      "seconds": 30.734,
+      "log": "runtime/phase1/step05/mcp-startup-fix/package-final.log"
+    },
+    "liveStartup": {
+      "status": "passed",
+      "server": "Netty",
+      "port": 18084,
+      "startupSeconds": 5.672,
+      "log": "runtime/phase1/step05/mcp-startup-fix/mcp.stdout.log",
+      "configuration": "isolated_baseline"
+    },
+    "handshake": {
+      "httpStatus": 200,
+      "contentType": "application/json",
+      "serverName": "easymall-mcp",
+      "serverVersion": "1.0.0",
+      "protocolVersion": "2025-03-26",
+      "initialized": true,
+      "businessToolsExecuted": false,
+      "endpoint": "http://127.0.0.1:18084/mcp"
+    },
+    "runtimeTomcatOrServletAdded": false,
+    "privateConfigurationPreserved": true,
+    "simulatedConfigurationPreserved": true,
+    "webHttpWsIntegrationRerun": false,
+    "frontendBuildsRerun": false,
+    "gitCommitted": false,
+    "endState": {
+      "ownedMcpStopped": true,
+      "isolatedContainersStopped": true,
+      "remainingTestPorts": [],
+      "deletedVolumes": false,
+      "resetDatabase": false,
+      "developmentContainersStopped": false
+    },
+    "record": "easymall-java/docs/verification/05-mcp-startup-fix.md"
+  }
+}

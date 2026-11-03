@@ -42,7 +42,7 @@ public class PayOrderTask {
      */
     @PostConstruct
     public void checkPayOrder() {
-        if (!appConfig.getAutoCheckPay()){
+        if (!appConfig.getAutoCheckPay()) {
             return;
         }
         ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
@@ -55,13 +55,13 @@ public class PayOrderTask {
                         PayChannelEnum payChannelEnum = PayChannelEnum.getByPayScene(orderInfo.getPayScene());
                         PayChannel payChannel = (PayChannel) SpringContext.getBean(payChannelEnum.getBeanName());
                         PayOrderNotifyDTO payOrderNotifyDTO = payChannel.queryOrder(orderInfo.getPayOrderId());
-                        if(payOrderNotifyDTO == null){
+                        if (payOrderNotifyDTO == null) {
                             continue;
                         }
                         orderInfoService.payOrderSuccess(payOrderNotifyDTO);
                     }
                     Thread.sleep(10000);
-                }catch (Exception e){
+                }catch (Exception e) {
                     log.error("查询支付订单失败",e);
                     try {
                         Thread.sleep(5000);
@@ -84,13 +84,13 @@ public class PayOrderTask {
             while (true) {
                 try {
                     Set<String> queueOrderList = redisComponent.getTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE);
-                    if(queueOrderList == null || queueOrderList.isEmpty()) {
+                    if (queueOrderList == null || queueOrderList.isEmpty()) {
                         Thread.sleep(5000);
                         continue;
                     }
 
                     for (String orderId : queueOrderList) {
-                        if (redisComponent.removeTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE,orderId) > 0){
+                        if (redisComponent.removeTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE,orderId) > 0) {
                             OrderInfo orderInfo = orderInfoService.getOrderInfoByOrderId(orderId);
                             if (!OrderStatusEnum.WAIT_PAYMENT.getStatus().equals(orderInfo.getOrderStatus())) {
                                 continue;
@@ -116,17 +116,20 @@ public class PayOrderTask {
      */
     @PostConstruct
     public void consumeDeliveryOrder() {
+        if (!"simulated".equals(appConfig.getLogisticsMode())) {
+            return;
+        }
         ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
             while (true) {
                 try {
                     Set<String> queueDeliveryList = redisComponent.getTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY);
-                    if(queueDeliveryList == null || queueDeliveryList.isEmpty()) {
+                    if (queueDeliveryList == null || queueDeliveryList.isEmpty()) {
                         Thread.sleep(1000);
                         continue;
                     }
 
                     for (String payOrderId : queueDeliveryList) {
-                        if (redisComponent.removeTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY,payOrderId) > 0){
+                        if (redisComponent.removeTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY,payOrderId) > 0) {
                             //通过支付订单Id去查询订单列表
                             OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
                             orderInfoQuery.setPayOrderId(payOrderId);
@@ -159,16 +162,19 @@ public class PayOrderTask {
      */
     @PostConstruct
     public void consumeLogistics() {
+        if (!"simulated".equals(appConfig.getLogisticsMode())) {
+            return;
+        }
         ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
             while (true) {
                 try {
                     Set<String> orderList = redisComponent.getTimeOutOrder4Logistics();
-                    if(orderList == null || orderList.isEmpty()) {
+                    if (orderList == null || orderList.isEmpty()) {
                         Thread.sleep(5000);
                         continue;
                     }
                     for (String orderId : orderList) {
-                        if (redisComponent.removeTimeOutOrder4Logistics(orderId) > 0){
+                        if (redisComponent.removeTimeOutOrder4Logistics(orderId) > 0) {
                             orderLogisticsInfoService.mockOrderLogistics(orderId);
                         }
                     }
@@ -193,17 +199,17 @@ public class PayOrderTask {
             while (true) {
                 try {
                     Set<String> orderList = redisComponent.getTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_CONFIRM);
-                    if(orderList == null || orderList.isEmpty()) {
+                    if (orderList == null || orderList.isEmpty()) {
                         Thread.sleep(5000);
                         continue;
                     }
                     for (String orderId : orderList) {
-                        if (redisComponent.removeTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_CONFIRM,orderId) > 0){
+                        if (redisComponent.removeTimeOutOrder(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_CONFIRM,orderId) > 0) {
                             //确认订单
                             orderInfoService.confirmOrder(null,orderId);
                         }
                     }
-                }catch (Exception e){
+                }catch (Exception e) {
                     log.error("自动确认收费失败!,错误信息：" + e.getMessage());
                     try{
                         Thread.sleep(5000);

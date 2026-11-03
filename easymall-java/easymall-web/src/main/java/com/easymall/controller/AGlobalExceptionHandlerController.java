@@ -39,7 +39,7 @@ public class AGlobalExceptionHandlerController extends ABaseController {
             responseVO.setCode(biz.getCode() == null ? ResponseCodeEnum.CODE_600.getCode() : biz.getCode());
             responseVO.setInfo(biz.getMessage());
             responseVO.setStatus(STATUC_ERROR);
-        } else if (e instanceof BindException || e instanceof MethodArgumentTypeMismatchException || e instanceof HandlerMethodValidationException || e instanceof ConstraintViolationException || e instanceof HttpMessageNotReadableException || e instanceof InvalidPropertyException) {
+        } else if (e instanceof org.springframework.web.HttpRequestMethodNotSupportedException || e instanceof org.springframework.web.multipart.MultipartException || e instanceof BindException || e instanceof MethodArgumentTypeMismatchException || e instanceof HandlerMethodValidationException || e instanceof ConstraintViolationException || e instanceof HttpMessageNotReadableException || e instanceof InvalidPropertyException) {
             //参数类型错误
             responseVO.setCode(ResponseCodeEnum.CODE_600.getCode());
             responseVO.setInfo(ResponseCodeEnum.CODE_600.getMsg());
@@ -60,7 +60,9 @@ public class AGlobalExceptionHandlerController extends ABaseController {
     /** 包装层可能隐藏业务拒绝，保留原业务码，不把数据库异常一概当作参数错误。 */
     private BusinessException findBusinessException(Throwable failure) {
         for (int depth = 0; failure != null && depth < 12; depth++, failure = failure.getCause()) {
-            if (failure instanceof BusinessException business) { return business; }
+            if (failure instanceof BusinessException business) {
+                return business;
+            }
         }
         return null;
     }

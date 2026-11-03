@@ -10,9 +10,9 @@ spring:
       max-file-size: 5MB
       max-request-size: 10MB
   datasource:
-    url: jdbc:mysql://localhost:3306/xxx?allowMultiQueries=true&useSSL=false&serverTimezone=GMT%2B8&characterEncoding=utf8
-    username: root
-    password: xxx
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/easymall?allowMultiQueries=true&useSSL=false&serverTimezone=GMT%2B8&characterEncoding=utf8}
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   task:
     scheduling:
@@ -39,22 +39,22 @@ spring:
         dimensions: 1024 #embeddinggemma:768  百炼 text-embedding-v4:1024  doubao-embedding-vision-251215:2048# 向量维度（根据使用的嵌入模型调整）
     # 使用openai 对接 阿里百炼(推荐大家使用这个,下面的otherai可以不用管,如果没有阿里百炼的,可以使用deepseek的chat模型(deepssek没向量模型)),豆包的向量模型)
     openai:
-      api-key: xxx
+      api-key: ${AI_API_KEY:}
       #base-url: https://dashscope.aliyuncs.com/compatible-mode/
-      base-url: xxx
+      base-url: ${AI_BASE_URL:http://127.0.0.1:1}
       chat:
-        completions-path: xxx
+        completions-path: ${AI_CHAT_PATH:/v1/chat/completions}
         options:
-          model: xxx  #qwen3-max 使用max 调用mcp 报错toolName cannot be null
+          model: ${AI_CHAT_MODEL:unconfigured}  #qwen3-max 使用max 调用mcp 报错toolName cannot be null
       embedding:
-        embeddings-path: xxx
+        embeddings-path: ${AI_EMBEDDING_PATH:/v1/embeddings}
         options:
-          model: xxx
+          model: ${AI_EMBEDDING_MODEL:unconfigured}
     dashscope:
-      base-url: xxx
-      api-key: xxx
+      base-url: ${AI_BASE_URL:http://127.0.0.1:1}
+      api-key: ${AI_API_KEY:}
       embedding:
-        model: xxx
+        model: ${AI_EMBEDDING_MODEL:unconfigured}
 
     mcp:
       client:
@@ -73,9 +73,9 @@ mybatis:
     map-underscore-to-camel-case: true
 #项目目录
 project:
-  folder: xxx #自定义文件夹
-  auto-checkpay: true #自动检查支付订单
-  domain: http://xxx.xxxx.com
+  folder: ${PROJECT_FOLDER:./runtime/files/}
+  auto-checkpay: false #自动检查支付订单
+  domain: ${PROJECT_DOMAIN:http://127.0.0.1:6001}
 
 #订单过期时间
 order:
@@ -85,13 +85,16 @@ order:
     minute: 15 #订单物流自动确认时间
 #支付宝
 alipay:
-  appid: xxxx   # 沙箱
-  appPrivateKey: xxx
-  appCertPath: xxx
-  alipayPublicCertPath: xxx
-  alipayRootCertPath: xxx
-  serverUrl: xxx
+  appid: ${ALIPAY_APP_ID:}   # 沙箱
+  appPrivateKey: ${ALIPAY_PRIVATE_KEY:}
+  appCertPath: ${ALIPAY_APP_CERT_PATH:}
+  alipayPublicCertPath: ${ALIPAY_PUBLIC_CERT_PATH:}
+  alipayRootCertPath: ${ALIPAY_ROOT_CERT_PATH:}
+  serverUrl: ${ALIPAY_SERVER_URL:https://openapi-sandbox.dl.alipaydev.com/gateway.do}
 #日志级别
 log:
   root:
-    level: debug
+    level: info
+# 物流模式
+logistics:
+  mode: simulated

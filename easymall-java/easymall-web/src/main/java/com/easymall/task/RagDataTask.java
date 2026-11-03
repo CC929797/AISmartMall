@@ -80,7 +80,7 @@ public class RagDataTask {
                     log.info("消息消费被中断");
                     break;
                 } catch (Exception e) {
-                    log.error("处理消息失败", e);
+                    log.error("处理消息失败，异常类型={}", e.getClass().getSimpleName());
                 }
             }
         });
@@ -142,7 +142,7 @@ public class RagDataTask {
             metaData.put("skuList",skuList);
             doc = new Document(sku.getProductId() + "_" + sku.getPropertyValueIdHash(),content.toString(),metaData);
             list.add(doc);
-            if (list.size() >= 10){
+            if (list.size() >= 10) {
                 //阿里百炼如果一次性往向量数据库添加超过10条数据会报错
                 vectorStore.add(list);
                 list.clear();

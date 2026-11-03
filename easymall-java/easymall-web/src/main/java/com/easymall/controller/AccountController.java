@@ -36,9 +36,9 @@ public class AccountController extends ABaseController{
      * 自动登录
      */
     @RequestMapping("/autoLogin")
-    public ResponseVO autoLogin(){
+    public ResponseVO autoLogin() {
         TokenUserInfoDTO tokenUserInfoDTO = getTokenUserInfo();
-        if(tokenUserInfoDTO == null){
+        if (tokenUserInfoDTO == null) {
             return getSuccessResponseVO(null);
         }
         // 只续期仍有效的当前会话；认证后若已退出或被封禁，不能通过旧请求重建登录态。
@@ -59,7 +59,7 @@ public class AccountController extends ABaseController{
         String checkCodeBase64 = captcha.toBase64();
         String checkCodeKey = redisComponent.saveCheckCode(code);
         CheckCodeVO checkCodeVO = new CheckCodeVO(checkCodeKey, checkCodeBase64);
-        log.info("图片里的内容: {}", code);
+        // 验证码答案只保存到 Redis，不写入日志。
 
         return getSuccessResponseVO(checkCodeVO);
     }
@@ -69,11 +69,11 @@ public class AccountController extends ABaseController{
                                @NotEmpty @Size(max = 20) String nickName ,
                                @NotEmpty @Pattern(regexp = Constants.REGEX_PASSWORD) String registerPassword,
                                @NotEmpty String checkCodeKey,
-                               @NotEmpty String checkCode){
+                               @NotEmpty String checkCode) {
 
 
         try{
-            if(!checkCode.equalsIgnoreCase(redisComponent.getCheckCode(checkCodeKey))){
+            if (!checkCode.equalsIgnoreCase(redisComponent.getCheckCode(checkCodeKey))) {
                 throw new BusinessException("图片验证码不正确");
             }
             userInfoService.register(email, nickName, registerPassword);
@@ -88,11 +88,11 @@ public class AccountController extends ABaseController{
     public ResponseVO login(@NotEmpty @Email @Size(max = 150) String email,
                             @NotEmpty String password,
                             @NotEmpty String checkCodeKey,
-                            @NotEmpty String checkCode){
+                            @NotEmpty String checkCode) {
 
 
         try{
-            if(!checkCode.equalsIgnoreCase(redisComponent.getCheckCode(checkCodeKey))){
+            if (!checkCode.equalsIgnoreCase(redisComponent.getCheckCode(checkCodeKey))) {
                 throw new BusinessException("图片验证码不正确");
             }
 
@@ -112,7 +112,7 @@ public class AccountController extends ABaseController{
      * @return
      */
     @RequestMapping("/logout")
-    public ResponseVO logout(@RequestHeader("token") String token){
+    public ResponseVO logout(@RequestHeader("token") String token) {
         redisComponent.cleanToken(token);
         return getSuccessResponseVO(null);
     }
@@ -125,7 +125,7 @@ public class AccountController extends ABaseController{
      */
     @RequestMapping("/updatePassword")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO updatePassword(@NotEmpty String oldPassword,@NotEmpty String password){
+    public ResponseVO updatePassword(@NotEmpty String oldPassword,@NotEmpty String password) {
         userInfoService.updatePassword(getTokenUserInfo().getUserId(), oldPassword, password);
         return getSuccessResponseVO(null);
     }
@@ -135,7 +135,7 @@ public class AccountController extends ABaseController{
      */
     @RequestMapping("/getUserInfo")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO getUserInfo(){
+    public ResponseVO getUserInfo() {
         UserInfo userInfo = userInfoService.getUserInfoByUserId(getTokenUserInfo().getUserId());
         return getSuccessResponseVO(CopyTools.copy(userInfo, UserInfoVO.class));
     }
@@ -144,7 +144,7 @@ public class AccountController extends ABaseController{
     @GlobalInterceptor(checkLogin = true)
     public ResponseVO updateUserInfo(@NotEmpty String avatar,
                                      @NotEmpty @Size(max = 20) String nickName,
-                                     @NotNull Integer sex){
+                                     @NotNull Integer sex) {
         TokenUserInfoDTO tokenUserInfoDTO =  getTokenUserInfo();
         //数据库更新后的用户信息
         UserInfo updateInfo = new UserInfo();

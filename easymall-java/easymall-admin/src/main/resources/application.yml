@@ -8,9 +8,9 @@ spring:
       max-file-size: 5MB
       max-request-size: 10MB
   datasource:
-    url: jdbc:mysql://localhost:3306/xxx?allowMultiQueries=true&useSSL=false&serverTimezone=GMT%2B8&characterEncoding=utf8
-    username: root
-    password: xxx
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/easymall?allowMultiQueries=true&useSSL=false&serverTimezone=GMT%2B8&characterEncoding=utf8}
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   task:
     scheduling:
@@ -30,11 +30,14 @@ mybatis:
     map-underscore-to-camel-case: true
 #项目目录
 project:
-  folder: xxx #自定义文件夹
+  folder: ${PROJECT_FOLDER:./runtime/files/}
 admin:
-  account: admin
-  password: xxx
+  account: ${ADMIN_ACCOUNT:}
+  password: ${ADMIN_PASSWORD:}
 #日志级别
 log:
   root:
-    level: debug
+    level: info
+# 物流模式
+logistics:
+  mode: simulated

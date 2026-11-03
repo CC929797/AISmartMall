@@ -4,3 +4,11 @@ runtime
 /easymall-java/config/local/web.yml
 /easymall-java/config/local/admin.yml
 /easymall-java/config/local/mcp.yml
+/easymall-java/config/local/demo.yml
+**/src/main/resources/application-dev.yml
+**/.env.local
+**/.env.*.local
+*.key
+*.pem
+*.p12
+*.pfx

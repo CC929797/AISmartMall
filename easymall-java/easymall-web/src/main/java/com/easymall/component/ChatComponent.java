@@ -64,6 +64,8 @@ public class ChatComponent {
     private ToolCallbackProvider toolCallbackProvider;
     @Resource
     private RedisComponent redisComponent;
+    @org.springframework.beans.factory.annotation.Value("${security.logging.model-summary:false}")
+    private boolean modelLogSummary;
 
     /**
      * 发送消息
@@ -99,7 +101,7 @@ public class ChatComponent {
         PromptTypeEnum promptTypeEnum = PromptTypeEnum.getByCode(userIntent.intent);
         promptTypeEnum = promptTypeEnum == null ? PromptTypeEnum.CHAT : promptTypeEnum;
 
-        if (redisComponent.hasCancelMessage(agentMessage.getUserId(), agentMessage.getMessageId())){
+        if (redisComponent.hasCancelMessage(agentMessage.getUserId(), agentMessage.getMessageId())) {
             return;
         }
 
@@ -134,12 +136,12 @@ public class ChatComponent {
         List<Document> doc = vectorStore.similaritySearch(request);
         String prompt = getPrompt(PromptTypeEnum.PRODUCT_SEARCH, JsonUtils.convertObj2Json(doc), keyword,null);
         //AI根据提示的关键词去检索查询到的商品信息中更符合的商品
-        List<ProductInfo> productInfos = getChatClientRequestSpec().user(prompt).call().entity(new ParameterizedTypeReference<>(){
+        List<ProductInfo> productInfos = getChatClientRequestSpec().user(prompt).call().entity(new ParameterizedTypeReference<>() {
         });
         //根据符合条件的商品id查询商品信息
         List<String> productIds = productInfos.stream().map(ProductInfo::getProductId).collect(Collectors.toList());
         List<ProductInfo> productInfoList = new ArrayList<>();
-        if (!productInfos.isEmpty()){
+        if (!productInfos.isEmpty()) {
             ProductInfoQuery productInfoQuery = new ProductInfoQuery();
             productInfoQuery.setProductIdList(productIds);
             productInfoQuery.setOrderBy("create_time desc");
@@ -167,7 +169,7 @@ public class ChatComponent {
      * @param message 用户消息
      * @param orderId 订单Id
      */
-    private void queryOrder(AgentMessage message,String orderId){
+    private void queryOrder(AgentMessage message,String orderId) {
         //默认查询15天内的订单
         OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
         orderInfoQuery.setOrderTimeStart(DateUtil.getBeforeDay(Constants.LATEST_ORDER_DAYS,DateTimePatternEnum.YYYY_MM_DD.getPattern()));
@@ -203,7 +205,7 @@ public class ChatComponent {
      * 过滤元数据
       * @param dataType 数据类型
      */
-    private String buildTypeFilter(String dataType){
+    private String buildTypeFilter(String dataType) {
         return String.format("dataType=='%s'", dataType);
     }
 
@@ -236,12 +238,12 @@ public class ChatComponent {
             }
             String prompt = getPrompt(promptTypeEnum, agentMessage.getUserId(), agentMessage.getUserMessage(), ragData);
             getChatClientRequestSpec().toolCallbacks(toolCallbackProvider).messages(getHistoryMessages(agentMessage.getUserId(), prompt)).stream().chatResponse().doOnNext(response -> {
-                log.info("流式分片：results数量={}，metadata={}", response.getResults().size(), response.getMetadata());
+                // 分片直接投递，不把模型元数据写入日志。
                 if (response.getResults().isEmpty()) {
                     return; // 跳过没有正文结果的分片
                 }
                 String responseMessage = response.getResults().get(0).getOutput().getText();
-                log.info("大模型返回消息 {}", responseMessage);
+                // 回复正文只发给对应用户，不输出到服务器日志。
                 if (!StringTools.isEmpty(responseMessage)) {
                     messageSendDTO.setOutPutType(MessageOutPutTypeEnum.OUTPUTTING.getType());
                     messageSendDTO.setAssistantMessage(responseMessage);
@@ -266,8 +268,8 @@ public class ChatComponent {
                 agentMessageService.completeMessage(agentMessage.getMessageId(), PromptTypeEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
             }).subscribe();
 
-        }catch (Exception e){
-            log.info("调用大模型失败",e);
+        }catch (Exception e) {
+            log.warn("调用大模型失败，异常类型={}", e.getClass().getSimpleName());
             messageSendDTO.setOutPutType(MessageOutPutTypeEnum.ERROR.getType());
             messageSendDTO.setMessageId(agentMessage.getMessageId());
             messageSendDTO.setAssistantMessage(ResponseCodeEnum.CODE_500.getMsg());
@@ -314,7 +316,7 @@ public class ChatComponent {
      */
     private ChatClient.ChatClientRequestSpec getChatClientRequestSpec() {
         String systemPrompt = getPrompt(PromptTypeEnum.GLOBAL, null, null, null);
-        return chatClient.prompt().system(systemPrompt).advisors(new LoggerAdvisor());
+        return chatClient.prompt().system(systemPrompt).advisors(new LoggerAdvisor(modelLogSummary));
     }
 
     /**
@@ -333,12 +335,12 @@ public class ChatComponent {
         List<Message> historyList = new ArrayList<>();
 
         for (AgentMessage agentMessage : agentMessageList) {
-            if (ArrayUtils.contains(new String[]{UserIntentEnum.PRODUCT_SEARCH.getKey(),UserIntentEnum.QUERY_ORDER.getKey()}, agentMessage.getBizType()) && agentMessage.getBizData() != null){
+            if (ArrayUtils.contains(new String[]{UserIntentEnum.PRODUCT_SEARCH.getKey(),UserIntentEnum.QUERY_ORDER.getKey()}, agentMessage.getBizType()) && agentMessage.getBizData() != null) {
                 historyList.add(new UserMessage(agentMessage.getUserMessage()));
                 historyList.add(new AssistantMessage(agentMessage.getBizData()));
                 continue;
             }
-            if (!StringTools.isEmpty(agentMessage.getAssistantMessage())){
+            if (!StringTools.isEmpty(agentMessage.getAssistantMessage())) {
                 historyList.add(new UserMessage(agentMessage.getUserMessage()));
                 historyList.add(new AssistantMessage(agentMessage.getAssistantMessage()));
             }

@@ -37,7 +37,7 @@ public class AccountController extends ABaseController {
         String checkCodeBase64 = captcha.toBase64();
         String checkCodeKey = redisComponent.saveCheckCode(code);
         CheckCodeVO checkCodeVO = new CheckCodeVO(checkCodeKey, checkCodeBase64);
-        log.info("图片里的内容: {}", code);
+        // 验证码答案只保存到 Redis，不写入日志。
 
         return getSuccessResponseVO(checkCodeVO);
     }
@@ -57,11 +57,11 @@ public class AccountController extends ABaseController {
                         @NotEmpty String checkCodeKey) {
         try {
             //校验验证码
-            if(!checkCode.equalsIgnoreCase(redisComponent.getCheckCode(checkCodeKey))){
+            if (!checkCode.equalsIgnoreCase(redisComponent.getCheckCode(checkCodeKey))) {
                 throw new BusinessException("验证码错误");
             }
 
-            if(!account.equalsIgnoreCase(appConfig.getAdminAccount()) || !password.equalsIgnoreCase(StringTools.encodeByMD5(appConfig.getAdminPassword()))) {
+            if (!account.equalsIgnoreCase(appConfig.getAdminAccount()) || !password.equalsIgnoreCase(StringTools.encodeByMD5(appConfig.getAdminPassword()))) {
                 throw new BusinessException("账号或密码错误");
             }
             //生成Token,并把用户名保存到Redis

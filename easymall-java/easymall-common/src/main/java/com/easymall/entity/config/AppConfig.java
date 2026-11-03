@@ -55,6 +55,12 @@ public class AppConfig {
     @Value("${project.auto-checkpay}")
     private Boolean autoCheckPay;
 
+    // 模拟物流只在显式选择 simulated 时运行，默认不生成虚构轨迹。
+    @Value("${logistics.mode:}")
+    private String logisticsMode;
+
+    public String getLogisticsMode() { return logisticsMode; }
+
     public Integer getWsPort() {
         return wsPort;
     }
@@ -100,7 +106,7 @@ public class AppConfig {
     }
 
     public String getProjectFolder() {
-        if(!StringTools.isEmpty(projectFolder) && !projectFolder.endsWith("/")) {
+        if (!StringTools.isEmpty(projectFolder) && !projectFolder.endsWith("/")) {
             projectFolder += "/";
         }
         return projectFolder;

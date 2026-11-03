@@ -13,6 +13,8 @@
 
 脚本要求 common、admin、web 都产生**本次调用更新的** Surefire XML，且三个模块实际执行数均大于 0（步骤 01 起增加 admin 检查）。历史报告、全部跳过或“没有测试”不能作为通过证据。普通测试不依赖运行中的数据库、Redis、ES、模型或支付。
 
+步骤 05 的 MCP 启动修复起，mcp 模块也必须产生本次更新的测试报告并执行测试。新增回归使用 MCP 自身不含 Tomcat/Servlet API 的依赖环境，验证公共 Servlet 组件不会误加载；验证记录见 [MCP 启动修复](../docs/verification/05-mcp-startup-fix.md)。
+
 ## 独立联调准备
 
 ```powershell

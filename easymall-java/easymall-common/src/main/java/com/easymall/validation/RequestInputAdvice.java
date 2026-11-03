@@ -3,6 +3,8 @@ package com.easymall.validation;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.exception.BusinessException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.bind.WebDataBinder;
@@ -21,11 +23,15 @@ import java.util.Set;
 /** 约束所有商城 MVC 入口的绑定范围，内部查询结构不能由请求参数设置。 */
 @ControllerAdvice(basePackages = "com.easymall.controller")
 @Order(Ordered.HIGHEST_PRECEDENCE)
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@ConditionalOnClass(name = {"jakarta.servlet.http.HttpServletRequest", "org.springframework.web.servlet.HandlerMapping"})
 public class RequestInputAdvice {
     @InitBinder
     public void restrictBinding(WebDataBinder binder, NativeWebRequest request) {
         Set<String> disallowed = new LinkedHashSet<>();
-        if (binder.getDisallowedFields() != null) { disallowed.addAll(Arrays.asList(binder.getDisallowedFields())); }
+        if (binder.getDisallowedFields() != null) {
+            disallowed.addAll(Arrays.asList(binder.getDisallowedFields()));
+        }
         disallowed.addAll(Set.of("orderBy", "*.orderBy", "simplePage", "simplePage.*", "*.simplePage.*",
                 "class.*", "*.class.*"));
         binder.setDisallowedFields(disallowed.toArray(String[]::new));
@@ -40,12 +46,20 @@ public class RequestInputAdvice {
             if (Arrays.stream(name.split("\\.")).anyMatch(part -> part.equals("orderby") || part.equals("simplepage"))) {
                 reject();
             }
-            if (name.equals("pageno")) { checkPage(parameter.getValue(), true); }
-            if (name.equals("pagesize")) { checkPage(parameter.getValue(), false); }
-            if (messageEndpoint && (name.startsWith("attachment") || name.startsWith("file"))) { reject(); }
+            if (name.equals("pageno")) {
+                checkPage(parameter.getValue(), true);
+            }
+            if (name.equals("pagesize")) {
+                checkPage(parameter.getValue(), false);
+            }
+            if (messageEndpoint && (name.startsWith("attachment") || name.startsWith("file"))) {
+                reject();
+            }
         }
         MultipartHttpServletRequest multipart = request.getNativeRequest(MultipartHttpServletRequest.class);
-        if (messageEndpoint && multipart != null && !multipart.getMultiFileMap().isEmpty()) { reject(); }
+        if (messageEndpoint && multipart != null && !multipart.getMultiFileMap().isEmpty()) {
+            reject();
+        }
     }
 
     private String canonicalName(String name) {
@@ -56,13 +70,20 @@ public class RequestInputAdvice {
     }
 
     private void checkPage(String[] values, boolean pageNumber) {
-        if (values == null || values.length != 1) { reject(); }
+        if (values == null || values.length != 1) {
+            reject();
+        }
         // 缺省和空字符串保持现有前端的可选分页语义，显式数值必须在范围内。
-        if (values[0] == null || values[0].isBlank()) { return; }
+        if (values[0] == null || values[0].isBlank()) {
+            return;
+        }
         try {
             int value = Integer.parseInt(values[0]);
-            if (pageNumber) { InputValidator.optionalPageNo(value); }
-            else { InputValidator.optionalPageSize(value); }
+            if (pageNumber) {
+                InputValidator.optionalPageNo(value);
+            } else {
+                InputValidator.optionalPageSize(value);
+            }
         } catch (NumberFormatException e) { reject(); }
     }
 

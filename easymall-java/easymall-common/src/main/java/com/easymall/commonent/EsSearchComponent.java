@@ -42,7 +42,7 @@ public class EsSearchComponent {
     private ProductInfoMapper<ProductInfo,ProductInfoQuery> productInfoMapper;
 
     @PostConstruct
-    public void createIndexWithIK(){
+    public void createIndexWithIK() {
         try {
             IndexOperations indexOperations = elasticsearchOperations.indexOps(ProductInfoDTO.class);
             if (indexOperations.exists()) {
@@ -68,8 +68,8 @@ public class EsSearchComponent {
             Document mapping = indexOperations.createMapping(ProductInfoDTO.class);
             indexOperations.putMapping(mapping);
             log.info("创建索引成功");
-        }catch (Exception e){
-            log.error("创建索引失败",e);
+        }catch (Exception e) {
+            log.error("创建索引失败，异常类型={}", e.getClass().getSimpleName());
             throw new BusinessException("创建索引失败");
         }
     }
@@ -78,12 +78,12 @@ public class EsSearchComponent {
      * 在ElasticSearch中保存/删除商品
      * @param productId 商品ID
      */
-    public void saveProduct(String productId){
+    public void saveProduct(String productId) {
         ProductInfo productInfo = productInfoMapper.selectByProductId(productId);
         ProductInfoDTO productInfoDTO = CopyTools.copy(productInfo, ProductInfoDTO.class);
         if (ProductStatusEnum.ON_SALE.getStatus().equals(productInfo.getStatus())) {
             elasticsearchOperations.save(productInfoDTO);
-        }else {
+        } else {
             elasticsearchOperations.delete(productId, ProductInfoDTO.class);
         }
     }
@@ -100,7 +100,7 @@ public class EsSearchComponent {
      */
     public PaginationResultVO<ProductInfoDTO> searchProduct(String keyWords,
             BigDecimal priceFrom, BigDecimal priceTo,
-            String sortType, String softField, Integer pageNo){
+            String sortType, String softField, Integer pageNo) {
         //封装请求参数，统一进行校验
         ProductSearchRequest request = new ProductSearchRequest();
         request.setKeyWords(keyWords);
@@ -119,24 +119,24 @@ public class EsSearchComponent {
             Criteria criteria = new Criteria();
 
             //商品名称过滤
-            if (keyWords.length() <= 2){
+            if (keyWords.length() <= 2) {
                 Criteria nameCriteria = new Criteria();
                 nameCriteria = nameCriteria.or(new Criteria("productName").contains(keyWords));
                 nameCriteria = nameCriteria.or(new Criteria("productName").expression("*" + keyWords + "*"));
                 nameCriteria = nameCriteria.or(new Criteria("productName").matches(keyWords));
                 criteria.and(nameCriteria);
-            }else {
+            } else {
                 criteria = criteria.and("productName").contains(keyWords);
             }
 
             //价格过滤
-            if(priceFrom != null || priceTo != null){
+            if (priceFrom != null || priceTo != null) {
                 Criteria priceCriteria = new Criteria();
                 priceCriteria = priceCriteria.and("minPrice");
-                if(priceFrom != null){
+                if (priceFrom != null) {
                     priceCriteria = priceCriteria.greaterThanEqual(priceFrom);
                 }
-                if(priceTo != null){
+                if (priceTo != null) {
                     priceCriteria = priceCriteria.lessThanEqual(priceTo);
                 }
                 criteria = criteria.and(priceCriteria);
@@ -167,8 +167,8 @@ public class EsSearchComponent {
             int totalPage = (int) Math.ceil((double) totalHits / pageSize);
 
             return new PaginationResultVO<>((int)totalHits,pageSize,pageNo + 1,totalPage,productInfoDTO);
-        }catch (Exception e){
-            log.error("搜索商品失败", e);
+        }catch (Exception e) {
+            log.error("搜索商品失败，异常类型={}", e.getClass().getSimpleName());
             return new PaginationResultVO<>(0,PageSize.SIZE15.getSize(),pageNo != null ? pageNo : 1,0,new ArrayList<>());
         }
     }

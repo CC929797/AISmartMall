@@ -24,6 +24,7 @@ import java.util.Map;
 
 @Slf4j
 @Service("payChannel4Alipay")
+@org.springframework.context.annotation.Profile("!demo")
 public class PayChannel4Alipay implements PayChannel {
     static {
         //设置SSL协议版本
@@ -39,6 +40,8 @@ public class PayChannel4Alipay implements PayChannel {
 
     @Resource
     private AppConfig appConfig;
+    @Resource
+    private com.easymall.security.PaymentGatewayPolicy paymentGatewayPolicy;
 
     /**
      * 获取支付信息
@@ -76,22 +79,24 @@ public class PayChannel4Alipay implements PayChannel {
                     model.setProductCode("FAST_INSTANT_TRADE_PAY");
                     //获取到支付结果
                     AlipayTradePagePayResponse response = alipayClient.pageExecute(request);
-                    if(!response.isSuccess()){
+                    if (!response.isSuccess()) {
                         throw new BusinessException("获取信息失败");
                     }
                     payInfo = response.getBody();
                     break;
             }
             return new PayInfoDTO(payInfo, payOrderId, amount);
-        }catch (BusinessException e){
+        }catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("支付宝获取支付信息失败",e);
+            log.error("支付宝获取支付信息失败，异常类型={}", e.getClass().getSimpleName());
             throw new BusinessException("支付宝获取支付信息失败");
         }
     }
 
-    private AlipayConfig getAlipayConfig(){
+    private AlipayConfig getAlipayConfig() {
+        // 验证支付宝服务器地址
+        paymentGatewayPolicy.validate(appConfig.getAlipayServerUrl());
         AlipayConfig alipayConfig = new AlipayConfig();
         alipayConfig.setServerUrl(appConfig.getAlipayServerUrl());
         alipayConfig.setAppId(appConfig.getAlipayAppid());
@@ -156,16 +161,16 @@ public class PayChannel4Alipay implements PayChannel {
             request.setBizModel(model);
 
             AlipayTradeQueryResponse response = alipayClient.certificateExecute(request);
-            if(!response.isSuccess() || !TRADE_STATE_SUCCESS.equals(response.getTradeStatus())){
+            if (!response.isSuccess() || !TRADE_STATE_SUCCESS.equals(response.getTradeStatus())) {
                 return null;
             }
-            log.info("查询支付宝订单：{},返回结果：{}",payOrderId,response.getBody());
+            log.debug("支付宝订单查询完成，成功={}", response.isSuccess());
             return new PayOrderNotifyDTO(payOrderId,response.getTradeNo());
 
-        }catch (BusinessException e){
+        }catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("查询支付宝订单失败",e);
+            log.error("查询支付宝订单失败，异常类型={}", e.getClass().getSimpleName());
             throw new BusinessException("查询支付宝订单失败");
         }
     }
@@ -191,13 +196,13 @@ public class PayChannel4Alipay implements PayChannel {
             request.setBizModel(model);
 
             AlipayTradeRefundResponse response = alipayClient.certificateExecute(request);
-            if(!response.isSuccess()){
+            if (!response.isSuccess()) {
                 throw new BusinessException("退款失败");
             }
-        }catch (BusinessException e){
+        }catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("查询支付宝订单失败",e);
+            log.error("查询支付宝订单失败，异常类型={}", e.getClass().getSimpleName());
             throw new BusinessException("查询支付宝订单失败");
         }
     }
@@ -219,13 +224,13 @@ public class PayChannel4Alipay implements PayChannel {
             request.setBizModel(model);
 
             AlipayTradeCloseResponse response = alipayClient.certificateExecute(request);
-            if(!response.isSuccess() && !TRADE_NOT_EXIST.equalsIgnoreCase(response.getSubCode())){
+            if (!response.isSuccess() && !TRADE_NOT_EXIST.equalsIgnoreCase(response.getSubCode())) {
                 throw new BusinessException("关闭订单失败");
             }
-        }catch (BusinessException e){
+        }catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("查询支付宝订单失败",e);
+            log.error("查询支付宝订单失败，异常类型={}", e.getClass().getSimpleName());
             throw new BusinessException("查询支付宝订单失败");
         }
     }

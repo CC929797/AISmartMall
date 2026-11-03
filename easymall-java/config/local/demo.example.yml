@@ -1,0 +1,14 @@
+# 与 web.yml 一同加载，并显式选择 demo Profile；不包含真实支付或模型凭据。
+spring:
+  config:
+    activate:
+      on-profile: demo
+project:
+  auto-checkpay: false
+payment:
+  mode: demo
+logistics:
+  mode: simulated
+security:
+  logging:
+    model-summary: false
