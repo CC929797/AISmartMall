@@ -81,11 +81,9 @@ import {
   reactive,
   getCurrentInstance,
   nextTick,
-  onMounted,
-  onUpdated,
+  watch,
 } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import md5 from "js-md5";
 const { proxy } = getCurrentInstance();
 const router = useRouter();
 const route = useRoute();
@@ -150,7 +148,7 @@ const rules = {
 const resetForm = () => {
   changeCheckCode();
   nextTick(() => {
-    formDataRef.value.resetFields();
+    formDataRef.value?.resetFields();
     formData.value = {};
   });
 };
@@ -164,10 +162,7 @@ const doSubmit = () => {
     let params = {};
     Object.assign(params, formData.value);
     params.checkCodeKey = checkCodeInfo.value.checkCodeKey;
-    //登录
-    if (opType.value == 1) {
-      params.password = md5(params.password);
-    }
+    // 登录和注册统一提交原密码，由后端验证和编码，部署时使用 HTTPS。
     let result = await proxy.Request({
       url: opType.value == 0 ? proxy.Api.register : proxy.Api.login,
       params: params,
@@ -203,13 +198,12 @@ const showPanel = (type) => {
   }
 };
 
-onUpdated(() => {
-  showPanel(1);
-});
-
-onMounted(() => {
-  showPanel(1);
-});
+// 只在打开登录窗口时初始化，避免输入或切换注册时重置表单并反复申请验证码。
+watch(() => loginStore.showLogin, (visible) => {
+  if (visible) {
+    showPanel(1);
+  }
+}, { immediate: true });
 </script>
 
 <style lang="scss">

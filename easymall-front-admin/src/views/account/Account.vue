@@ -3,7 +3,7 @@
     <el-form class="login-panel" :model="formData" :rules="rules" ref="formDataRef">
       <div class="login-title">登录</div>
       <!--input输入-->
-      <el-form-item prop="email">
+      <el-form-item prop="account">
         <el-input size="large" clearable placeholder="请输入账号" v-model="formData.account" maxLength="150">
           <template #prefix>
             <span class="iconfont icon-account"></span>
@@ -45,7 +45,6 @@ import {
   onUpdated,
 } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import md5 from "js-md5";
 const { proxy } = getCurrentInstance();
 const router = useRouter();
 const route = useRoute();
@@ -81,7 +80,7 @@ const doSubmit = () => {
     let params = {};
     Object.assign(params, formData.value);
     params.checkCodeKey = checkCodeInfo.value.checkCodeKey;
-    params.password = md5(params.password);
+    // 原密码交给后端与管理员哈希配置比较，部署时使用 HTTPS。
     let result = await proxy.Request({
       url: proxy.Api.login,
       params: params,

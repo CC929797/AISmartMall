@@ -30,7 +30,6 @@ import {
   onUpdated,
 } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import md5 from 'js-md5'
 const { proxy } = getCurrentInstance()
 const router = useRouter()
 const route = useRoute()
@@ -74,7 +73,11 @@ const doSubmit = () => {
     if (!result) {
       return
     }
-    proxy.Message.success('修改成功')
+    // 后端已撤销旧会话，本地凭据也同步清理，并引导使用新密码登录。
+    localStorage.removeItem('token')
+    loginStore.saveUserInfo({})
+    loginStore.showLogin = true
+    proxy.Message.success('密码修改成功，请重新登录')
     dialogConfig.value.show = false
   })
 }
