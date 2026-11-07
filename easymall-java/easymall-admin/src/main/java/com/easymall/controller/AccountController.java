@@ -114,7 +114,8 @@ public class AccountController extends ABaseController {
     }
 
     @RequestMapping("/logout")
-    public void logout(@RequestHeader(Constants.TOKEN_ADMIN) String token) {
+    public ResponseVO logout(@RequestHeader(Constants.TOKEN_ADMIN) String token) {
         redisComponent.cleanTokenInfoAdmin(token);
+        return getSuccessResponseVO(null);
     }
 }

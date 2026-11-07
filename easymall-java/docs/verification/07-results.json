@@ -1,0 +1,67 @@
+{
+  "step": "07",
+  "date": "2026-11-07",
+  "timezone": "Asia/Shanghai",
+  "status": "implemented-and-verified",
+  "tests": {
+    "passed": 99,
+    "failed": 0,
+    "accountAndLogout": 8,
+    "layout": 7,
+    "manager": 5,
+    "worker": 9,
+    "request": 18,
+    "realLoadingComponent": 10,
+    "existingDomSecurity": 42,
+    "log": "runtime/phase2/step07/frontend-tests-admin-logout.tap"
+  },
+  "backendTargetedTests": {
+    "passed": 17,
+    "failed": 0,
+    "adminLogoutContract": 3,
+    "adminPasswordProtocol": 4,
+    "adminAuthenticationInterceptor": 10,
+    "commonAdminPackage": "passed",
+    "realRedisAndDatabase": false,
+    "log": "runtime/phase2/step07/logout-backend-tests.log"
+  },
+  "build": {
+    "web": "passed",
+    "admin": "passed",
+    "emptyOutDir": false,
+    "outputRoot": "runtime/phase2/step07",
+    "latestWebOutput": "runtime/phase2/step07/loading-fix-web",
+    "latestAdminOutput": "runtime/phase2/step07/logout-fix-admin"
+  },
+  "browser": {
+    "frontend": "actual Vue user and admin frontends",
+    "transport": "synthetic local HTTP and WebSocket",
+    "viewport": "1440x1000",
+    "passed": [
+      "login input and registration mode",
+      "expired-token public and private routes",
+      "network-error public route",
+      "automatic reconnect",
+      "five-retry limit and manual recovery",
+      "offline input retained without sending",
+      "malformed frames followed by valid reply",
+      "logout closes connection without login dialog",
+      "new login creates a new connection",
+      "admin login and home reload leave zero loading masks and no scroll lock",
+      "admin logout navigates on first confirmation with one request for both legacy empty and JSON responses"
+    ],
+    "testServerStopped": true,
+    "temporaryTabClosed": true,
+    "viewportReset": true
+  },
+  "notRun": [
+    "Java full regression",
+    "real authentication database integration",
+    "real model evaluation",
+    "real payment or refund integration",
+    "message replay and stream resumption (step 16)",
+    "mobile layout verification"
+  ],
+  "gitCommitted": false,
+  "filesDeleted": false
+}
