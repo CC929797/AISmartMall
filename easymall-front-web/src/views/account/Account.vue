@@ -180,8 +180,7 @@ const doSubmit = () => {
     } else if (opType.value == 1) {
       proxy.Message.success("登录成功");
       loginStore.showLogin = false;
-      loginStore.saveUserInfo(result.data);
-      localStorage.setItem("token", result.data.token);
+      loginStore.saveSession(result.data);
     }
   });
 };

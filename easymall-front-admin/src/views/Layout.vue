@@ -130,17 +130,23 @@ const jump = (item) => {
   router.push(item.path)
 }
 
+const loggingOut = ref(false)
 const logout = () => {
+  if (loggingOut.value) return
   proxy.Confirm({
     message: '确定要退出吗?',
     okfun: async () => {
-      let result = await proxy.Request({
-        url: proxy.Api.logout,
-      })
-      if (!result) {
-        return
+      if (loggingOut.value) return
+      loggingOut.value = true
+      const token = localStorage.getItem('adminToken')
+      try {
+        const result = await proxy.Request({ url: proxy.Api.logout })
+        if (!result || localStorage.getItem('adminToken') !== token) return
+        localStorage.removeItem('adminToken')
+        await router.replace('/login')
+      } finally {
+        loggingOut.value = false
       }
-      router.push('/login')
     },
   })
 }

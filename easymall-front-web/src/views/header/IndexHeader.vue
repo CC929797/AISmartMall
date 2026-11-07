@@ -88,19 +88,17 @@ const logout = () => {
   proxy.Confirm({
     message: '确定要退出吗?',
     okfun: async () => {
+      const token = localStorage.getItem('token')
       let result = await proxy.Request({
         url: proxy.Api.logout,
       })
       if (!result) {
         return
       }
-      if (route.meta.checkLogin) {
-        router.push('/')
-      }
-      setTimeout(() => {
-        loginStore.saveUserInfo({})
-        localStorage.removeItem('token')
-      }, 100)
+      if (localStorage.getItem('token') !== token) return
+      // 先离开私有页面，再清理身份，避免路由登录提示在退出过程中弹出。
+      if (route.meta.checkLogin) await router.push('/')
+      loginStore.clearSession({ expectedToken: token, showLogin: false })
     },
   })
 }

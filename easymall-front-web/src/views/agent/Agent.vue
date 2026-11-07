@@ -4,6 +4,10 @@
       <div class="ai-avatar iconfont icon-robot"></div>
       <div class="ai-title">AI智能购物助手</div>
     </div>
+    <div v-if="connectionState.status !== 'connected'" class="connection-status" role="status" aria-live="polite">
+      <span>{{ connectionTip }}</span>
+      <el-button v-if="connectionState.status === 'failed'" size="small" @click="initWs({ force: true })">重新连接</el-button>
+    </div>
     <ChatList class="chat-list-panel"></ChatList>
     <SendPanel></SendPanel>
   </div>
@@ -27,7 +31,13 @@ const { proxy } = getCurrentInstance()
 const router = useRouter()
 const route = useRoute()
 
-import { initWs, closeWebSocket } from '@/utils/worker/websocket.manager.js'
+import { initWs, closeWebSocket, connectionState } from '@/utils/worker/websocket.manager.js'
+
+const connectionTip = computed(() => {
+  if (connectionState.value.status === 'failed') return '连接暂时不可用，请检查网络后重新连接'
+  if (connectionState.value.status === 'reconnecting') return `连接已断开，正在进行第 ${connectionState.value.retryCount} 次重连`
+  return '正在连接购物助手…'
+})
 
 onMounted(() => {
   initWs()
@@ -40,6 +50,14 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .chat-body {
+  .connection-status {
+    padding: 8px 12px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: #fff7e6;
+    color: #704600;
+  }
   width: 800px;
   margin: 10px auto;
   background-color: white;

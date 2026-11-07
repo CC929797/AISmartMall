@@ -66,6 +66,7 @@ const doSubmit = () => {
     }
     let params = {}
     Object.assign(params, formData.value)
+    const token = localStorage.getItem('token')
     let result = await proxy.Request({
       url: proxy.Api.updatePassword,
       params: params,
@@ -74,9 +75,7 @@ const doSubmit = () => {
       return
     }
     // 后端已撤销旧会话，本地凭据也同步清理，并引导使用新密码登录。
-    localStorage.removeItem('token')
-    loginStore.saveUserInfo({})
-    loginStore.showLogin = true
+    loginStore.clearSession({ expectedToken: token, showLogin: true })
     proxy.Message.success('密码修改成功，请重新登录')
     dialogConfig.value.show = false
   })

@@ -38,6 +38,7 @@ const router = useRouter()
 const route = useRoute()
 
 import { mitter } from '@/eventbus/eventBus'
+import { connectionState } from '@/utils/worker/websocket.manager.js'
 
 const tips = ref([
   '推荐一些新颖的玩具',
@@ -58,6 +59,10 @@ const answering = ref(false)
 const messageId = ref()
 
 const sendMessage = async () => {
+  if (connectionState.value.status !== 'connected') {
+    proxy.Message.warning('连接尚未恢复，请稍后发送')
+    return
+  }
   let result = await proxy.Request({
     url: proxy.Api.sendMessage,
     showLoading: false,
