@@ -108,6 +108,18 @@ public class OrderController extends ABaseController{
     }
 
     /**
+     * 根据订单号获取支付信息(进行在订单页面中点击付款)
+     * @param orderId 主订单Id
+     * @return 支付信息
+     */
+    @RequestMapping("/getPayInfo")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO getPayInfo(@NotEmpty String orderId) {
+        PayInfoDTO payInfoDTO = orderInfoService.getPayInfo(getTokenUserInfo().getUserId(), orderId);
+        return getSuccessResponseVO(payInfoDTO);
+    }
+
+    /**
      * 删除订单
      * @param orderId
      * @return

@@ -425,6 +425,40 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 	}
 
 	/**
+	 * 获取支付信息(进行在订单页面中点击付款)
+	 * @param userId 用户Id
+	 * @param orderId 主订单Id
+	 * @return 支付信息
+	 */
+	@Override
+	public PayInfoDTO getPayInfo(String userId, String orderId) {
+		OrderInfo orderInfo = orderInfoMapper.selectByOrderId(orderId);
+		if (orderInfo == null || !orderInfo.getUserId().equals(userId)) {
+			throw new BusinessException("订单不存在");
+		}
+
+		if (orderInfo.getOrderStatus() != OrderStatusEnum.WAIT_PAYMENT.getStatus()) {
+			throw new BusinessException("订单已支付");
+		}
+		//生成新的订单
+		PayChannelEnum payChannelEnum = PayChannelEnum.getByPayScene(orderInfo.getPayScene());
+		PayChannel payChannel = (PayChannel) SpringContext.getBean(payChannelEnum.getBeanName());
+		String subject = orderInfo.getOrderId();
+		BigDecimal amount = orderInfo.getAmount();
+		String payOrderId = StringTools.createPayOrderId();
+
+		PayInfoDTO payInfoDTO = payChannel.getPayUrl(payChannelEnum, payOrderId, subject, amount);
+		//将之前的订单取消
+		cancelOrder4Channel(orderInfo);
+
+		//更新支付订单ID
+		OrderInfo updateOrderInfo = new OrderInfo();
+		updateOrderInfo.setPayOrderId(payOrderId);
+		orderInfoMapper.updateByOrderId(updateOrderInfo, orderInfo.getOrderId());
+		return payInfoDTO;
+	}
+
+	/**
 	 * 订单成功
 	 * @param payOrderNotifyDTO
 	 */

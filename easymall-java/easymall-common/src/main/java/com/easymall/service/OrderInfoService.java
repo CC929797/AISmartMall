@@ -119,4 +119,12 @@ public interface OrderInfoService {
 	 * @return 订单总金额
 	 */
 	BigDecimal getOrderTotalAmount(String orderTime,Integer[] orderStatus);
+
+	/**
+	 * 根据用户Id和订单Id获取支付信息(进行在订单页面中点击付款)
+	 * @param userId 用户Id
+	 * @param orderId 主订单Id
+	 * @return 支付信息
+	 */
+    PayInfoDTO getPayInfo(String userId, @NotEmpty String orderId);
 }
