@@ -40,11 +40,11 @@ const route = useRoute()
 import { mitter } from '@/eventbus/eventBus'
 
 const tips = ref([
-  '有新颖的玩具',
+  '推荐一些新颖的玩具',
   '我的订单',
-  '我要申请退款',
-  '我的订单到哪里了',
-  '我要给我的订单一个好评',
+  '怎么查看物流',
+  '怎么申请退款',
+  '你是谁',
 ])
 
 const formData = ref({})
