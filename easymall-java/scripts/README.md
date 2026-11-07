@@ -44,7 +44,7 @@ $baselineRepo = Join-Path (Split-Path (Get-Location).Path -Parent) 'runtime/phas
 mvn "-Dmaven.repo.local=$baselineRepo" -Dmaven.test.skip=false -DskipTests=false -Pbaseline-integration -pl easymall-web -am verify
 ```
 
-该 Profile 启用 `BaselineSmokeIT`，普通 `test/package` 不运行它。它在创建应用 Bean 前检查数据库、Redis、ES、模型地址以及可覆盖这些地址的配置，仅允许隔离实例。支付由 Mockito 替换，工具 Provider 是始终返回空数组的测试实现，MCP 客户端传输在测试中关闭。
+该 Profile 启用 `BaselineSmokeIT`，普通 `test/package` 不运行它。它在创建应用 Bean 前检查数据库、Redis、ES、模型地址以及可覆盖这些地址的配置，仅允许隔离实例。支付由 Mockito 替换。步骤 06 起，Web 聊天直接在 Web 内查询本人订单，运行此烟测无需启动 MCP。
 
 测试使用实际隔离 MySQL/Redis/ES，完成匿名浏览、验证码登录、ES 搜索、提交订单、本人订单查询、AI 消息保存及成功后的业务关闭与库存恢复。保留合成订单、消息和日志作为证据，不删除记录。断言失败时不使用 SQL 重置；应先检查失败原因和遗留状态。当前取消接口写入状态 5 的既有行为由基线记录，未在阶段 0 修复。
 
@@ -83,13 +83,35 @@ $env:AI_VECTOR_DIMENSIONS = '1024'
 | 接口 | 固定行为 |
 |---|---|
 | `GET /health` | 返回合成标记、支持的模型名、维度和聚合请求计数；没有请求正文或凭据 |
-| 非流式 `POST /v1/chat/completions` | 固定输出 `{"intent":"CHAT","data":null}`，供当前 `UserIntent` 解析和 CHAT/FAQ 分支使用 |
-| 流式 `POST /v1/chat/completions` | 返回带“阶段0合成测试回复”标记的固定 SSE 正文、`finish_reason=stop` 和 `[DONE]`；不返回工具调用 |
+| 非流式 `POST /v1/chat/completions` | 默认选择 CHAT；步骤 06 集成用例使用 `[STEP06:...]` 固定选择订单查询、商品搜索和各项受限操作 |
+| 流式 `POST /v1/chat/completions` | 默认返回带“阶段0合成测试回复”标记的固定 SSE 正文；步骤 06 注入用例模拟模型未经授权输出退款工具调用 |
 | `POST /v1/embeddings` | 每条输入返回相同的非零 1024 维向量，每项为 `1/32`，L2 范数为 1；支持 float/base64 格式 |
 
 请求仅接受模型 `baseline-chat` / `baseline-embedding`，单个 JSON 请求体上限为 1 MiB，embedding 每次最多 128 条。服务不输出请求、Authorization、聊天内容或异常详情。`usage=null` 表示没有真实模型 Token 测量，不能据此报告模型成本或效果。
 
-可用于验证当前 Java 客户端调用、`UserIntent` JSON 解析、FAQ 检索调用、SSE 消费、消息保存与 WS 投递链路；数据库、Redis、ES、MCP 等业务依赖仍需分别准备并隔离。当前 CHAT 分支仍会向量检索并附加工具定义，但本替身永远不生成 `tool_calls`，不会请求执行工具。
+模型替身拒绝任何携带工具清单的聊天请求。步骤 06 的集成用例通过 Web HTTP 验证本人订单、跨用户订单隔离、商品搜索、退款编号校验和写操作引导，并检查伪造的工具调用没有触发交易业务。
+
+## MCP 边界复验
+
+MCP 默认在本机 `127.0.0.1:8084` 监听，使用 `MCP_SERVICE_TOKEN` 认证。下面的示例使用隔离基础设施和随机联调凭据。在后端根目录、同一 PowerShell 终端执行，先完成打包及隔离配置准备。
+
+```powershell
+$env:MCP_SERVICE_TOKEN = node -p "require('node:crypto').randomBytes(32).toString('hex')"
+$mcpCheck = Start-Process -FilePath java -ArgumentList @(
+    '-jar', './easymall-mcp/target/easymall-mcp-1.0.0.jar',
+    '--spring.config.location=file:./config/local/mcp.yml',
+    '--server.address=127.0.0.1', '--server.port=18084'
+) -WindowStyle Hidden -PassThru
+```
+
+服务监听 18084 后执行：
+
+```powershell
+node ./scripts/verify-mcp-boundary.mjs http://127.0.0.1:18084/mcp
+Stop-Process -Id $mcpCheck.Id
+```
+
+脚本检查空凭据和错误凭据返回 401、外部来源返回 403、有效服务凭据能握手、会话 ID 单独使用会被拒绝、工具清单为空，以及五个旧工具都无法直接调用。商用环境的服务凭据应由部署配置注入。
 
 此替身不判断用户问题、不生成真实语义向量、不根据知识库组织回答；它固定选择 CHAT，不覆盖商品搜索/订单意图分类、真实检索质量、推荐准确性、模型异常恢复、工具权限、支付退款正确性或真实 AI 效果。整条链路是否通过仍需保存实际运行证据。
 

@@ -37,7 +37,12 @@ public class SpringAIConfiguration {
     public ChatClient chatClient(OpenAiChatModel openAiChatModel){
         Map<String,Object> extraBody = new HashMap<>();
         extraBody.put("enable_thinking",false);
-        return ChatClient.builder(openAiChatModel).defaultOptions(OpenAiChatOptions.builder().extraBody(extraBody).build()).build();
+        return ChatClient.builder(openAiChatModel)
+                .defaultOptions(OpenAiChatOptions.builder()
+                        .extraBody(extraBody)
+                        .internalToolExecutionEnabled(false)
+                        .build())
+                .build();
     }
 
     /**

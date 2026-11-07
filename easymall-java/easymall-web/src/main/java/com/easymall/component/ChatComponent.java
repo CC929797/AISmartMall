@@ -3,6 +3,8 @@ package com.easymall.component;
 import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.MessageSendDTO;
+import com.easymall.entity.dto.OrderToolTarget;
+import com.easymall.entity.dto.ToolResult;
 import com.easymall.entity.enums.*;
 import com.easymall.entity.po.AgentMessage;
 import com.easymall.entity.po.OrderInfo;
@@ -17,7 +19,6 @@ import com.easymall.service.ProductInfoService;
 import com.easymall.utils.DateUtil;
 import com.easymall.utils.JsonUtils;
 import com.easymall.utils.StringTools;
-import com.easymall.websocket.ChannelContextUtils;
 import com.easymall.security.CurrentUser;
 import com.easymall.validation.AiCommentInputs;
 import com.easymall.websocket.message.MessageHandler;
@@ -29,8 +30,6 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.core.ParameterizedTypeReference;
@@ -40,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -60,8 +60,6 @@ public class ChatComponent {
     private ProductInfoService productInfoService;
     @Resource
     private OrderInfoService orderInfoService;
-    @Resource
-    private ToolCallbackProvider toolCallbackProvider;
     @Resource
     private RedisComponent redisComponent;
     @org.springframework.beans.factory.annotation.Value("${security.logging.model-summary:false}")
@@ -98,7 +96,8 @@ public class ChatComponent {
         //AI判断意图
         UserIntent userIntent = analyzeUserIntent(agentMessage.getUserId(), agentMessage.getUserMessage());
         //获取到AI判断的意图类型
-        PromptTypeEnum promptTypeEnum = PromptTypeEnum.getByCode(userIntent.intent);
+        String intent = userIntent == null || userIntent.intent() == null ? "" : userIntent.intent().strip().toUpperCase(Locale.ROOT);
+        PromptTypeEnum promptTypeEnum = PromptTypeEnum.getByCode(intent);
         promptTypeEnum = promptTypeEnum == null ? PromptTypeEnum.CHAT : promptTypeEnum;
 
         if (redisComponent.hasCancelMessage(agentMessage.getUserId(), agentMessage.getMessageId())) {
@@ -108,17 +107,76 @@ public class ChatComponent {
         switch (promptTypeEnum) {
             case PRODUCT_SEARCH :
                 //商品搜索意图
-                searchProduct(agentMessage,userIntent.data);
+                searchProduct(agentMessage, userIntent.data());
                 agentMessageService.completeMessage(agentMessage.getMessageId(), agentMessage.getBizType(), agentMessage.getAssistantMessage(), agentMessage.getBizData());
                 break;
             case QUERY_ORDER :
+                //若意图为订单查询
                 //查询订单意图
-                queryOrder(agentMessage,userIntent.data);
+                OrderToolTarget target = userIntent.target();
+                if (target.invalidOrderLookup()) {
+                    sendGuidance(agentMessage, ToolResult.rejected("INVALID_ARGUMENT",
+                            "请输入主订单号，或前往 [我的订单](/my/orders) 查询。"));
+                    break;
+                }
+                //查询订单
+                queryOrder(agentMessage, target.orderId());
+                //完成消息,返回bizData
                 agentMessageService.completeMessage(agentMessage.getMessageId(), agentMessage.getBizType(), agentMessage.getAssistantMessage(), agentMessage.getBizData());
                 break;
+            case REFUND, CANCEL_ORDER, CONFIRM_RECEIPT, PRODUCT_REVIEW, QUERY_LOGISTICS:
+                //若意图为订单操作
+                sendGuidance(agentMessage, orderGuidance(promptTypeEnum, userIntent.target()));
+                break;
             default:
-                chat(promptTypeEnum,agentMessage);
+                //默认聊天
+                chat(agentMessage);
         }
+    }
+
+    /**
+     * 订单操作指导
+     * @param intent 意图
+     * @param target 订单目标
+     * @return 操作结果
+     */
+    private ToolResult<Void> orderGuidance(PromptTypeEnum intent, OrderToolTarget target) {
+        if (intent == PromptTypeEnum.REFUND && target.invalidRefundTarget()) {
+            return ToolResult.rejected("INVALID_ARGUMENT",
+                    "退款需要选择具体商品明细。请前往 [我的订单](/my/orders)，找到对应商品后点击「退款」。");
+        }
+        //目前先暂停订单操作功能
+        //TODO: 后续再补充并完善订单操作
+        String action = switch (intent) {
+            case REFUND -> "退款";
+            case CANCEL_ORDER -> "取消订单";
+            case CONFIRM_RECEIPT -> "确认收货";
+            case PRODUCT_REVIEW -> "评价";
+            case QUERY_LOGISTICS -> "查看物流";
+            default -> throw new IllegalArgumentException("未定义的订单操作");
+        };
+        return ToolResult.rejected("ACTION_UNAVAILABLE",
+                "请前往 [我的订单](/my/orders)，找到对应订单后点击「" + action + "」。");
+    }
+
+    /**
+     * 系统引导复用聊天完成消息，历史记录同时保留可供程序判断的结果码。
+     */
+    private void sendGuidance(AgentMessage message, ToolResult<Void> result) {
+        String bizType = UserIntentEnum.CHAT.getKey();
+        message.setBizType(bizType);
+        message.setAssistantMessage(result.userMessage());
+        message.setBizData(JsonUtils.convertObj2Json(result));
+        agentMessageService.completeMessage(message.getMessageId(), bizType, result.userMessage(), message.getBizData());
+
+        MessageSendDTO reply = new MessageSendDTO();
+        reply.setMessageId(message.getMessageId());
+        reply.setUserId(message.getUserId());
+        reply.setUserMessage(message.getUserMessage());
+        reply.setBizType(bizType);
+        reply.setAssistantMessage(result.userMessage());
+        reply.setOutPutType(MessageOutPutTypeEnum.DONE.getType());
+        messageHandler.sendMessage(reply);
     }
 
     /**
@@ -134,7 +192,7 @@ public class ChatComponent {
 
         //查询向量数据库当中所有的商品信息
         List<Document> doc = vectorStore.similaritySearch(request);
-        String prompt = getPrompt(PromptTypeEnum.PRODUCT_SEARCH, JsonUtils.convertObj2Json(doc), keyword,null);
+        String prompt = String.format(getPromptTemplate(PromptTypeEnum.PRODUCT_SEARCH), JsonUtils.convertObj2Json(doc), keyword);
         //AI根据提示的关键词去检索查询到的商品信息中更符合的商品
         List<ProductInfo> productInfos = getChatClientRequestSpec().user(prompt).call().entity(new ParameterizedTypeReference<>() {
         });
@@ -210,34 +268,24 @@ public class ChatComponent {
     }
 
     /**
-     * AI回答关于除了商品查找和订单查询之外的问题
-     * @param promptTypeEnum 提示词类型
+     * AI回答普通聊天
      * @param agentMessage 消息
      */
-    public void chat(PromptTypeEnum promptTypeEnum, AgentMessage agentMessage) {
+    private void chat(AgentMessage agentMessage) {
         List<String> chatMessage = new ArrayList<>();
         MessageSendDTO messageSendDTO = new MessageSendDTO();
         messageSendDTO.setUserId(agentMessage.getUserId());
         messageSendDTO.setMessageId(agentMessage.getMessageId());
         try {
-            String ragData = "";
-            if (promptTypeEnum == PromptTypeEnum.CHAT) {
-                //获取本地知识库的内容
-                SearchRequest request = SearchRequest.builder().
-                        query(agentMessage.getUserMessage()).filterExpression(buildTypeFilter(RagDataTypeEnum.FAQ.getType())).
-                        similarityThreshold(0.5).topK(15).
-                        build();
-                //查询向量数据中的内容
-                List<Document> documents = vectorStore.similaritySearch(request);
-                documents = documents.stream().distinct().collect(Collectors.toList());
-
-                //获取到向量数据库中的片段，并用两个换行符进行连接
-                //如果只用一个\n，当文档片段本身内部就有换行时，大模型可能分不清哪里是上一个片段的结尾，哪里是下一个片段的开头
-                ragData = documents.stream().map(document -> document.getText()).collect(Collectors.joining("\n\n"));
-
+            SearchRequest request = SearchRequest.builder()
+                    .query(agentMessage.getUserMessage()).filterExpression(buildTypeFilter(RagDataTypeEnum.FAQ.getType()))
+                    .similarityThreshold(0.5).topK(15).build();
+            String ragData = vectorStore.similaritySearch(request).stream().distinct().map(Document::getText).collect(Collectors.joining("\n\n"));
+            if (StringTools.isEmpty(ragData)) {
+                ragData = "知识库当中暂无相关内容";
             }
-            String prompt = getPrompt(promptTypeEnum, agentMessage.getUserId(), agentMessage.getUserMessage(), ragData);
-            getChatClientRequestSpec().toolCallbacks(toolCallbackProvider).messages(getHistoryMessages(agentMessage.getUserId(), prompt)).stream().chatResponse().doOnNext(response -> {
+            String prompt = String.format(getPromptTemplate(PromptTypeEnum.CHAT), ragData, agentMessage.getUserMessage());
+            getChatClientRequestSpec().messages(getHistoryMessages(agentMessage.getUserId(), prompt)).stream().chatResponse().doOnNext(response -> {
                 // 分片直接投递，不把模型元数据写入日志。
                 if (response.getResults().isEmpty()) {
                     return; // 跳过没有正文结果的分片
@@ -253,19 +301,24 @@ public class ChatComponent {
                     chatMessage.add(responseMessage);
                 }
 
-            }).doOnComplete(()->{
+            }).doOnComplete(() -> {
+                if (chatMessage.isEmpty()) {
+                    messageSendDTO.setBizType(UserIntentEnum.CHAT.getKey());
+                    messageSendDTO.setAssistantMessage("暂时无法回答这个问题，请换一种说法再试。");
+                    chatMessage.add(messageSendDTO.getAssistantMessage());
+                }
                 messageSendDTO.setOutPutType(MessageOutPutTypeEnum.DONE.getType());
                 messageHandler.sendMessage(messageSendDTO);
 
                 agentMessage.setAssistantMessage(chatMessage.stream().collect(Collectors.joining("")));
-                agentMessageService.completeMessage(agentMessage.getMessageId(), PromptTypeEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
+                agentMessageService.completeMessage(agentMessage.getMessageId(), UserIntentEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
             }).doOnError(error -> {
                 messageSendDTO.setOutPutType(MessageOutPutTypeEnum.ERROR.getType());
                 messageSendDTO.setAssistantMessage(ResponseCodeEnum.CODE_500.getMsg());
                 messageHandler.sendMessage(messageSendDTO);
 
                 agentMessage.setAssistantMessage(chatMessage.stream().collect(Collectors.joining("")));
-                agentMessageService.completeMessage(agentMessage.getMessageId(), PromptTypeEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
+                agentMessageService.completeMessage(agentMessage.getMessageId(), UserIntentEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
             }).subscribe();
 
         }catch (Exception e) {
@@ -276,7 +329,7 @@ public class ChatComponent {
             messageHandler.sendMessage(messageSendDTO);
 
             agentMessage.setAssistantMessage(ResponseCodeEnum.CODE_500.getMsg());
-            agentMessageService.completeMessage(agentMessage.getMessageId(), PromptTypeEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
+            agentMessageService.completeMessage(agentMessage.getMessageId(), UserIntentEnum.CHAT.getKey(), agentMessage.getAssistantMessage(), null);
         }
 
     }
@@ -284,29 +337,11 @@ public class ChatComponent {
     /**
      * 获取提示词
       * @param typeEnum 提示词类型
-     * @param userId 用户ID
-     * @param message 用户消息
-     * @param ragData 联想数据
      * @return 提示词
      */
-    private String getPrompt (PromptTypeEnum typeEnum,String userId,String message,String ragData) {
-        //从Redis中获取提示词,因为提示词可能会被更新，更新的提示词会保存在Redis中
+    private String getPromptTemplate(PromptTypeEnum typeEnum) {
         String prompt = redisComponent.getPrompt(typeEnum.getKey());
-        if (StringTools.isEmpty(prompt)) {
-            prompt = typeEnum.getPrompt();
-        }
-        //根据提示词类型进行处理
-        if (PromptTypeEnum.CHAT == typeEnum) {
-            //若为聊天类型，则需要查询知识库将ragData进行处理
-            ragData = StringTools.isEmpty(ragData) ? "知识库当中暂无相关内容" : ragData;
-            prompt = String.format(prompt, ragData,userId,message);
-            return prompt;
-        } else if (PromptTypeEnum.GLOBAL != typeEnum) {
-            //若为其他类型，则直接返回提示词
-            return String.format(prompt, userId, message);
-        }
-        //以上所有类型都不满足，则为全局类型，直接返回提示词
-        return prompt;
+        return StringTools.isEmpty(prompt) ? typeEnum.getPrompt() : prompt;
     }
 
 
@@ -315,7 +350,9 @@ public class ChatComponent {
      * @return
      */
     private ChatClient.ChatClientRequestSpec getChatClientRequestSpec() {
-        String systemPrompt = getPrompt(PromptTypeEnum.GLOBAL, null, null, null);
+        String systemPrompt = getPromptTemplate(PromptTypeEnum.GLOBAL)
+                + "\n聊天只提供查询与操作指引。涉及退款、取消订单、确认收货、评价和物流时，"
+                + "请引导用户到我的订单页面。只能陈述已获得的查询结果。";
         return chatClient.prompt().system(systemPrompt).advisors(new LoggerAdvisor(modelLogSummary));
     }
 
@@ -357,14 +394,26 @@ public class ChatComponent {
      * @return
      */
     private UserIntent analyzeUserIntent(String userId,String message) {
-        String prompt = getPrompt(PromptTypeEnum.USER_INTENT, userId, message, null);
+        String prompt = String.format(getPromptTemplate(PromptTypeEnum.USER_INTENT), message);
         //调用大模型进行分析，查看分析出用户的意图是PromptTypeEnum.USER_INTENT中的哪一个intent
         UserIntent userIntent = getChatClientRequestSpec().messages(getHistoryMessages(userId, prompt)).call().entity(UserIntent.class);
 
         return userIntent;
     }
 
-    record UserIntent(String intent,String data){}
+    /**
+     * 用户意图类
+     * @param intent 意图
+     * @param data AI根据发送的消息生成的关键词
+     * @param orderId 主订单ID
+     * @param orderItemId 订单中某件商品的明细号
+     * @param payOrderId 支付单号，一笔支付可能关联多个主订单
+     */
+    record UserIntent(String intent, String data, String orderId, String orderItemId, String payOrderId) {
+        OrderToolTarget target() {
+            return new OrderToolTarget(orderId, orderItemId, payOrderId);
+        }
+    }
 
     /**
      * 取消消息

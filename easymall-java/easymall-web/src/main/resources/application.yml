@@ -56,17 +56,17 @@ spring:
       embedding:
         model: ${AI_EMBEDDING_MODEL:unconfigured}
 
-    mcp:
-      client:
-        enabled: true
-        name: my-mcp-client
-        version: 1.0.0
-        request-timeout: 30s
-        type: sync
-        streamable-http:
-          connections:
-            mcp-server:
-              url: http://127.0.0.1:8084
+#    mcp:
+#      client:
+#        enabled: true
+#        name: my-mcp-client
+#        version: 1.0.0
+#        request-timeout: 30s
+#        type: sync
+#        streamable-http:
+#          connections:
+#            mcp-server:
+#              url: http://127.0.0.1:8084
 
 mybatis:
   configuration:

@@ -1,7 +1,6 @@
 import http from 'node:http';
 
-// Stage-0 transport fixture only: no inference, tool calls, external I/O or logs
-// containing requests. This intentionally binds to one fixed loopback endpoint.
+// 仅在固定本机端口模拟模型协议，不访问外部服务或记录请求内容。
 const HOST = '127.0.0.1';
 const PORT = 18080;
 const CHAT_MODEL = 'baseline-chat';
@@ -31,7 +30,9 @@ class RequestError extends Error {
 }
 
 function sendJson(response, status, value) {
-  if (response.destroyed || response.writableEnded) return;
+  if (response.destroyed || response.writableEnded) {
+    return;
+  }
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   response.end(JSON.stringify(value));
 }
@@ -52,7 +53,9 @@ function readJson(request) {
     });
     request.on('error', () => reject(new RequestError(400, 'request_failed')));
     request.on('end', () => {
-      if (tooLarge) return reject(new RequestError(413, 'body_too_large'));
+      if (tooLarge) {
+        return reject(new RequestError(413, 'body_too_large'));
+      }
       try {
         const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
         if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -67,12 +70,16 @@ function readJson(request) {
 }
 
 function embeddingItemCount(input) {
-  if (typeof input === 'string' && input.length > 0) return 1;
+  if (typeof input === 'string' && input.length > 0) {
+    return 1;
+  }
   if (!Array.isArray(input) || input.length === 0) {
     throw new RequestError(400, 'invalid_embedding_input');
   }
   const isToken = (value) => Number.isInteger(value) && value >= 0;
-  if (input.every(isToken)) return 1;
+  if (input.every(isToken)) {
+    return 1;
+  }
   if (input.every((value) => typeof value === 'string' && value.length > 0)) {
     return input.length;
   }
@@ -83,7 +90,9 @@ function embeddingItemCount(input) {
 }
 
 function embeddings(response, body) {
-  if (body.model !== EMBEDDING_MODEL) throw new RequestError(400, 'unknown_embedding_model');
+  if (body.model !== EMBEDDING_MODEL) {
+    throw new RequestError(400, 'unknown_embedding_model');
+  }
   if (body.dimensions !== undefined && body.dimensions !== DIMENSIONS) {
     throw new RequestError(400, 'dimensions_must_be_1024');
   }
@@ -91,7 +100,9 @@ function embeddings(response, body) {
     throw new RequestError(400, 'unsupported_embedding_encoding');
   }
   const count = embeddingItemCount(body.input);
-  if (count > MAX_EMBEDDING_ITEMS) throw new RequestError(400, 'too_many_embedding_items');
+  if (count > MAX_EMBEDDING_ITEMS) {
+    throw new RequestError(400, 'too_many_embedding_items');
+  }
   let vector = VECTOR;
   if (body.encoding_format === 'base64') {
     const bytes = Buffer.alloc(DIMENSIONS * 4);
@@ -111,25 +122,39 @@ function embeddings(response, body) {
 }
 
 async function chat(response, body) {
-  if (body.model !== CHAT_MODEL) throw new RequestError(400, 'unknown_chat_model');
+  if (body.model !== CHAT_MODEL) {
+    throw new RequestError(400, 'unknown_chat_model');
+  }
   if (!Array.isArray(body.messages) || body.messages.length === 0) {
     throw new RequestError(400, 'messages_required');
   }
   if (body.stream !== undefined && typeof body.stream !== 'boolean') {
     throw new RequestError(400, 'invalid_stream_flag');
   }
+  if (body.tools?.length || body.functions?.length) {
+    throw new RequestError(400, 'tools_must_not_be_advertised');
+  }
+  const prompt = body.messages.at(-1)?.content ?? '';
+  const scenario = typeof prompt === 'string'
+    ? prompt.match(/\[STEP06:([A-Z_]+)(?::([A-Za-z0-9_]+))?\]/)
+    : null;
   const id = `chatcmpl-baseline-${counters.chatRequests}`;
   const created = Math.floor(Date.now() / 1000);
   if (!body.stream) {
-    // ChatComponent.analyzeUserIntent().call().entity(UserIntent.class) expects
-    // these exact fields and the uppercase PromptTypeEnum name. Always route
-    // into CHAT/FAQ; never select product, order, refund or other tool actions.
     counters.intentResponses += 1;
+    const [, intent = 'CHAT', target] = scenario ?? [];
+    const result = scenario && !prompt.includes('请分析用户消息的购物意图')
+      ? [{ productId: 'BASELINEPROD001' }]
+      : {
+          intent: ({ INJECT: 'CHAT', REFUND_ITEM: 'REFUND' })[intent] ?? intent,
+          orderId: intent === 'REFUND_ITEM' ? undefined : target,
+          orderItemId: intent === 'REFUND_ITEM' ? target : undefined,
+        };
     sendJson(response, 200, {
       id, object: 'chat.completion', created, model: CHAT_MODEL,
       choices: [{
         index: 0,
-        message: { role: 'assistant', content: JSON.stringify({ intent: 'CHAT', data: null }) },
+        message: { role: 'assistant', content: JSON.stringify(result) },
         finish_reason: 'stop',
       }],
       usage: null,
@@ -146,16 +171,33 @@ async function chat(response, body) {
   });
   response.flushHeaders();
   const writeChunk = (delta, finishReason = null) => {
-    if (response.destroyed || response.writableEnded) return;
+    if (response.destroyed || response.writableEnded) {
+      return;
+    }
     response.write(`data: ${JSON.stringify({
       id, object: 'chat.completion.chunk', created, model: CHAT_MODEL,
       choices: [{ index: 0, delta, finish_reason: finishReason }],
     })}\n\n`);
   };
   writeChunk({ role: 'assistant', content: '' });
+  if (scenario?.[1] === 'INJECT') {
+    // 模拟模型在未收到工具清单时仍尝试输出函数调用。
+    writeChunk({
+      tool_calls: [{
+        index: 0,
+        id: 'step06-fake-call',
+        type: 'function',
+        function: { name: 'refund', arguments: '{"userId":"SECUSER002","orderItemId":"FAKE_1"}' },
+      }],
+    }, 'tool_calls');
+    response.end('data: [DONE]\n\n');
+    return;
+  }
   const characters = Array.from(SYNTHETIC_REPLY);
   for (let offset = 0; offset < characters.length; offset += 12) {
-    if (response.destroyed || response.writableEnded) return;
+    if (response.destroyed || response.writableEnded) {
+      return;
+    }
     writeChunk({ content: characters.slice(offset, offset + 12).join('') });
     await new Promise((resolve) => setTimeout(resolve, 15));
   }
@@ -212,7 +254,9 @@ server.requestTimeout = 30_000;
 server.headersTimeout = 10_000;
 server.on('clientError', (_error, socket) => {
   counters.errors += 1;
-  if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
+  if (socket.writable) {
+    socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
+  }
 });
 server.on('error', () => {
   process.stderr.write('Baseline model mock could not listen on 127.0.0.1:18080.\n');

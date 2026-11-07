@@ -44,17 +44,6 @@ spring:
         initialize-schema: false
         index-name: ${AI_VECTOR_INDEX:easymall-test-vectorstore}
         dimensions: ${AI_VECTOR_DIMENSIONS:1024}
-    mcp:
-      client:
-        enabled: true
-        name: easymall-local-client
-        version: 1.0.0
-        request-timeout: 30s
-        type: sync
-        streamable-http:
-          connections:
-            mcp-server:
-              url: ${MCP_BASE_URL:http://127.0.0.1:8084}
 mybatis:
   configuration:
     map-underscore-to-camel-case: true
