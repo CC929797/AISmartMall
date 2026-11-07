@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.easymall.task.persistence.BusinessTaskMapper">
+    <resultMap id="task" type="com.easymall.task.BusinessTask" autoMapping="true">
+        <id column="task_id" property="taskId"/>
+        <result column="status" property="status" javaType="com.easymall.task.TaskStatus"/>
+    </resultMap>
+    <sql id="due">
+        ((status IN ('READY','RETRY') AND next_run_at &lt;= UTC_TIMESTAMP(6))
+        OR (status = 'RUNNING' AND lease_until &lt;= UTC_TIMESTAMP(6)))
+    </sql>
+    <sql id="owned">status = 'RUNNING' AND lease_owner = #{owner} AND lease_until &gt; UTC_TIMESTAMP(6)</sql>
+    <insert id="insertEvent">
+        INSERT INTO business_task (task_id,task_type,biz_key,biz_version,payload,payload_hash,status,attempts,max_attempts,next_run_at,created_at,updated_at)
+        VALUES (#{task.taskId},#{task.taskType},#{task.bizKey},#{task.bizVersion},#{task.payload},#{task.payloadHash},'READY',0,#{task.maxAttempts},
+            TIMESTAMPADD(SECOND,#{delaySeconds},UTC_TIMESTAMP(6)),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+        ON DUPLICATE KEY UPDATE task_id = task_id
+    </insert>
+    <select id="findEventForUpdate" resultMap="task">
+        SELECT * FROM business_task WHERE task_type=#{type} AND biz_key=#{key} AND biz_version=#{version} FOR UPDATE
+    </select>
+    <select id="findById" resultMap="task">SELECT * FROM business_task WHERE task_id=#{id}</select>
+    <select id="lockDue" resultMap="task">
+        SELECT * FROM business_task WHERE task_type IN
+        <foreach collection="types" item="type" open="(" close=")" separator=",">#{type}</foreach>
+        AND <include refid="due"/>
+        ORDER BY next_run_at,created_at,task_id LIMIT #{limit} FOR UPDATE SKIP LOCKED
+    </select>
+    <update id="claim">
+        UPDATE business_task SET status='RUNNING',attempts=attempts+1,lease_owner=#{owner},
+            lease_until=TIMESTAMPADD(SECOND,#{leaseSeconds},UTC_TIMESTAMP(6)),updated_at=UTC_TIMESTAMP(6)
+        WHERE task_id=#{id} AND attempts &lt; max_attempts AND <include refid="due"/>
+    </update>
+    <update id="exhaust">
+        UPDATE business_task SET status='DEAD',lease_owner=NULL,lease_until=NULL,last_error='LEASE_EXHAUSTED',updated_at=UTC_TIMESTAMP(6)
+        WHERE task_id=#{id} AND attempts &gt;= max_attempts AND <include refid="due"/>
+    </update>
+    <update id="renew">
+        UPDATE business_task SET lease_until=TIMESTAMPADD(SECOND,#{leaseSeconds},UTC_TIMESTAMP(6)),updated_at=UTC_TIMESTAMP(6)
+        WHERE task_id=#{id} AND <include refid="owned"/>
+    </update>
+    <select id="owns" resultType="int">SELECT count(*) FROM business_task WHERE task_id=#{id} AND <include refid="owned"/></select>
+    <update id="succeed">
+        UPDATE business_task SET status='SUCCESS',lease_owner=NULL,lease_until=NULL,last_error=NULL,updated_at=UTC_TIMESTAMP(6)
+        WHERE task_id=#{id} AND <include refid="owned"/>
+    </update>
+    <update id="fail">
+        UPDATE business_task SET status=IF(attempts &gt;= max_attempts,'DEAD','RETRY'),lease_owner=NULL,lease_until=NULL,
+            next_run_at=TIMESTAMPADD(MICROSECOND,#{delayMillis} * 1000,UTC_TIMESTAMP(6)),last_error=#{errorCode},updated_at=UTC_TIMESTAMP(6)
+        WHERE task_id=#{id} AND <include refid="owned"/>
+    </update>
+    <update id="retryDead">
+        UPDATE business_task SET status='READY',attempts=0,next_run_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6)
+        WHERE task_id=#{id} AND status='DEAD'
+    </update>
+    <select id="listDead" resultMap="task">
+        SELECT * FROM business_task WHERE status='DEAD' ORDER BY updated_at,task_id LIMIT #{limit}
+    </select>
+</mapper>

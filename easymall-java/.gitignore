@@ -1,2 +1,3 @@
 target
 elasticsearch
+config/local/worker.yml

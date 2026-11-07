@@ -1,4 +1,4 @@
-# 阶段 0 验证脚本
+# 本地启动与验证脚本
 
 以下命令在后端根目录执行。PowerShell 脚本要求 **PowerShell 7 或更新版本**，JDK 固定为 21。所有入口均不执行清理、清库、批量文件删除或工作区重置。
 
@@ -116,3 +116,24 @@ Stop-Process -Id $mcpCheck.Id
 此替身不判断用户问题、不生成真实语义向量、不根据知识库组织回答；它固定选择 CHAT，不覆盖商品搜索/订单意图分类、真实检索质量、推荐准确性、模型异常恢复、工具权限、支付退款正确性或真实 AI 效果。整条链路是否通过仍需保存实际运行证据。
 
 在替身终端按 Ctrl+C 停止。此说明提供启动方式；脚本新增和语法检查不代表服务已经启动或业务流程已经验收。
+
+## 步骤11A可靠任务
+
+普通 `test/package` 运行任务单元/启动隔离测试，不连接数据库。显式MySQL验证只需要既有隔离 MySQL，Redis、ES、模型和管理端均无需启动：
+
+```powershell
+docker compose -p easymall-baseline --env-file ../runtime/phase0/baseline.env -f compose.baseline.yml start mysql
+./scripts/verify-task-infrastructure.ps1 -JavaHome '<本机 JDK 21 目录>'
+```
+
+首次准备环境沿用上面的独立联调步骤；不要对已初始化的非空库重复初始化。验证脚本固定 `13306/easymall_test`，只在表缺失时执行11A任务表迁移，另建合成事务标记表；保留所有合成记录，不清表、不删行。`-Offline` 可复用已有Maven缓存，`-MavenCommand` 可指定本机Maven路径。脚本要求本轮三份报告全部实际执行且零跳过，包含真实子JVM硬退出后恢复。
+
+独立Worker复用打包后的Admin依赖归档，但通过专用入口启动，不运行Admin、HTTP、Redis和旧任务消费者。11A只有显式开启的无副作用 `SMOKE_NOOP` 处理器；无处理器注册时启动失败。
+
+```powershell
+# 先完成普通package；在当前终端通过环境变量设置隔离库密码（不提交、不放命令参数）
+$env:TASK_DB_PASSWORD = '<本机 baseline.env 中的隔离库密码>'
+./scripts/run-task-worker.ps1 -JavaHome '<本机 JDK 21 目录>' -ConfigFile ./config/local/worker.example.yml -Smoke
+```
+
+Smoke入口只允许隔离测试库。真实业务处理器、管理员重试页面、旧Redis任务迁移和外部幂等/版本保护留在11B。测试用例、事务投递示例和迁移边界见[11A验证记录](../docs/verification/11a-reliable-task.md)。

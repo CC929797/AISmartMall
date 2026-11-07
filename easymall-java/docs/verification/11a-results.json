@@ -1,0 +1,113 @@
+{
+  "step": "11A",
+  "status": "complete",
+  "date": "2026-11-07",
+  "timezone": "Asia/Shanghai",
+  "java": "21.0.11",
+  "mysql": {
+    "version": "8.4.9",
+    "endpoint": "127.0.0.1:13306/easymall_test",
+    "engine": "InnoDB",
+    "migration": "db/migration/V20261107_01__business_task.sql",
+    "migrationSha256": "84e31dbce972ce823a83d43572083d187725db6a09e20fe0b89cb043ac9a9c3d",
+    "indexes": [
+      "PRIMARY(task_id)",
+      "UNIQUE uk_task_event(task_type,biz_key,biz_version)",
+      "idx_task_due(task_type,status,next_run_at,task_id)",
+      "idx_task_lease(task_type,status,lease_until,task_id)"
+    ],
+    "checks": [
+      "chk_task_status",
+      "chk_task_attempts",
+      "chk_task_version",
+      "chk_task_lease"
+    ],
+    "developmentDatabaseModified": false,
+    "syntheticRowsRetained": true
+  },
+  "targeted": {
+    "total": 27,
+    "unitAndBootstrap": 13,
+    "realMySqlIntegration": 14,
+    "suites": [
+      {
+        "suite": "BusinessTaskUnitTest",
+        "executed": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "TaskWorkerBootstrapTest",
+        "executed": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "BusinessTaskMySqlIT",
+        "executed": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "command": "./scripts/verify-task-infrastructure.ps1 -JavaHome <JDK21> -MavenCommand <mvn.cmd> -Offline",
+    "log": "../runtime/phase2-step11a-script-final.log"
+  },
+  "backendPackage": {
+    "status": "passed",
+    "totalExecuted": 540,
+    "modules": [
+      {
+        "module": "easymall-common",
+        "executed": 368,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "reports": 33
+      },
+      {
+        "module": "easymall-admin",
+        "executed": 35,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "reports": 6
+      },
+      {
+        "module": "easymall-web",
+        "executed": 133,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "reports": 15
+      },
+      {
+        "module": "easymall-mcp",
+        "executed": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "reports": 1
+      }
+    ],
+    "command": "mvn -o -B -ntp -Dmaven.repo.local=<workspace-cache> -Dmaven.test.skip=false -DskipTests=false package",
+    "log": "../runtime/phase2-step11a-package-final.log"
+  },
+  "processProof": {
+    "hardCrash": "Child JVM Runtime.halt(23) after claim commit; another Worker completed attempt 2",
+    "standalone": "No-Web bootstrap JVM consumed synthetic SMOKE_NOOP and stayed alive when idle",
+    "archiveLauncher": "run-task-worker.ps1 used Admin archive PropertiesLauncher with task main; connected isolated MySQL; dedicated log created; Ctrl+C completed with remaining=0 and datasource closed",
+    "archiveLog": "target/business-task-worker/logs/business-task.log",
+    "expectedCtrlCExitCode": 1,
+    "workerLeftRunning": false,
+    "isolatedMysqlRestoredToStopped": true
+  },
+  "limits": [
+    "At-least-once; external side effects still require business idempotency and version fencing in 11B",
+    "No real payment/model/ES/vector or old Redis consumer migration",
+    "Development database migration not performed",
+    "27 targeted tests include 13 tests already counted in 540 ordinary tests"
+  ]
+}

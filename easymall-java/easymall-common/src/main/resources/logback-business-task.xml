@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 仅供独立Worker显式引用，不取代商城API自己的日志配置。 -->
+<configuration>
+    <springProperty scope="context" name="TASK_LOG_DIR" source="business-task.log-directory" defaultValue="./target/business-task-worker/logs"/>
+    <property name="PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+    </appender>
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${TASK_LOG_DIR}/business-task.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${TASK_LOG_DIR}/business-task.%d{yyyyMMdd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize><maxHistory>14</maxHistory><totalSizeCap>256MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+    </appender>
+    <logger name="com.easymall.task.persistence" level="WARN"/>
+    <logger name="org.mybatis" level="WARN"/>
+    <root level="INFO"><appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/></root>
+</configuration>

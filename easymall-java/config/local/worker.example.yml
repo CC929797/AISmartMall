@@ -1,0 +1,31 @@
+# 独立Worker配置样例。先迁移目标库，使用环境变量提供密码。
+# 本步仅启用隔离SMOKE_NOOP处理器；真实业务处理器在11B注册。
+spring:
+  datasource:
+    url: ${TASK_DB_URL:jdbc:mysql://127.0.0.1:13306/easymall_test?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&connectTimeout=2000&socketTimeout=5000}
+    username: ${TASK_DB_USER:baseline}
+    password: ${TASK_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 8
+      minimum-idle: 1
+      connection-timeout: 3000
+  lifecycle:
+    timeout-per-shutdown-phase: 10s
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+business-task:
+  log-directory: ${TASK_LOG_DIR:./target/business-task-worker/logs}
+  max-attempts: 3
+  initial-backoff-millis: 1000
+  max-backoff-millis: 60000
+  smoke:
+    enabled: false
+  worker:
+    enabled: true
+    threads: 2
+    batch-size: 8
+    poll-interval-millis: 1000
+    lease-seconds: 30
+    heartbeat-millis: 10000
+    shutdown-grace-millis: 5000

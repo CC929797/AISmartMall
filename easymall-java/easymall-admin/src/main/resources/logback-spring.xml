@@ -50,6 +50,7 @@
     <logger name="sun.rmi.transport.tcp" level="ERROR"/>
     <!-- 避免 SQL 参数、SDK 请求和模型正文随根级别进入日志。 -->
     <logger name="com.easymall.mappers" level="WARN"/>
+    <logger name="com.easymall.task.persistence" level="WARN"/>
     <logger name="org.springframework.ai" level="OFF"/>
     <logger name="com.alipay" level="OFF"/>
     <logger name="org.apache.http.wire" level="WARN"/>
