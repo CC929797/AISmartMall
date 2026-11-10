@@ -82,6 +82,9 @@ public interface OrderInfoService {
 	 */
 	PayInfoDTO postOrder(String userId, PostOrderDTO postOrder);
 
+	/** 查询当前用户的购买请求状态，供响应丢失或处理中时恢复。 */
+	PayInfoDTO getOrderRequest(String userId, String requestId);
+
 	/**
 	 * 取消订单
 	 */

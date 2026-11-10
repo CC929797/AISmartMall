@@ -517,6 +517,11 @@
         <foreach item="item" collection="orderIdList" separator=",">#{item}</foreach>)
 	</update>
 
+	<select id="selectPaymentGroupForUpdate" resultMap="base_result_map">
+		select <include refid="base_column_list"/> from order_info o
+		where pay_order_id=#{payOrderId} and user_id=#{userId} order by order_id for update
+	</select>
+
 	<select id="selectOrderTotalAmount" resultType="java.math.BigDecimal">
         select ifnull(sum(amount),0) from order_info where Date(order_time) = #{orderTime} and order_status in (
 			<foreach collection="orderStatus" item="item" separator=",">

@@ -46,7 +46,7 @@ mvn "-Dmaven.repo.local=$baselineRepo" -Dmaven.test.skip=false -DskipTests=false
 
 该 Profile 启用 `BaselineSmokeIT`，普通 `test/package` 不运行它。它在创建应用 Bean 前检查数据库、Redis、ES、模型地址以及可覆盖这些地址的配置，仅允许隔离实例。支付由 Mockito 替换。步骤 06 起，Web 聊天直接在 Web 内查询本人订单，运行此烟测无需启动 MCP。
 
-测试使用实际隔离 MySQL/Redis/ES，完成匿名浏览、验证码登录、ES 搜索、提交订单、本人订单查询、AI 消息保存及成功后的业务关闭与库存恢复。保留合成订单、消息和日志作为证据，不删除记录。断言失败时不使用 SQL 重置；应先检查失败原因和遗留状态。当前取消接口写入状态 5 的既有行为由基线记录，未在阶段 0 修复。
+测试使用实际隔离 MySQL/Redis/ES，完成匿名浏览、验证码登录、ES 搜索、提交订单、本人订单查询、AI 消息保存及成功后的业务关闭与库存恢复。保留合成订单、消息和日志作为证据，不删除记录。断言失败时不使用 SQL 重置；应先检查失败原因和遗留状态。阶段0曾记录取消写入状态5的旧行为；步骤08起主动取消为4、超时关闭为5。新测试库完成16表基线初始化后，应先运行下方步骤08验证入口，补齐11A和08的任务/请求表，再运行此完整集成Profile。
 
 步骤 02 另覆盖默认鉴权、真实 Redis Lua 防会话复活、Token 退出/过期、真实 WebSocket 撤销、Admin 跨进程封禁和 A/B 订单/地址/评论隔离。测试仅操作已守卫的合成用户与 fixture；新增完成态订单/评价/地址保留作为证据，封禁测试在 finally 中解封并撤销会话。完整对比与限制见 [步骤 02 验证记录](../docs/verification/02-authentication-boundary.md)。
 
@@ -137,3 +137,16 @@ $env:TASK_DB_PASSWORD = '<本机 baseline.env 中的隔离库密码>'
 ```
 
 Smoke入口只允许隔离测试库。真实业务处理器、管理员重试页面、旧Redis任务迁移和外部幂等/版本保护留在11B。测试用例、事务投递示例和迁移边界见[11A验证记录](../docs/verification/11a-reliable-task.md)。
+
+## 步骤08下单与库存
+
+完成隔离库初始化后，只启动隔离MySQL即可执行；支付和Redis使用测试替身：
+
+```powershell
+docker compose -p easymall-baseline --env-file ../runtime/phase0/baseline.env -f compose.baseline.yml start mysql
+./scripts/verify-checkout.ps1 -JavaHome '<本机JDK21目录>'
+```
+
+入口可加 `-Offline` 和 `-MavenCommand '<mvn.cmd路径>'`，要求本轮5份报告实际执行且零跳过。测试固定13306/easymall_test，仅缺表时执行11A任务表和08请求表迁移；合成商品、地址、订单和异常证据全部保留。新增Java测试类均标注“仅用于测试验证”，日常业务不会调用它们。完整建表SQL、参数契约、实际结果和页面测试见[步骤08记录](../docs/verification/08-checkout-idempotency.md)。
+
+前端根目录下 `easymall-front-web` 中运行 `npm run test:checkout`；需要真实浏览器查看合成场景时，在前端根目录运行 `node tests/browser-checkout-server.mjs`，访问 `http://127.0.0.1:16080/`。页面不会连接真实后端或支付，首次提交模拟响应丢失；结束后Ctrl+C停止。该模拟页面与真实MySQL证据分别记录，不替代支付沙箱验收。

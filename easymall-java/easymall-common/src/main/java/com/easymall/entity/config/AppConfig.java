@@ -44,6 +44,12 @@ public class AppConfig {
     @Value("${alipay.serverUrl:}")
     private String alipayServerUrl;
 
+    /** 正式业务：可选的公网异步通知地址；本地未配置时依靠主动查单，不发送占位域名。 */
+    @Value("${alipay.notify-url:}")
+    private String alipayNotifyUrl;
+
+    public String getAlipayNotifyUrl() { return alipayNotifyUrl; }
+
     //订单延时
     @Value("${order.expire.minute:5}")
     private Integer orderExpireMinute;

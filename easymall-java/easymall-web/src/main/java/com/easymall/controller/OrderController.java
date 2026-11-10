@@ -47,6 +47,13 @@ public class OrderController extends ABaseController{
         return getSuccessResponseVO(payInfoDTO);
     }
 
+    /** 网络重试前查询本人请求，PROCESSING不会被误当作已创建或已支付。 */
+    @RequestMapping("/getOrderRequest")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO getOrderRequest(@NotEmpty String requestId) {
+        return getSuccessResponseVO(orderInfoService.getOrderRequest(getTokenUserInfo().getUserId(), requestId));
+    }
+
     /**
      * 根据支付订单号获取订单信息
      * @param payOrderId

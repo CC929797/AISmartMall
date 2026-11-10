@@ -11,6 +11,9 @@ import com.easymall.mappers.*;
 import com.easymall.entity.po.*;
 import com.easymall.entity.enums.PayChannelEnum;
 import com.easymall.service.Impl.OrderInfoServiceImpl;
+import com.easymall.order.OrderRequest;
+import com.easymall.order.OrderRequestService;
+import com.easymall.task.BusinessTaskService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -49,6 +52,8 @@ class OrderInputBoundaryTest {
         dependency("orderLogisticsInfoMapper", OrderLogisticsInfoMapper.class);
         dependency("redisComponent", RedisComponent.class);
         dependency("appConfig", AppConfig.class);
+        dependency("orderRequestService", OrderRequestService.class);
+        dependency("businessTaskService", BusinessTaskService.class);
     }
 
     @ParameterizedTest
@@ -89,6 +94,7 @@ class OrderInputBoundaryTest {
         ProductSku sku = new ProductSku();
         sku.setProductId("PRODUCT1");
         sku.setPropertyValueIds("SKU1");
+        sku.setPropertyValueIdHash(com.easymall.utils.StringTools.encodeByMD5("SKU1"));
         sku.setPrice(new BigDecimal("12.34"));
         sku.setStock(100);
         when(dep("productSkuMapper", ProductSkuMapper.class).selectList(any())).thenReturn(List.of(sku));
@@ -99,6 +105,17 @@ class OrderInputBoundaryTest {
             return 1;
         });
         when(dep("appConfig", AppConfig.class).getOrderExpireMinute()).thenReturn(10);
+        when(dep("orderRequestService", OrderRequestService.class).place(eq("ORDERUSER1"), any(), any())).thenAnswer(invocation -> {
+            java.util.function.Function<String, BigDecimal> create = invocation.getArgument(2);
+            BigDecimal amount = create.apply("FIXED-PAYMENT-ID");
+            OrderRequest row = new OrderRequest(); row.setRequestId(requestId()); row.setPayOrderId("FIXED-PAYMENT-ID");
+            row.setStatus("CREATED"); row.setAmount(amount); return row;
+        });
+        when(dep("orderInfoMapper", OrderInfoMapper.class).selectList(any())).thenAnswer(invocation -> {
+            OrderInfo order = new OrderInfo(); order.setOrderId("ORDER1"); order.setPayOrderId("FIXED-PAYMENT-ID");
+            order.setOrderStatus(0); order.setOrderTime(new java.util.Date()); order.setPayScene("alipay_pc");
+            order.setAmount(new BigDecimal("12.34").multiply(BigDecimal.valueOf(quantity))); return List.of(order);
+        });
         PayChannel payment = mock(PayChannel.class);
         when(payment.getPayUrl(any(), anyString(), anyString(), any())).thenAnswer(invocation ->
                 new PayInfoDTO("synthetic-payment", invocation.getArgument(1), invocation.getArgument(3)));
@@ -110,7 +127,7 @@ class OrderInputBoundaryTest {
             PayInfoDTO result = service.postOrder("ORDERUSER1", request);
             BigDecimal amount = new BigDecimal("12.34").multiply(BigDecimal.valueOf(quantity));
             assertThat(result.getAmount()).isEqualByComparingTo(amount);
-            verify(payment).getPayUrl(eq(PayChannelEnum.ALIPAY_PC), anyString(), eq("合成订单商品"), eq(amount));
+            verify(payment).getPayUrl(eq(PayChannelEnum.ALIPAY_PC), anyString(), anyString(), eq(amount));
             verify(dep("productSkuMapper", ProductSkuMapper.class)).updateStockBatch(any());
         }
     }
@@ -134,7 +151,9 @@ class OrderInputBoundaryTest {
         requests.add(changed(order -> order.setPayMethod(" ")));
         requests.add(changed(order -> order.setOrderFrom(null)));
         requests.add(changed(order -> order.setOrderFrom(2)));
-        requests.add(changed(order -> order.setOrderList(List.of(item("P1", "S1", 1), item("P1", "S1", 2)))));
+        requests.add(changed(order -> order.setOrderList(List.of(item("P1", "S1", 99), item("P1", "S1", 1)))));
+        requests.add(changed(order -> order.setRequestId(null)));
+        requests.add(changed(order -> order.setRequestId("bad key")));
         requests.add(changed(order -> order.setOrderList(IntStream.range(0, 51)
                 .mapToObj(index -> item("P" + index, "S1", 1)).toList())));
         return requests.stream();
@@ -158,6 +177,7 @@ class OrderInputBoundaryTest {
 
     static PostOrderDTO validOrder() {
         PostOrderDTO request = new PostOrderDTO();
+        request.setRequestId(requestId());
         request.setPayMethod("alipay_pc");
         request.setOrderFrom(0);
         request.setAddressId("ADDRESS1");
@@ -172,4 +192,6 @@ class OrderInputBoundaryTest {
         item.setBuyCount(quantity);
         return item;
     }
+
+    private static String requestId() { return "UNIT-ORDER-REQUEST-0001"; }
 }

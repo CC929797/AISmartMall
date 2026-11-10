@@ -229,6 +229,7 @@ class BaselineSmokeIT {
                 "select price from product_sku where product_id=? and property_value_id_hash=?",
                 BigDecimal.class, PRODUCT_ID, skuHash);
         Map<String, Object> orderRequest = Map.of(
+                "requestId", java.util.UUID.randomUUID().toString(),
                 "payMethod", "alipay_pc",
                 "addressId", "BASEADDR000001",
                 "orderFrom", 0,
@@ -287,10 +288,9 @@ class BaselineSmokeIT {
         cancelForm.add("orderId", orderId);
         form("/order/cancelOrder", cancelForm, token);
         assertThat(stock(skuHash)).isEqualTo(stockBefore);
-        // 现有服务即使经用户取消接口执行，也会写入 CLOSED(5)。
-        // 此处仅记录当前基线行为，取消状态语义留待后续步骤修复。
+        // 步骤08修正：主动取消为CANCELLED(4)，超时关闭仍为CLOSED(5)。
         assertThat(jdbc.queryForObject("select order_status from order_info where order_id=?",
-                Integer.class, orderId)).isEqualTo(5);
+                Integer.class, orderId)).isEqualTo(4);
         verify(payment).closeOrder(payOrderId);
     }
 

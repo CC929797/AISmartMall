@@ -425,8 +425,9 @@
 	</update>
 
 	<delete id="deleteBatch">
-        <foreach collection="cartList" item="item" separator=";">
-			delete from product_cart where product_id = #{item.productId} and property_value_id_hash = #{item.propertyValueIdHash} and user_id = #{item.userId}
+        delete from product_cart where (product_id, property_value_id_hash, user_id) in
+        <foreach collection="cartList" item="item" open="(" close=")" separator=",">
+			(#{item.productId}, #{item.propertyValueIdHash}, #{item.userId})
 		</foreach>
 	</delete>
 

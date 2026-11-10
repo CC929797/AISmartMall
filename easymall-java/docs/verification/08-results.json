@@ -1,0 +1,145 @@
+{
+  "step": "08",
+  "status": "complete",
+  "date": "2026-11-08",
+  "timezone": "Asia/Shanghai",
+  "java": "21.0.11",
+  "migration": {
+    "file": "db/migration/V20261107_02__order_request.sql",
+    "sha256": "95b99a6ad7c8b3af84d15b1eb649c7ba4d5436c432e4285374c1bdb007244f27",
+    "newTable": "order_request",
+    "newColumnsInExistingTables": [],
+    "prerequisite": "11A business_task migration",
+    "appliedOnlyTo": "127.0.0.1:13306/easymall_test",
+    "mysqlVersion": "8.4.9",
+    "engine": "InnoDB",
+    "indexes": [
+      "PRIMARY(user_id,request_id)",
+      "UNIQUE uk_order_request_pay(pay_order_id)",
+      "idx_order_request_recovery(status,lease_until)"
+    ],
+    "checks": [
+      "chk_order_request_status",
+      "chk_order_request_lease",
+      "chk_order_request_amount"
+    ],
+    "developmentDatabaseModified": false
+  },
+  "backend": {
+    "package": "passed",
+    "ordinaryExecuted": 550,
+    "modules": [
+      {
+        "module": "easymall-common",
+        "executed": 376,
+        "reports": 34,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "module": "easymall-admin",
+        "executed": 35,
+        "reports": 6,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "module": "easymall-web",
+        "executed": 135,
+        "reports": 15,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "module": "easymall-mcp",
+        "executed": 4,
+        "reports": 1,
+        "failures": 0,
+        "errors": 0
+      }
+    ],
+    "packageLog": "../runtime/phase2-step08-package.log",
+    "targetedExecuted": 66,
+    "realMySqlExecuted": 16,
+    "targetedSuites": [
+      {
+        "suite": "com.easymall.order.CheckoutInputTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "com.easymall.service.OrderInputBoundaryTest",
+        "tests": 26,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "com.easymall.entity.dto.PostOrderValidationTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "com.easymall.service.BusinessResourceOwnershipTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "com.easymall.task.OrderCheckoutMySqlIT",
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "targetedLog": "../runtime/phase2-step08-mysql-final.log",
+    "targetedCommand": "./scripts/verify-checkout.ps1 -JavaHome <JDK21> -MavenCommand <mvn.cmd> -Offline",
+    "countsNote": "50 targeted unit tests are included in 550 ordinary tests; 16 MySQL tests are additional"
+  },
+  "frontend": {
+    "testsExecuted": 90,
+    "checkoutTestsIncluded": 12,
+    "failures": 0,
+    "skipped": 0,
+    "testCommand": "node --test ../tests/*.test.mjs tests/*.test.mjs",
+    "testLog": "../runtime/phase2-step08-frontend-all.log",
+    "build": "passed",
+    "buildLog": "../runtime/phase2-step08-frontend-build-isolated.log",
+    "output": "../runtime/phase2-step08-web-build",
+    "emptyOutDir": false,
+    "trackedDistRestored": true
+  },
+  "browser": {
+    "fixture": "tests/browser-checkout-server.mjs",
+    "endpoint": "http://127.0.0.1:16080/",
+    "syntheticApisOnly": true,
+    "observed": [
+      "Submit disables button and editing while in flight",
+      "First response lost; retry reused identical requestId",
+      "Two submissions produced one synthetic payment group",
+      "Payment link unavailable displayed existing-order recovery message",
+      "Continue payment requested original order; groups remained 1 and paymentRetries became 1"
+    ],
+    "screenshot": "docs/verification/screenshots/08-checkout-retry.png",
+    "limit": "In-app browser did not expose synthetic popup; popup contents/interception covered by component tests, no payment gateway exercised"
+  },
+  "cleanup": {
+    "fixtureServerStopped": true,
+    "isolatedMysqlRestoredToStopped": true,
+    "redisAndElasticsearchLeftStopped": true,
+    "syntheticDatabaseRecordsRetained": true
+  },
+  "boundaries": [
+    "Real refunds/payment notifications and payment-versus-close race remain steps09/10",
+    "ORDER_CREATED and ORDER_CANCELLED durable events await handlers in11B; current legacy Redis timeout consumer remains sole close execution path",
+    "No real payment/model/ES/vector calls",
+    "Frontend and backend must be upgraded together; requestId is required",
+    "Initial default build cleared tracked dist artifacts; restored 32 files individually and verified final isolated build with clearing disabled"
+  ]
+}

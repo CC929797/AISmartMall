@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.easymall.mappers.OrderRequestMapper">
+    <resultMap id="request" type="com.easymall.order.OrderRequest" autoMapping="true"/>
+    <sql id="columns">*, (lease_until &gt; UTC_TIMESTAMP(6)) AS lease_active</sql>
+    <select id="find" resultMap="request">
+        SELECT <include refid="columns"/> FROM order_request WHERE user_id=#{userId} AND request_id=#{requestId}
+    </select>
+    <select id="lock" resultMap="request">
+        SELECT <include refid="columns"/> FROM order_request WHERE user_id=#{userId} AND request_id=#{requestId} FOR UPDATE NOWAIT
+    </select>
+    <select id="lockOwned" resultMap="request">
+        SELECT <include refid="columns"/> FROM order_request WHERE user_id=#{userId} AND request_id=#{requestId} FOR UPDATE
+    </select>
+    <insert id="insert">
+        INSERT INTO order_request(user_id,request_id,request_hash,status,pay_order_id,lease_owner,lease_until,created_at,updated_at)
+        VALUES(#{row.userId},#{row.requestId},#{row.requestHash},'PROCESSING',#{row.payOrderId},#{row.leaseOwner},
+            TIMESTAMPADD(SECOND,#{leaseSeconds},UTC_TIMESTAMP(6)),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+    </insert>
+    <update id="reclaim">
+        UPDATE order_request SET status='PROCESSING',lease_owner=#{owner},lease_until=TIMESTAMPADD(SECOND,#{leaseSeconds},UTC_TIMESTAMP(6)),
+            last_error=NULL,updated_at=UTC_TIMESTAMP(6)
+        WHERE user_id=#{userId} AND request_id=#{requestId}
+            AND (status='RETRY' OR (status='PROCESSING' AND lease_until &lt;= UTC_TIMESTAMP(6)))
+    </update>
+    <update id="complete">
+        UPDATE order_request SET status='CREATED',amount=#{amount},lease_owner=NULL,lease_until=NULL,last_error=NULL,updated_at=UTC_TIMESTAMP(6)
+        WHERE user_id=#{userId} AND request_id=#{requestId} AND status='PROCESSING' AND lease_owner=#{owner} AND lease_until &gt; UTC_TIMESTAMP(6)
+    </update>
+    <update id="release">
+        UPDATE order_request SET status='RETRY',lease_owner=NULL,lease_until=NULL,last_error='ORDER_BUILD_FAILED',updated_at=UTC_TIMESTAMP(6)
+        WHERE user_id=#{userId} AND request_id=#{requestId} AND status='PROCESSING' AND lease_owner=#{owner}
+    </update>
+</mapper>

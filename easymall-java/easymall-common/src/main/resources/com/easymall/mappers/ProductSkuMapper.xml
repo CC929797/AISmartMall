@@ -328,16 +328,20 @@
 	</delete>
 
 	<update id="updateStockBatch">
+		<!-- 先按SKU合计变更量，避免JOIN命中多条输入时只应用其中一条；条件更新仍是最终库存防线。 -->
 		update product_sku ps JOIN(
+			select product_id, property_value_id_hash, sum(buy_count) as buy_count from (
 		    <foreach collection="orderItemList" item="item" separator="union all">
 				select
 		        #{item.productId} as product_id,
 		        #{item.propertyValueIdHash} as property_value_id_hash,
 		        #{item.buyCount} as buy_count
 			</foreach>
+			) as raw_changes group by product_id, property_value_id_hash
 			) as tem on ps.product_id = tem.product_id and ps.property_value_id_hash = tem.property_value_id_hash
 		    set ps.stock = ps.stock + tem.buy_count
-		    where ps.product_id = tem.product_id and ps.property_value_id_hash = tem.property_value_id_hash and ps.stock + tem.buy_count >= 0
+		    where ps.product_id = tem.product_id and ps.property_value_id_hash = tem.property_value_id_hash
+			and ps.stock + tem.buy_count between 0 and 2147483647
 	</update>
 
 	<update id="updateStock">

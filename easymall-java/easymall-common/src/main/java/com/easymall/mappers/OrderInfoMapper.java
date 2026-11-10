@@ -27,6 +27,9 @@ public interface OrderInfoMapper<T,P> extends BaseMapper<T,P> {
 	 */
 	 T selectByOrderId(@Param("orderId") String orderId);
 
+	 /** 按订单号顺序锁定当前用户的支付组，串行化重复取消及库存归还。 */
+	 List<T> selectPaymentGroupForUpdate(@Param("payOrderId") String payOrderId, @Param("userId") String userId);
+
 	/**
 	 * 批量更改订单状态
 	 * @param orderStatus 更改后订单状态

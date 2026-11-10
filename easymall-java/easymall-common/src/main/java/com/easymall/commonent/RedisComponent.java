@@ -249,6 +249,11 @@ public class RedisComponent {
         redisUtils.zsetAdd(queueName,orderId,expireTime);
     }
 
+    /** 步骤08兼容旧消费者：固定原订单截止时间，重复提交不会延长订单寿命。 */
+    public void addOrder2DelayQueueAt(String queueName, long expireTime, String orderId) {
+        redisUtils.zsetAdd(queueName, orderId, expireTime);
+    }
+
     /**
      * 获取到延时订单
      * @param queueName

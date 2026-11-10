@@ -36,8 +36,6 @@ public class PayChannel4Alipay implements PayChannel {
 
     private static final String TRADE_NOT_EXIST = "ACQ.TRADE_NOT_EXIST";
 
-    private static final String NOTIFY_URL = "/api/notify/alipayNotify";
-
     @Resource
     private AppConfig appConfig;
     @Resource
@@ -71,7 +69,10 @@ public class PayChannel4Alipay implements PayChannel {
             request.setBizModel(model);
 
             //实际开发设置异步通知回调，以便实时获取订单支付结果
-            request.setNotifyUrl(appConfig.getProjectDomain() + NOTIFY_URL);
+            // 原配置中的xxx.xxxx.com只是占位域名；只有显式配置实际公网回调地址才发送。
+            if (appConfig.getAlipayNotifyUrl() != null && !appConfig.getAlipayNotifyUrl().isBlank()) {
+                request.setNotifyUrl(appConfig.getAlipayNotifyUrl());
+            }
 
             String payInfo = null;
             switch (payChannelEnum) {
@@ -120,26 +121,31 @@ public class PayChannel4Alipay implements PayChannel {
     public PayOrderNotifyDTO payNotify(Map<String, String> requestParams, String jsonBody) {
 
         try {
-            requestParams.remove("sign_type");
-            //验签
-            Boolean signCheckResult = AlipaySignature.rsaCertCheckV2(requestParams, appConfig.getAlipayAppCertPath(), "UTF-8", "RSA2");
+            // 支付通知使用支付宝公钥证书验签；应用证书只用于请求身份，不能用于验证支付宝签名。
+            Boolean signCheckResult = AlipaySignature.rsaCertCheckV1(new java.util.HashMap<>(requestParams),
+                    appConfig.getProjectFolder() + appConfig.getAlipayPublicCertPath(), "UTF-8", "RSA2");
             if (!signCheckResult) {
                 throw new BusinessException("支付宝回调验签失败");
             }
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new BusinessException("支付宝回调验签失败");
+        }
+
+        if (!appConfig.getAlipayAppid().equals(requestParams.get("app_id"))) {
+            throw new BusinessException("支付宝回调应用不匹配");
         }
 
         String payOrderId = requestParams.get("out_trade_no");
         String channelOrderId = requestParams.get("trade_no");
         String status = String.valueOf(requestParams.get("trade_status"));
 
-        if (!TRADE_STATE_SUCCESS.equalsIgnoreCase(status)) {
-            log.error("支付宝回调地址状态不为success,不做处理，订单号L{}",payOrderId);
+        if (!TRADE_STATE_SUCCESS.equals(status) && !"TRADE_FINISHED".equals(status)) {
             return null;
         }
-
-        return new PayOrderNotifyDTO(payOrderId,channelOrderId);
+        if (invalidOrderId(payOrderId) || invalidOrderId(channelOrderId)) throw new BusinessException("支付宝回调订单号无效");
+        PayOrderNotifyDTO result = new PayOrderNotifyDTO(payOrderId,channelOrderId);
+        result.setAmount(channelAmount(requestParams.get("total_amount")));
+        return result;
     }
 
     /**
@@ -161,11 +167,19 @@ public class PayChannel4Alipay implements PayChannel {
             request.setBizModel(model);
 
             AlipayTradeQueryResponse response = alipayClient.certificateExecute(request);
-            if (!response.isSuccess() || !TRADE_STATE_SUCCESS.equals(response.getTradeStatus())) {
+            if (!response.isSuccess()) {
+                if (TRADE_NOT_EXIST.equals(response.getSubCode())) return null;
+                log.warn("支付宝查单未成功，code={}, subCode={}", safeCode(response.getCode()), safeCode(response.getSubCode()));
+                // 本轮未确认付款，保留待付款状态并由原轮询重试；不能阻断同批其他订单的查单。
+                return null;
+            }
+            if (!TRADE_STATE_SUCCESS.equals(response.getTradeStatus()) && !"TRADE_FINISHED".equals(response.getTradeStatus())) {
                 return null;
             }
             log.debug("支付宝订单查询完成，成功={}", response.isSuccess());
-            return new PayOrderNotifyDTO(payOrderId,response.getTradeNo());
+            PayOrderNotifyDTO result = new PayOrderNotifyDTO(payOrderId,response.getTradeNo());
+            result.setAmount(channelAmount(response.getTotalAmount()));
+            return result;
 
         }catch (BusinessException e) {
             throw e;
@@ -173,6 +187,22 @@ public class PayChannel4Alipay implements PayChannel {
             log.error("查询支付宝订单失败，异常类型={}", e.getClass().getSimpleName());
             throw new BusinessException("查询支付宝订单失败");
         }
+    }
+
+    private static boolean invalidOrderId(String value) {
+        return value == null || !value.matches("[A-Za-z0-9_-]{1,64}");
+    }
+
+    private static BigDecimal channelAmount(String value) {
+        try {
+            BigDecimal amount = new BigDecimal(value);
+            if (amount.signum() <= 0 || amount.scale() > 2) throw new IllegalArgumentException();
+            return amount;
+        } catch (RuntimeException invalid) { throw new BusinessException("支付宝支付金额无效"); }
+    }
+
+    private static String safeCode(String value) {
+        return value != null && value.matches("[A-Za-z0-9_.-]{1,80}") ? value : "UNKNOWN";
     }
 
     /**

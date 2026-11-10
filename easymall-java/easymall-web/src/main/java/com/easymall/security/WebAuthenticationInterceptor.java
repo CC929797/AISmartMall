@@ -4,6 +4,7 @@ import com.easymall.controller.AccountController;
 import com.easymall.controller.FileController;
 import com.easymall.controller.OrderCommentController;
 import com.easymall.controller.ProductController;
+import com.easymall.controller.notify.AlipayNotifyController;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.exception.BusinessException;
@@ -31,7 +32,8 @@ public class WebAuthenticationInterceptor implements HandlerInterceptor {
             endpoint(ProductController.class, "search", "/product/search", String.class, BigDecimal.class,
                     BigDecimal.class, String.class, String.class, Integer.class),
             endpoint(OrderCommentController.class, "loadComment", "/order/comment/loadComment", String.class, Integer.class),
-            endpoint(FileController.class, "getResource", "/file/getResource", HttpServletResponse.class, String.class)
+            endpoint(FileController.class, "getResource", "/file/getResource", HttpServletResponse.class, String.class),
+            endpoint(AlipayNotifyController.class, "alipayNotify", "/notify/alipayNotify", HttpServletRequest.class)
     );
     private static final PublicEndpoint AUTO_LOGIN = endpoint(AccountController.class, "autoLogin", "/account/autoLogin");
 

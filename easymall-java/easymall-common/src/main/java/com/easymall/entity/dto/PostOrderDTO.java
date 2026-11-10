@@ -8,10 +8,16 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 
 import java.util.List;
 
 public class PostOrderDTO {
+
+    /** 一次购买意图的稳定编号；网络重试必须复用，购买内容变化后生成新编号。 */
+    @NotBlank
+    @Pattern(regexp = "[A-Za-z0-9_-]{16,64}")
+    private String requestId;
 
     @NotBlank
     @Size(max = 20)
@@ -30,6 +36,13 @@ public class PostOrderDTO {
     @Min(0)
     @Max(1)
     private Integer orderFrom;
+
+    public String getRequestId() {
+        return requestId;
+    }
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
+    }
 
     public Integer getOrderFrom() {
         return orderFrom;

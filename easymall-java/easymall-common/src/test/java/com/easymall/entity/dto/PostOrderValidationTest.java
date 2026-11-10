@@ -67,6 +67,7 @@ class PostOrderValidationTest {
 
     private static PostOrderDTO validOrder() {
         PostOrderDTO order = new PostOrderDTO();
+        order.setRequestId("UNIT-ORDER-VALIDATION-01");
         order.setAddressId("ADDRESS1");
         order.setPayMethod("alipay_pc");
         order.setOrderFrom(0);

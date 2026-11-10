@@ -48,24 +48,31 @@ public class BusinessTaskService {
      * @return 首次创建或此前已存在的任务；重复投递不改变原计划时间和状态
      */
     public BusinessTask enqueue(TaskSubmission request) {
-        Objects.requireNonNull(request, "Task submission required");
+        Objects.requireNonNull(request, "需要提交任务");
         validateType(request.taskType());
         if (request.bizKey() == null || request.bizKey().isBlank() || !request.bizKey().equals(request.bizKey().strip())
                 || request.bizKey().length() > 128 || request.bizVersion() < 0
                 || request.delay() == null || request.delay().isNegative() || request.delay().compareTo(Duration.ofDays(365)) > 0
-                || request.delay().getNano() != 0) throw new IllegalArgumentException("Invalid task event identity or delay");
+                || request.delay().getNano() != 0) throw new IllegalArgumentException("无效的任务事件标识或延迟");
         String payload = TaskPayload.canonical(request.payload());
         return mandatory.execute(status -> {
             if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
-                throw new IllegalStateException("Task enqueue requires a writable business transaction");
+                throw new IllegalStateException("任务登记需要一个可写业务事务");
             }
             BusinessTask task = new BusinessTask();
-            task.setTaskId(id()); task.setTaskType(request.taskType()); task.setBizKey(request.bizKey()); task.setBizVersion(request.bizVersion());
-            task.setPayload(payload); task.setPayloadHash(TaskPayload.hash(payload)); task.setMaxAttempts(properties.getMaxAttempts());
+            task.setTaskId(id());
+            task.setTaskType(request.taskType());
+            task.setBizKey(request.bizKey());
+            task.setBizVersion(request.bizVersion());
+            task.setPayload(payload);
+            task.setPayloadHash(TaskPayload.hash(payload));
+            task.setMaxAttempts(properties.getMaxAttempts());
             // 数据库唯一键处理并发重复；随后加锁读取最终记录，比较载荷摘要。
             mapper.insertEvent(task, request.delay().toSeconds());
             BusinessTask existing = mapper.findEventForUpdate(request.taskType(), request.bizKey(), request.bizVersion());
-            if (existing == null) throw new IllegalStateException("Task event could not be persisted");
+            if (existing == null) {
+                throw new IllegalStateException("任务事件无法持久化");
+            }
             if (!existing.getPayloadHash().equals(task.getPayloadHash())) {
                 throw new BusinessException(600, "相同任务事件不能使用不同载荷");
             }
@@ -84,7 +91,7 @@ public class BusinessTaskService {
      */
     public List<BusinessTask> claimBatch(Set<String> supportedTypes, int limit, int leaseSeconds) {
         if (supportedTypes == null || supportedTypes.isEmpty()) return List.of();
-        if (supportedTypes.size() > 64 || limit < 1 || limit > 64) throw new IllegalArgumentException("Invalid task claim batch");
+        if (supportedTypes.size() > 64 || limit < 1 || limit > 64) throw new IllegalArgumentException("无效的任务认领批次");
         supportedTypes.forEach(BusinessTaskService::validateType);
         validateLease(leaseSeconds);
         return independent.execute(status -> {
@@ -123,14 +130,14 @@ public class BusinessTaskService {
      * errorCode必须是固定错误码，不能直接传入异常正文、请求内容或凭据。
      */
     public boolean fail(BusinessTask task, String errorCode) {
-        if (errorCode == null || !errorCode.matches("[A-Z][A-Z0-9_]{0,159}")) throw new IllegalArgumentException("Fixed task error code required");
+        if (errorCode == null || !errorCode.matches("[A-Z][A-Z0-9_]{0,159}")) throw new IllegalArgumentException("需要固定任务错误码");
         long delay = retryDelayMillis(task.getAttempts());
         return independent.execute(status -> mapper.fail(task.getTaskId(), task.getLeaseOwner(), delay, errorCode) == 1);
     }
 
     /** 按本轮执行次数计算指数退避并封顶，例如基数1秒时依次为1秒、2秒、4秒。 */
     public long retryDelayMillis(int attempt) {
-        if (attempt < 1 || attempt > 3) throw new IllegalArgumentException("Invalid task attempt");
+        if (attempt < 1 || attempt > 3) throw new IllegalArgumentException("无效的任务执行次数");
         return Math.min(properties.getInitialBackoffMillis() * (1L << (attempt - 1)), properties.getMaxBackoffMillis());
     }
 
@@ -147,15 +154,15 @@ public class BusinessTaskService {
 
     /** 有限批次查询DEAD任务，供内部排查；管理员查询页面留待后续接入。 */
     public List<BusinessTask> listDead(int limit) {
-        if (limit < 1 || limit > 100) throw new IllegalArgumentException("Invalid task list size");
+        if (limit < 1 || limit > 100) throw new IllegalArgumentException("无效的任务列表大小");
         return mapper.listDead(limit);
     }
 
     static void validateType(String type) {
-        if (type == null || !type.matches("[A-Z][A-Z0-9_]{0,63}")) throw new IllegalArgumentException("Invalid task type");
+        if (type == null || !type.matches("[A-Z][A-Z0-9_]{0,63}")) throw new IllegalArgumentException("无效的任务类型");
     }
     private static void validateLease(int seconds) {
-        if (seconds < 3 || seconds > 600) throw new IllegalArgumentException("Invalid task lease");
+        if (seconds < 3 || seconds > 600) throw new IllegalArgumentException("无效的任务租约");
     }
     private static String id() {
         return UUID.randomUUID().toString().replace("-", "");

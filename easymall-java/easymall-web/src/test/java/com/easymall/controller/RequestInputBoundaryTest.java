@@ -92,14 +92,14 @@ class RequestInputBoundaryTest {
             "[{\"productId\":\"P1\",\"propertyValueIds\":\"S1\",\"buyCount\":100}]"})
     void jsonOrderValidatesTheListAndEveryNestedItem(String items) throws Exception {
         mvc.perform(post("/order/postOrder").contentType("application/json")
-                        .content("{\"payMethod\":\"alipay_pc\",\"addressId\":\"A1\",\"orderFrom\":0,\"orderList\":" + items + "}"))
+                        .content("{\"requestId\":\"HTTP-ORDER-REQUEST-01\",\"payMethod\":\"alipay_pc\",\"addressId\":\"A1\",\"orderFrom\":0,\"orderList\":" + items + "}"))
                 .andExpect(jsonPath("$.code").value(600));
         verifyNoInteractions(orders);
     }
 
     @Test
     void formBindingAlsoValidatesNestedOrderItems() throws Exception {
-        mvc.perform(post("/input/form").param("payMethod", "alipay_pc").param("addressId", "A1")
+        mvc.perform(post("/input/form").param("requestId", "HTTP-ORDER-REQUEST-01").param("payMethod", "alipay_pc").param("addressId", "A1")
                         .param("orderFrom", "0").param("orderList[0].productId", "P1")
                         .param("orderList[0].propertyValueIds", "S1").param("orderList[0].buyCount", "-1"))
                 .andExpect(jsonPath("$.code").value(600));
@@ -142,10 +142,29 @@ class RequestInputBoundaryTest {
     void validPagingAndNestedFormRemainUsable() throws Exception {
         mvc.perform(post("/input/list").param("pageNo", "1").param("pageSize", "20"))
                 .andExpect(jsonPath("$.code").value(200));
-        mvc.perform(post("/input/form").param("payMethod", "alipay_pc").param("addressId", "A1")
+        mvc.perform(post("/input/form").param("requestId", "HTTP-ORDER-REQUEST-01").param("payMethod", "alipay_pc").param("addressId", "A1")
                         .param("orderFrom", "0").param("orderList[0].productId", "P1")
                         .param("orderList[0].propertyValueIds", "S1").param("orderList[0].buyCount", "1"))
                 .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    void validRequestIdReachesOrderServiceAndProcessingIsReturnedWithoutPaymentHtml() throws Exception {
+        com.easymall.entity.dto.PayInfoDTO processing = new com.easymall.entity.dto.PayInfoDTO();
+        processing.setRequestStatus("PROCESSING"); processing.setRequestId("HTTP-ORDER-REQUEST-01");
+        when(orders.postOrder(eq("INPUT00001"), any())).thenReturn(processing);
+        mvc.perform(post("/order/postOrder").contentType("application/json").content(
+                "{\"requestId\":\"HTTP-ORDER-REQUEST-01\",\"payMethod\":\"alipay_pc\",\"addressId\":\"A1\",\"orderFrom\":0,\"orderList\":[{\"productId\":\"P1\",\"propertyValueIds\":\"S1\",\"buyCount\":1}]}"))
+                .andExpect(jsonPath("$.code").value(200)).andExpect(jsonPath("$.data.requestStatus").value("PROCESSING"));
+        verify(orders).postOrder(eq("INPUT00001"), argThat(request -> "HTTP-ORDER-REQUEST-01".equals(request.getRequestId())));
+    }
+
+    @Test
+    void requestStatusQueryAlwaysUsesAuthenticatedUser() throws Exception {
+        when(orders.getOrderRequest("INPUT00001", "HTTP-ORDER-REQUEST-01")).thenReturn(new com.easymall.entity.dto.PayInfoDTO());
+        mvc.perform(post("/order/getOrderRequest").param("requestId", "HTTP-ORDER-REQUEST-01"))
+                .andExpect(jsonPath("$.code").value(200));
+        verify(orders).getOrderRequest("INPUT00001", "HTTP-ORDER-REQUEST-01");
     }
 
     @RestController
