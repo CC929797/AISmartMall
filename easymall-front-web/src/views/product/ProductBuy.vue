@@ -2,7 +2,7 @@
   <Drawer :show="dialogConfig.show" :title="dialogConfig.title" :buttons="dialogConfig.buttons" width="80%"
     :showCancel="false" @close="dialogConfig.show = false" background="#F7F7F7">
     <div class="buy-panel">
-      <div class="product-panel">
+      <div class="product-panel" :inert="submitting">
         <Address v-model="selectedAddress" />
         <div class="order-panel">
           <div class="order-title">确认订单信息</div>
@@ -33,8 +33,10 @@
             <div>实付款</div>
             <Price :price="orderPrice" :size="20"></Price>
           </div>
-          <el-button type="primary" size="large" @click="postOrder()">提交订单</el-button>
+          <el-button type="primary" size="large" :loading="submitting" :disabled="submitting" @click="postOrder()">提交订单</el-button>
         </div>
+        <p v-if="submitHint" role="status">{{ submitHint }}</p>
+        <el-button v-if="lastRequestId" :disabled="submitting" @click="checkRequest">查询提交结果</el-button>
       </div>
     </div>
   </Drawer>
@@ -45,6 +47,8 @@
 import OrderPay from '@/views/product/OrderPay.vue'
 import ProductSkuItem from './ProductSkuItem.vue'
 import Address from '@/views/address/Address.vue'
+import { createCheckoutIntent, isCheckoutCreated } from '@/utils/CheckoutIntent.js'
+import { useLoginStore } from '@/stores/loginStore.js'
 import {
   ref,
   reactive,
@@ -54,6 +58,12 @@ import {
   onMounted,
 } from 'vue'
 const { proxy } = getCurrentInstance()
+const loginStore = useLoginStore()
+const intent = createCheckoutIntent()
+const submitting = ref(false)
+const submitHint = ref('')
+const lastRequestId = ref('')
+const emit = defineEmits(['submitted'])
 const dialogConfig = ref({
   show: false,
   title: '下单',
@@ -75,8 +85,12 @@ const orderPrice = computed(() => {
 })
 const orderFrom = ref(0)
 const showBuy = (_orderData, _orderFrom) => {
+  if (submitting.value) return
+  intent.begin(loginStore.userInfo.userId)
+  submitHint.value = ''
+  lastRequestId.value = ''
   dialogConfig.value.show = true
-  orderData.value = [..._orderData]
+  orderData.value = _orderData.map(item => ({ ...item }))
   orderFrom.value = _orderFrom
 }
 
@@ -91,6 +105,7 @@ const selectedAddress = ref()
 //提交订单
 const orderPayRef = ref()
 const postOrder = async () => {
+  if (submitting.value) return
   if (!selectedAddress.value) {
     proxy.Message.warning('请选择收货地址')
     return
@@ -103,21 +118,54 @@ const postOrder = async () => {
       remark: item.remark ? item.remark : '',
     }
   })
-  let result = await proxy.Request({
-    url: proxy.Api.postOrder,
-    dataType: 'json',
-    params: {
-      orderFrom: orderFrom.value,
-      payMethod: payMethod.value,
-      addressId: selectedAddress.value,
-      orderList,
-    },
-  })
-  if (!result) {
-    return
-  }
-  dialogConfig.value.show = false
-  orderPayRef.value.show(result.data)
+  submitting.value = true
+  const userId = loginStore.userInfo.userId
+  try {
+    const content = {
+      orderFrom: orderFrom.value, payMethod: payMethod.value,
+      addressId: selectedAddress.value, orderList,
+    }
+    const requestId = await intent.get(userId, content)
+    lastRequestId.value = requestId
+    const result = await proxy.Request({
+      url: proxy.Api.postOrder,
+      dataType: 'json',
+      params: { ...content, requestId },
+    })
+    if (loginStore.userInfo.userId !== userId) return
+    if (!result) {
+      submitHint.value = '提交结果未确认，请查询结果或使用原请求重试。'
+      return
+    }
+    if (!isCheckoutCreated(result.data)) {
+      submitHint.value = result.data.requestStatus === 'PROCESSING' ? '订单正在处理中，请稍后查询或重试。' : '上次提交未完成，可以重试。'
+      return
+    }
+    intent.complete(userId, requestId)
+    dialogConfig.value.show = false
+    orderPayRef.value.show(result.data)
+    emit('submitted')
+  } catch (error) {
+    submitHint.value = error.message || '暂时无法提交，请稍后重试。'
+    proxy.Message.warning(submitHint.value)
+  } finally { submitting.value = false }
+}
+
+// 只查询已提交的请求，不能把查询本身变成第二次购买。
+const checkRequest = async () => {
+  if (submitting.value || !lastRequestId.value) return
+  submitting.value = true
+  const userId = loginStore.userInfo.userId
+  try {
+    const result = await proxy.Request({ url: proxy.Api.getOrderRequest, params: { requestId: lastRequestId.value } })
+    if (!result || loginStore.userInfo.userId !== userId) return
+    if (result.data.requestStatus === 'CREATED') {
+      intent.complete(userId, lastRequestId.value)
+      dialogConfig.value.show = false
+      orderPayRef.value.show({ ...result.data, paymentStatus: 'UNAVAILABLE' })
+      emit('submitted')
+    } else submitHint.value = result.data.requestStatus === 'PROCESSING' ? '订单仍在处理中，请稍后再查询。' : '上次提交未完成，可以使用原请求重试。'
+  } finally { submitting.value = false }
 }
 </script>
 

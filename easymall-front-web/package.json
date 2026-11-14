@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test:security": "node --test tests/*.test.mjs",
     "test:account": "node --test ../tests/account-protocol.test.mjs",
-    "test:stability": "node --test ../tests/stability-*.test.mjs"
+    "test:stability": "node --test ../tests/stability-*.test.mjs",
+    "test:checkout": "node --test ../tests/checkout-*.test.mjs"
   },
   "codeversion": "9360073121",
   "dependencies": {

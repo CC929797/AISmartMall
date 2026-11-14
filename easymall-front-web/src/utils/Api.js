@@ -29,6 +29,7 @@ const Api = {
     deleteCart: "/productCart/deleteCart",//移除购物车
     //订单
     postOrder: "/order/postOrder",//提交订单
+    getOrderRequest: "/order/getOrderRequest",//查询本人的购买请求处理状态
     getOrderInfo: "/order/getOrderInfo",//获取订单详情
     loadMyOrder: "/order/loadMyOrder",//查询我的订单
     getPayInfo: "/order/getPayInfo",//获取支付信息

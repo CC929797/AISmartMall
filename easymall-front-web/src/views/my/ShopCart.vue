@@ -30,7 +30,7 @@
         @click="postOrder()">提交结算({{selectedProduct?.length}})订单</el-button>
     </div>
   </div>
-  <ProductBuy ref="productBuyRef"></ProductBuy>
+  <ProductBuy ref="productBuyRef" @submitted="checkoutCreated"></ProductBuy>
 </template>
 
 <script setup>
@@ -117,7 +117,7 @@ const delCartHandler = (cartId) => {
 const selectedProduct = ref([])
 const productChecked = ({ data, checked }) => {
   if (checked) {
-    selectedProduct.value.push(data)
+    if (!selectedProduct.value.some(item => item.cartId === data.cartId)) selectedProduct.value.push(data)
   } else {
     selectedProduct.value = selectedProduct.value.filter((item) => {
       return item.cartId != data.cartId
@@ -146,6 +146,10 @@ const cancelSelect = (data) => {
 }
 //结算
 const productBuyRef = ref()
+const checkoutCreated = () => {
+  selectedProduct.value = []
+  loadProduct(true)
+}
 const postOrder = async () => {
   if (selectedProduct.value.length == 0) {
     proxy.Message.warning('请选择要购买的商品')

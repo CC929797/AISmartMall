@@ -1,0 +1,1 @@
+import{_ as t}from"./apHd17ap.js";import{_ as e,g as o,c as s,j as a,u as r,a as c,o as _}from"./DD4V0s40.js";import"./DuoPA_uJ.js";const n={class:"product-list"},u={__name:"CategoryProduct",setup(p){const{proxy:d}=o();return r(),c(),(m,i)=>(_(),s("div",n,[a(t)]))}},x=e(u,[["__scopeId","data-v-24c040b3"]]);export{x as default};
