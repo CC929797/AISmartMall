@@ -7,11 +7,13 @@ import com.easymall.entity.enums.OrderCommentStatusEnum;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.po.OrderInfo;
+import com.easymall.entity.po.OrderItem;
 import com.easymall.entity.query.OrderInfoQuery;
 import com.easymall.entity.vo.OrderCountVO;
 import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ResponseVO;
 import com.easymall.exception.BusinessException;
+import com.easymall.refund.RefundService;
 import com.easymall.service.OrderInfoService;
 import com.easymall.service.OrderLogisticsInfoService;
 import jakarta.annotation.Resource;
@@ -19,6 +21,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
@@ -34,6 +37,8 @@ public class OrderController extends ABaseController{
     private OrderInfoService orderInfoService;
     @Resource
     private OrderLogisticsInfoService orderLogisticsInfoService;
+    @Resource
+    private RefundService refundService;
 
     /**]
      * 提交订单
@@ -89,12 +94,18 @@ public class OrderController extends ABaseController{
         buildStatus(orderInfoQuery,status);
 
         orderInfoQuery.setPageNo(pageNo);
-        orderInfoQuery.setUserId(getTokenUserInfo().getUserId());
+        String userId = getTokenUserInfo().getUserId();
+        orderInfoQuery.setUserId(userId);
         orderInfoQuery.setOrderBy("o.order_time desc");
         orderInfoQuery.setQueryItems(true);
         orderInfoQuery.setExecuteOrderStatusList(new Integer[]{OrderStatusEnum.DELETE.getStatus()});
 
         PaginationResultVO<OrderInfo> resultVO = orderInfoService.findListByPage(orderInfoQuery);
+        List<OrderItem> items = new ArrayList<>();
+        for (OrderInfo order : resultVO.getList()) {
+            if (order.getOrderItemList() != null) items.addAll(order.getOrderItemList());
+        }
+        refundService.fillStatuses(userId, items);
         return getSuccessResponseVO(resultVO);
     }
     
@@ -103,13 +114,10 @@ public class OrderController extends ABaseController{
             return;
         }
         OrderStatusEnum orderStatusEnum = OrderStatusEnum.getByStatus(status);
-        if (orderStatusEnum.DELETE == orderStatusEnum) {
+        if (orderStatusEnum == null || orderStatusEnum == OrderStatusEnum.DELETE) {
             return;
         }
-        query.setOrderStatus(orderStatusEnum.getStatus());
-        /*if (OrderStatusEnum.COMPLETED != orderStatusEnum) {
-            return;
-        }*/
+        query.setFulfillmentOrderStatus(orderStatusEnum);
 
         query.setCommentStatus(OrderCommentStatusEnum.NOT_EVALUATED.getStatus());
     }
@@ -147,8 +155,9 @@ public class OrderController extends ABaseController{
     @RequestMapping("/cancelOrder")
     @GlobalInterceptor(checkLogin = true)
     public ResponseVO cancelOrder(@NotEmpty String orderId) {
-        orderInfoService.cancelOrder(getTokenUserInfo().getUserId(),orderId,OrderStatusEnum.CANCELLED);
-        return getSuccessResponseVO(null);
+        OrderStatusEnum result = orderInfoService.cancelOrder(getTokenUserInfo().getUserId(), orderId, OrderStatusEnum.CANCELLED);
+        // 前端根据业务结果展示已取消、已付款或关单待确认。
+        return getSuccessResponseVO(java.util.Map.of("orderStatus", result.getStatus()));
     }
 
     /**
@@ -179,11 +188,26 @@ public class OrderController extends ABaseController{
      * @param orderItemId
      * @return
      */
-    @RequestMapping("/refundOrder")
+    @PostMapping("/refundOrder")
     @GlobalInterceptor(checkLogin = true)
-    public ResponseVO refundOrder(@NotEmpty String orderItemId) {
-        orderInfoService.refundByOrderItemId(getTokenUserInfo().getUserId(),orderItemId);
-        return getSuccessResponseVO(null);
+    public ResponseVO refundOrder(@NotEmpty String orderItemId, String requestId) {
+        String userId = getTokenUserInfo().getUserId();
+        if (requestId == null) {
+            orderInfoService.refundByOrderItemId(userId, orderItemId);
+            return getSuccessResponseVO(null);
+        }
+        return getSuccessResponseVO(refundService.apply(userId, orderItemId, requestId));
+    }
+
+    /**
+     * 获取退款状态
+     * @param orderItemId 子订单Id
+     * @return 退款状态
+     */
+    @PostMapping("/getRefundStatus")
+    @GlobalInterceptor(checkLogin = true)
+    public ResponseVO getRefundStatus(@NotEmpty String orderItemId) {
+        return getSuccessResponseVO(refundService.status(getTokenUserInfo().getUserId(), orderItemId));
     }
 
     /**
@@ -204,13 +228,13 @@ public class OrderController extends ABaseController{
         orderCountVOList.add(orderCountVO);
 
         //待发货
-        orderInfoQuery.setOrderStatus(OrderStatusEnum.PAID.getStatus());
+        orderInfoQuery.setFulfillmentOrderStatus(OrderStatusEnum.PAID);
         count = orderInfoService.findCountByParam(orderInfoQuery);
         orderCountVO = new OrderCountVO("pendingShipment", count);
         orderCountVOList.add(orderCountVO);
 
         //待收货
-        orderInfoQuery.setOrderStatus(OrderStatusEnum.SHIPPED.getStatus());
+        orderInfoQuery.setFulfillmentOrderStatus(OrderStatusEnum.SHIPPED);
         count = orderInfoService.findCountByParam(orderInfoQuery);
         orderCountVO = new OrderCountVO("pendingReceipt", count);
         orderCountVOList.add(orderCountVO);

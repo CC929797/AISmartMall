@@ -153,8 +153,12 @@ public class OrderRequestService {
         }
     }
 
-    /** 取消等数据库操作也使用同一事务边界；渠道调用必须放在本方法返回之后。 */
-    public <T> T inBusinessTransaction(Supplier<T> work) { return business.execute(status -> work.get()); }
+    /**
+     * 取消等数据库操作也使用同一事务边界；渠道调用必须放在本方法返回之后。
+     */
+    public <T> T inBusinessTransaction(Supplier<T> work) {
+        return business.execute(status -> work.get());
+    }
 
     private static void requireSame(OrderRequest row, String hash) {
         if (row == null) {

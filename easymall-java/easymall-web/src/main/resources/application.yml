@@ -87,6 +87,7 @@ order:
 alipay:
   # 本地不配置公网通知地址时使用主动查单；不要填写xxx.xxxx.com之类的占位域名。
   notify-url: ${ALIPAY_NOTIFY_URL:}
+  seller-id: ${ALIPAY_SELLER_ID:}
   appid: ${ALIPAY_APP_ID:}   # 沙箱
   appPrivateKey: ${ALIPAY_PRIVATE_KEY:}
   appCertPath: ${ALIPAY_APP_CERT_PATH:}
@@ -99,4 +100,4 @@ log:
     level: info
 # 物流模式
 logistics:
-  mode: simulated
+  mode: ${LOGISTICS_MODE:disabled}

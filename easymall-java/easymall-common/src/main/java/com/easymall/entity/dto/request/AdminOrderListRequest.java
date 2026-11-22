@@ -1,5 +1,6 @@
 package com.easymall.entity.dto.request;
 
+import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.query.OrderInfoQuery;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -14,14 +15,15 @@ import java.util.Map;
 public class AdminOrderListRequest extends PageListRequest {
     @Size(max = 200)
     private String productNameFuzzy;
-    @Min(-1) @Max(7)
+    @Min(-1)
+    @Max(9)
     private Integer orderStatus;
 
     public OrderInfoQuery toQuery() {
         OrderInfoQuery query = prepare(new OrderInfoQuery(), "OrderInfoMapper", "o.order_time desc",
                 Map.of("orderTime", "o.order_time", "amount", "o.amount", "orderStatus", "o.order_status"));
         query.setProductNameFuzzy(productNameFuzzy);
-        query.setOrderStatus(orderStatus);
+        query.setFulfillmentOrderStatus(orderStatus == null ? null : OrderStatusEnum.getByStatus(orderStatus));
         query.setQueryItems(true);
         query.setQueryUser(true);
         return query;

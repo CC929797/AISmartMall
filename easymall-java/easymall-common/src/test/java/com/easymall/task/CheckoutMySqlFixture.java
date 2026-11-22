@@ -36,6 +36,7 @@ final class CheckoutMySqlFixture implements AutoCloseable {
     final PayChannel payment = mock(PayChannel.class);
     final RedisComponent redis = mock(RedisComponent.class);
     final OrderRequestMapper requests;
+    final SqlSessionTemplate session;
     final OrderRequestService requestService;
     final ProductSkuMapper skus;
     final OrderItemMapper items;
@@ -50,10 +51,18 @@ final class CheckoutMySqlFixture implements AutoCloseable {
             }
         }
         if (db.jdbc.queryForObject("select count(*) from information_schema.statistics where table_schema=database() and table_name='order_request' and index_name='PRIMARY'", Integer.class) != 2) throw new IllegalStateException("Request unique identity missing");
+        // 测试使用与开发库相同的迁移脚本，在固定隔离库检查是否已执行。
+        if (db.jdbc.queryForObject("select count(*) from information_schema.columns where table_schema=database() and table_name='order_info' and column_name='payment_close_check_at'", Integer.class) == 0) {
+            var migration = db.envFile.getParent().getParent().getParent()
+                    .resolve("easymall-java/db/migration/V20261115_01__payment_close.sql");
+            try (var connection = db.dataSource.getConnection()) {
+                ScriptUtils.executeSqlScript(connection, new FileSystemResource(migration));
+            }
+        }
         var factory = new SqlSessionFactoryBean(); factory.setDataSource(db.dataSource);
         var config = new org.apache.ibatis.session.Configuration(); config.setMapUnderscoreToCamelCase(true); factory.setConfiguration(config);
         factory.setMapperLocations(new PathMatchingResourcePatternResolver().getResources("classpath*:com/easymall/mappers/*.xml"));
-        var session = new SqlSessionTemplate(factory.getObject());
+        session = new SqlSessionTemplate(factory.getObject());
         requests = session.getMapper(OrderRequestMapper.class);
         requestService = new OrderRequestService(requests, new DataSourceTransactionManager(db.dataSource), 3);
         skus = session.getMapper(ProductSkuMapper.class); items = session.getMapper(OrderItemMapper.class);
@@ -65,7 +74,7 @@ final class CheckoutMySqlFixture implements AutoCloseable {
         ReflectionTestUtils.setField(service, "orderRequestService", requestService); ReflectionTestUtils.setField(service, "businessTaskService", db.service);
         ReflectionTestUtils.setField(service, "redisComponent", redis);
         AppConfig app = mock(AppConfig.class); when(app.getOrderExpireMinute()).thenReturn(30); ReflectionTestUtils.setField(service, "appConfig", app);
-        when(payment.getPayUrl(any(), anyString(), anyString(), any())).thenAnswer(call -> new PayInfoDTO("<html>synthetic-no-payment</html>", call.getArgument(1), call.getArgument(3)));
+        when(payment.getPayUrl(any(), anyString(), anyString(), any(), any())).thenAnswer(call -> new PayInfoDTO("<html>synthetic-no-payment</html>", call.getArgument(1), call.getArgument(3)));
         previousContext = ReflectionTestUtils.getField(SpringContext.class, "applicationContext");
         paymentContext.registerBean("payChannel4Alipay", PayChannel.class, () -> payment); paymentContext.refresh();
         ReflectionTestUtils.setField(SpringContext.class, "applicationContext", paymentContext);

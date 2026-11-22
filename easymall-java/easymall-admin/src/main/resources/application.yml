@@ -40,4 +40,4 @@ log:
     level: info
 # 物流模式
 logistics:
-  mode: simulated
+  mode: ${LOGISTICS_MODE:disabled}

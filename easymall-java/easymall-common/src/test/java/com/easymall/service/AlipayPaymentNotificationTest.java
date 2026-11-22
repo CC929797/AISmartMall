@@ -34,6 +34,7 @@ class AlipayPaymentNotificationTest {
         Files.write(directory.resolve("provider.crt"), cert.generate(provider.getPrivate()).getEncoded());
         AppConfig app = mock(AppConfig.class);
         when(app.getAlipayAppid()).thenReturn("2026110900000000");
+        when(app.getAlipaySellerId()).thenReturn("2088000000000001");
         when(app.getProjectFolder()).thenReturn(directory + "/");
         when(app.getAlipayPublicCertPath()).thenReturn("provider.crt");
         when(app.getAlipayAppCertPath()).thenReturn("missing-application-certificate.crt");
@@ -41,8 +42,13 @@ class AlipayPaymentNotificationTest {
     }
 
     private Map<String,String> signed(String app, String status, String amount) throws Exception {
+        return signed(app, status, amount, "2088000000000001");
+    }
+
+    private Map<String,String> signed(String app, String status, String amount, String seller) throws Exception {
         Map<String,String> params = new HashMap<>(Map.of("app_id", app, "trade_status", status,
-                "out_trade_no", "SYNTHETIC_ORDER_001", "trade_no", "SYNTHETIC_CHANNEL_001", "total_amount", amount));
+                "out_trade_no", "SYNTHETIC_ORDER_001", "trade_no", "SYNTHETIC_CHANNEL_001", "total_amount", amount,
+                "seller_id", seller));
         String signature = AlipaySignature.rsaSign(AlipaySignature.getSignContent(params), Base64.getEncoder().encodeToString(provider.getPrivate().getEncoded()), "UTF-8", "RSA2");
         params.put("sign_type", "RSA2"); params.put("sign", signature); return params;
     }
@@ -64,6 +70,11 @@ class AlipayPaymentNotificationTest {
     }
     @Test void pendingTradeDoesNotConfirmPayment() throws Exception {
         assertThat(channel.payNotify(signed("2026110900000000", "WAIT_BUYER_PAY", "12.34"), null)).isNull();
+    }
+
+    @Test void validSignatureForDifferentSellerIsRejected() throws Exception {
+        var params = signed("2026110900000000", "TRADE_SUCCESS", "12.34", "2088000000000002");
+        assertThatThrownBy(() -> channel.payNotify(params, null)).isInstanceOf(BusinessException.class).hasMessageContaining("收款方");
     }
     @Test void finishedTradeStillConfirmsPayment() throws Exception {
         assertThat(channel.payNotify(signed("2026110900000000", "TRADE_FINISHED", "12.34"), null).getAmount()).isEqualByComparingTo("12.34");

@@ -116,8 +116,16 @@ class OrderInputBoundaryTest {
             order.setOrderStatus(0); order.setOrderTime(new java.util.Date()); order.setPayScene("alipay_pc");
             order.setAmount(new BigDecimal("12.34").multiply(BigDecimal.valueOf(quantity))); return List.of(order);
         });
+        when(dep("orderRequestService", OrderRequestService.class).inBusinessTransaction(any())).thenAnswer(invocation -> {
+            java.util.function.Supplier<?> work = invocation.getArgument(0);
+            return work.get();
+        });
+        OrderInfo payable = new OrderInfo();
+        payable.setOrderStatus(0);
+        when(dep("orderInfoMapper", OrderInfoMapper.class).selectPaymentGroupForUpdate("FIXED-PAYMENT-ID")).thenReturn(List.of(payable));
+        when(dep("orderInfoMapper", OrderInfoMapper.class).markPaymentLinkIssued("FIXED-PAYMENT-ID")).thenReturn(1);
         PayChannel payment = mock(PayChannel.class);
-        when(payment.getPayUrl(any(), anyString(), anyString(), any())).thenAnswer(invocation ->
+        when(payment.getPayUrl(any(), anyString(), anyString(), any(), any())).thenAnswer(invocation ->
                 new PayInfoDTO("synthetic-payment", invocation.getArgument(1), invocation.getArgument(3)));
         PostOrderDTO request = validOrder();
         request.getOrderList().get(0).setBuyCount(quantity);
@@ -127,7 +135,7 @@ class OrderInputBoundaryTest {
             PayInfoDTO result = service.postOrder("ORDERUSER1", request);
             BigDecimal amount = new BigDecimal("12.34").multiply(BigDecimal.valueOf(quantity));
             assertThat(result.getAmount()).isEqualByComparingTo(amount);
-            verify(payment).getPayUrl(eq(PayChannelEnum.ALIPAY_PC), anyString(), anyString(), eq(amount));
+            verify(payment).getPayUrl(eq(PayChannelEnum.ALIPAY_PC), anyString(), anyString(), eq(amount), any());
             verify(dep("productSkuMapper", ProductSkuMapper.class)).updateStockBatch(any());
         }
     }

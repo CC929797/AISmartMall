@@ -9,13 +9,18 @@ import com.easymall.entity.config.AppConfig;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.enums.LogisticsStatusEnum;
 import com.easymall.entity.enums.OrderStatusEnum;
+import com.easymall.entity.enums.OrderItemStatusEnum;
 import com.easymall.entity.po.OrderInfo;
 import com.easymall.entity.po.OrderLogisticsInfoRecord;
 import com.easymall.entity.query.OrderInfoQuery;
+import com.easymall.entity.query.OrderItemQuery;
 import com.easymall.entity.query.OrderLogisticsInfoRecordQuery;
 import com.easymall.exception.BusinessException;
 import com.easymall.mappers.OrderInfoMapper;
+import com.easymall.mappers.OrderItemMapper;
+import com.easymall.entity.po.OrderItem;
 import com.easymall.mappers.OrderLogisticsInfoRecordMapper;
+import com.easymall.refund.RefundPendingException;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -41,6 +46,8 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 	private OrderLogisticsInfoMapper<OrderLogisticsInfo, OrderLogisticsInfoQuery> orderLogisticsInfoMapper;
 	@Resource
 	private OrderInfoMapper<OrderInfo, OrderInfoQuery> orderInfoMapper;
+	@Resource
+	private OrderItemMapper<OrderItem, OrderItemQuery> orderItemMapper;
 	@Resource
 	private RedisComponent redisComponent;
 	@Resource
@@ -158,32 +165,39 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void delivery(OrderLogisticsInfo orderLogisticsInfo) {
-		OrderInfo orderInfo = orderInfoMapper.selectByOrderId(orderLogisticsInfo.getOrderId());
+		OrderInfo orderInfo = orderInfoMapper.selectOrderForUpdate(orderLogisticsInfo.getOrderId());
 		if (orderInfo == null) {
 			throw new BusinessException("订单不存在");
 		}
-		if (!OrderStatusEnum.PAID.getStatus().equals(orderInfo.getOrderStatus())) {
+		boolean partial = OrderStatusEnum.PARTIALLY_REFUNDED.getStatus().equals(orderInfo.getOrderStatus());
+		if (!partial && !OrderStatusEnum.PAID.getStatus().equals(orderInfo.getOrderStatus())) {
 			throw new BusinessException("订单不是待发货状态");
 		}
-
-		//发货后改变订单的状态
-		OrderInfo updateOrderInfo = new OrderInfo();
-		updateOrderInfo.setOrderStatus(OrderStatusEnum.SHIPPED.getStatus());
-
-		OrderInfoQuery orderInfoQuery = new OrderInfoQuery();
-		orderInfoQuery.setOrderId(orderInfo.getOrderId());
-		orderInfoQuery.setOrderStatus(OrderStatusEnum.PAID.getStatus());
-		Integer updateCount = orderInfoMapper.updateByParam(updateOrderInfo, orderInfoQuery);
-
-		if (updateCount == 0) {
+		OrderLogisticsInfo currentShipment = getOrderLogisticsInfoByOrderId(orderInfo.getOrderId());
+		if (currentShipment == null || !LogisticsStatusEnum.PENDING_SHIPMENT.getStatus().equals(currentShipment.getLogisticsStatus())) {
 			throw new BusinessException("订单不是待发货状态");
+		}
+		OrderItemQuery pending = new OrderItemQuery();
+		pending.setOrderId(orderInfo.getOrderId());
+		pending.setOrderItemStatus(OrderItemStatusEnum.REFUNDING.getStatus());
+		if (orderItemMapper.selectCount(pending) > 0) {
+			throw new RefundPendingException();
+		}
+
+		// 部分退款保留主单退款汇总状态，是否发货以物流状态为准。
+		if (!partial) {
+			OrderInfo updateOrderInfo = new OrderInfo();
+			updateOrderInfo.setOrderStatus(OrderStatusEnum.SHIPPED.getStatus());
+			if (orderInfoMapper.updateByOrderId(updateOrderInfo, orderInfo.getOrderId()) != 1) {
+				throw new BusinessException("订单不是待发货状态");
+			}
 		}
 
 		orderLogisticsInfo.setLogisticsStatus(LogisticsStatusEnum.IN_TRANSIT.getStatus());
 		orderLogisticsInfoMapper.updateByOrderId(orderLogisticsInfo,orderLogisticsInfo.getOrderId());
 
 		//加入队列，模拟物流
-		if ("simulated".equals(appConfig.getLogisticsMode())) {
+		if (appConfig.isSimulatedLogistics()) {
 			redisComponent.addOrder2LogisticsQueue(10,orderLogisticsInfo.getOrderId());
 		}
 
@@ -197,8 +211,11 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 		record.setOrderId(orderLogisticsInfo.getOrderId());
 		orderLogisticsInfoRecordMapper.insert(record);
 
-		//发货后自动确认收获(实际情况下，需要用户自己去点确认收获)
-		redisComponent.addOrder2DelayQueue(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_CONFIRM, appConfig.getOrderConfirmMinute(), orderLogisticsInfo.getOrderId());
+		// 自动确认只服务于演示物流，普通环境由买家或可信履约流程推进。
+		if (appConfig.isSimulatedLogistics()) {
+			redisComponent.addOrder2DelayQueue(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_CONFIRM,
+					appConfig.getOrderConfirmMinute(), orderLogisticsInfo.getOrderId());
+		}
 
 	}
 
@@ -208,7 +225,7 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 	 */
 	@Override
 	public void mockOrderLogistics(String orderId) {
-		if (!"simulated".equals(appConfig.getLogisticsMode())) {
+		if (!appConfig.isSimulatedLogistics()) {
 			return;
 		}
 		String[] logisticsCenters = {

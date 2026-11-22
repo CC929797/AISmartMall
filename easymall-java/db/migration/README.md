@@ -10,6 +10,10 @@
 
 步骤08新增 `V20261107_02__order_request.sql`，仅新增购买请求幂等表 `order_request`，不修改现有订单、明细、SKU字段。主键为 `(user_id, request_id)`，支付业务号另有唯一约束；要求MySQL 8.0.16+。需要先具备11A的 `business_task` 表，再部署并使用新下单接口；新增 `requestId` 为必填项，前后端应一起升级。本轮只在隔离测试库执行，日常开发库需打开SQL文件整段执行一次，不会随应用启动自动迁移。已有同名表时先核对结构，不通过删表重建处理。SQL全文、部署顺序和测试见[步骤08记录](../../docs/verification/08-checkout-idempotency.md)。
 
+步骤09新增 [V20261114_01__refund_request.sql](V20261114_01__refund_request.sql)，在 MySQL 8.0.16+ 创建 `refund_request`，保存退款状态、原渠道退款号及待查证时间。此次在隔离库验证，开发库应在启动新应用前执行一次。现有退款记录无需回填。 [步骤09验证记录](../../docs/verification/09-refund.md)
+
+步骤10新增 [V20261115_01__payment_close.sql](V20261115_01__payment_close.sql)。启动新版前执行一次，更新 `order_info` 字段注释并新增支付截止、表单签发、关单查证时间和配套索引。付款成功事件复用 11A 的 `business_task`。 [步骤10迁移及沙箱用例](../../docs/verification/10-payment-close.md)
+
 1. 使用只读账号，在明确选中的测试库运行 `../inspection/schema-baseline.sql`，记录实际字段、长度、索引和约束。
 2. 对照当前实体、Mapper 和业务规则说明需要修改的原因。源码不能代替实际 DDL；未检查的约束标记为未知。
 3. 为一项独立改动编写迁移，建议命名为 `VYYYYMMDD_NN__description.sql`。命名约定不代表已经有自动迁移器。

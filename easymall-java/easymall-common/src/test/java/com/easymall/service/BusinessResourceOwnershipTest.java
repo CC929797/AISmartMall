@@ -5,6 +5,7 @@ import com.easymall.entity.po.*;
 import com.easymall.entity.query.*;
 import com.easymall.exception.BusinessException;
 import com.easymall.mappers.*;
+import com.easymall.refund.RefundService;
 import com.easymall.service.Impl.OrderCommentServiceImpl;
 import com.easymall.service.Impl.OrderInfoServiceImpl;
 import com.easymall.service.Impl.OrderLogisticsInfoServiceImpl;
@@ -47,12 +48,12 @@ class BusinessResourceOwnershipTest {
 
     @Test
     void aCannotRefundBsOrderItem() {
-        OrderItem item = new OrderItem();
-        item.setOrderId("B-ORDER");
-        when(items.selectByOrderItemId("B-ITEM")).thenReturn(item);
-        when(orders.selectByOrderId("B-ORDER")).thenReturn(bsOrder());
+        RefundService refunds = mock(RefundService.class);
+        when(refunds.apply(eq("A"), eq("B-ITEM"), anyString())).thenThrow(new BusinessException("订单不存在"));
+        OrderInfoServiceImpl service = orderService();
+        ReflectionTestUtils.setField(service, "refundService", refunds);
 
-        assertThatThrownBy(() -> orderService().refundByOrderItemId("A", "B-ITEM"))
+        assertThatThrownBy(() -> service.refundByOrderItemId("A", "B-ITEM"))
                 .isInstanceOf(BusinessException.class);
         verify(items, never()).updateByParam(any(), any());
         verify(orders, never()).updateByParam(any(), any());
@@ -60,6 +61,9 @@ class BusinessResourceOwnershipTest {
 
     @Test
     void confirmingAnOrderAlwaysIncludesTheAuthenticatedOwner() {
+        OrderInfo order = bsOrder();
+        order.setUserId("A");
+        when(orders.selectOrderForUpdate("B-ORDER")).thenReturn(order);
         when(orders.updateByParam(any(), any())).thenReturn(0);
 
         assertThatThrownBy(() -> orderService().confirmOrder("A", "B-ORDER"))
@@ -69,7 +73,7 @@ class BusinessResourceOwnershipTest {
         verify(orders).updateByParam(any(), query.capture());
         assertThat(query.getValue().getUserId()).isEqualTo("A");
         assertThat(query.getValue().getOrderId()).isEqualTo("B-ORDER");
-        verifyNoInteractions(items);
+        verify(items, never()).selectList(any());
     }
 
     @Test

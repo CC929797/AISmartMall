@@ -27,11 +27,16 @@ public class AlipayNotifyController {
         try {
             Map<String, String> params = new HashMap<>();
             for (var entry : request.getParameterMap().entrySet()) {
-                if (entry.getValue().length != 1) return "failure";
+                if (entry.getValue().length != 1) {
+                    return "failure";
+                }
                 params.put(entry.getKey(), entry.getValue()[0]);
             }
             PayOrderNotifyDTO payment = alipay.payNotify(params, null);
-            if (payment != null) orderInfoService.payOrderSuccess(payment);
+            if (payment != null) {
+                // 业务事务完成才应答成功，使支付宝能重试因本地写入失败的通知。
+                orderInfoService.payOrderSuccess(payment);
+            }
             return "success";
         } catch (RuntimeException invalid) {
             log.warn("支付宝通知处理失败，exceptionType={}", invalid.getClass().getSimpleName());

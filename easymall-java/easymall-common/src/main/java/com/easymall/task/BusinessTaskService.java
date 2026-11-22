@@ -125,6 +125,11 @@ public class BusinessTaskService {
         return independent.execute(status -> mapper.succeed(task.getTaskId(), task.getLeaseOwner()) == 1);
     }
 
+    /** 等待业务前置条件时延后一分钟，并返还本次领取占用的失败尝试次数。 */
+    public boolean defer(BusinessTask task) {
+        return independent.execute(status -> mapper.defer(task.getTaskId(), task.getLeaseOwner()) == 1);
+    }
+
     /**
      * 当前有效租约持有者登记失败：未耗尽次数则进入RETRY，否则进入DEAD。
      * errorCode必须是固定错误码，不能直接传入异常正文、请求内容或凭据。

@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 【后续业务基础设施】独立后台执行器，负责“领取任务 → 调用处理器 → 记录结果”。
- * <p>仅由独立Worker入口装配，普通商城API不创建本类。领取事务提交后再执行处理器，
+ * <p>独立 Worker 入口和 Web 支付任务装配均可使用。领取事务提交后再执行处理器，
  * 执行线程不与AI或HTTP共用；本类只调度，具体订单或商品操作由BusinessTaskHandler提供。
  * 框架允许故障后再次执行，不能据此假定业务副作用只发生一次。
  */
@@ -113,6 +113,15 @@ public final class BusinessTaskWorker implements SmartLifecycle, AutoCloseable {
             handlers.get(task.taskType()).handle(task);
             if (!run.lost.get() && service.succeed(run.task)) {
                 log.info("Task completed; taskId={}, type={}, attempt={}", task.taskId(), task.taskType(), task.attempt());
+            }
+        } catch (TaskDeferredException pending) {
+            try {
+                if (!run.lost.get()) {
+                    service.defer(run.task);
+                }
+            } catch (RuntimeException storageFailure) {
+                // 暂时无法写入延后结果时，原租约到期后仍可恢复任务。
+                log.warn("Task deferral failed; taskId={}", run.task.getTaskId());
             }
         } catch (Exception failure) {
             try {

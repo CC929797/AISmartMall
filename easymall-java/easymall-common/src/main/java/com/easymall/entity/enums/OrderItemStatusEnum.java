@@ -5,7 +5,8 @@ import java.util.Optional;
 
 public enum OrderItemStatusEnum {
     REFUND(0, "已退款"),
-    NORMAL(1, "正常");
+    NORMAL(1, "正常"),
+    REFUNDING(2, "退款处理中");
 
     private Integer status;
     private String desc;

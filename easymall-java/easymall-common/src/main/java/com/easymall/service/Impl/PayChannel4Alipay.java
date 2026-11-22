@@ -2,6 +2,7 @@ package com.easymall.service.Impl;
 
 import com.alipay.api.AlipayClient;
 import com.alipay.api.AlipayConfig;
+import com.alipay.api.AlipayResponse;
 import com.alipay.api.DefaultAlipayClient;
 import com.alipay.api.domain.*;
 import com.alipay.api.internal.util.AlipaySignature;
@@ -10,17 +11,22 @@ import com.alipay.api.response.*;
 import com.easymall.entity.config.AppConfig;
 import com.easymall.entity.dto.PayInfoDTO;
 import com.easymall.entity.dto.PayOrderNotifyDTO;
-import com.easymall.entity.enums.DateTimePatternEnum;
 import com.easymall.entity.enums.PayChannelEnum;
 import com.easymall.exception.BusinessException;
 import com.easymall.service.PayChannel;
-import com.easymall.utils.DateUtil;
+import com.easymall.refund.RefundChannelResult;
+import com.easymall.order.PaymentCloseResult;
+import com.easymall.order.PaymentQueryResult;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Service("payChannel4Alipay")
@@ -35,6 +41,13 @@ public class PayChannel4Alipay implements PayChannel {
     private static final String TRADE_STATE_SUCCESS = "TRADE_SUCCESS";
 
     private static final String TRADE_NOT_EXIST = "ACQ.TRADE_NOT_EXIST";
+    private static final DateTimeFormatter ALIPAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+            .withZone(ZoneId.of("Asia/Shanghai"));
+
+    private static final Set<String> REFUND_REJECTIONS = Set.of(
+            "ACQ.INVALID_PARAMETER", "ACQ.SELLER_BALANCE_NOT_ENOUGH",
+            "ACQ.REFUND_AMT_NOT_EQUAL_TOTAL", "ACQ.REASON_TRADE_REFUND_FEE_ERR",
+            "ACQ.TRADE_NOT_ALLOW_REFUND", "ACQ.TRADE_HAS_FINISHED");
 
     @Resource
     private AppConfig appConfig;
@@ -49,7 +62,8 @@ public class PayChannel4Alipay implements PayChannel {
      * @param amount 金额
      */
     @Override
-    public PayInfoDTO getPayUrl(PayChannelEnum payChannelEnum, String payOrderId, String subject, BigDecimal amount) {
+    public PayInfoDTO getPayUrl(PayChannelEnum payChannelEnum, String payOrderId, String subject, BigDecimal amount,
+                               Instant expiresAt) {
         try {
             //初始化SDK
             AlipayClient alipayClient = new DefaultAlipayClient(getAlipayConfig());
@@ -63,8 +77,8 @@ public class PayChannel4Alipay implements PayChannel {
             model.setTotalAmount(amount.toString());
             //设置订单标题
             model.setSubject(subject);
-            //设置订单过期时间
-            model.setTimeExpire(DateUtil.getMinAfter(appConfig.getOrderExpireMinute(), DateTimePatternEnum.YYYY_MM_DD_HH_MM_SS.getPattern()));
+            // 同一支付单的每一份表单都使用商城的固定截止时间。再次获取表单不会延长付款窗口。
+            model.setTimeExpire(ALIPAY_TIME.format(expiresAt));
 
             request.setBizModel(model);
 
@@ -134,6 +148,11 @@ public class PayChannel4Alipay implements PayChannel {
         if (!appConfig.getAlipayAppid().equals(requestParams.get("app_id"))) {
             throw new BusinessException("支付宝回调应用不匹配");
         }
+        // app_id 标识应用，seller_id 标识收款账户。两者均需与本机配置匹配。
+        String sellerId = appConfig.getAlipaySellerId();
+        if (sellerId == null || sellerId.isBlank() || !sellerId.equals(requestParams.get("seller_id"))) {
+            throw new BusinessException("支付宝回调收款方不匹配或未配置");
+        }
 
         String payOrderId = requestParams.get("out_trade_no");
         String channelOrderId = requestParams.get("trade_no");
@@ -142,9 +161,14 @@ public class PayChannel4Alipay implements PayChannel {
         if (!TRADE_STATE_SUCCESS.equals(status) && !"TRADE_FINISHED".equals(status)) {
             return null;
         }
-        if (invalidOrderId(payOrderId) || invalidOrderId(channelOrderId)) throw new BusinessException("支付宝回调订单号无效");
+        if (invalidOrderId(payOrderId) || invalidOrderId(channelOrderId)) {
+            throw new BusinessException("支付宝回调订单号无效");
+        }
         PayOrderNotifyDTO result = new PayOrderNotifyDTO(payOrderId,channelOrderId);
         result.setAmount(channelAmount(requestParams.get("total_amount")));
+        result.setTradeStatus(status);
+        result.setAppId(requestParams.get("app_id"));
+        result.setSellerId(sellerId);
         return result;
     }
 
@@ -154,7 +178,7 @@ public class PayChannel4Alipay implements PayChannel {
      * @return
      */
     @Override
-    public PayOrderNotifyDTO queryOrder(String payOrderId) {
+    public PaymentQueryResult queryPayment(String payOrderId) {
 
         try {
             AlipayClient alipayClient = new DefaultAlipayClient(getAlipayConfig());
@@ -168,25 +192,38 @@ public class PayChannel4Alipay implements PayChannel {
 
             AlipayTradeQueryResponse response = alipayClient.certificateExecute(request);
             if (!response.isSuccess()) {
-                if (TRADE_NOT_EXIST.equals(response.getSubCode())) return null;
+                if (tradeNotFound(response, payOrderId, response.getOutTradeNo())) {
+                    return PaymentQueryResult.of(PaymentQueryResult.Status.NOT_FOUND);
+                }
                 log.warn("支付宝查单未成功，code={}, subCode={}", safeCode(response.getCode()), safeCode(response.getSubCode()));
-                // 本轮未确认付款，保留待付款状态并由原轮询重试；不能阻断同批其他订单的查单。
-                return null;
+                return PaymentQueryResult.of(PaymentQueryResult.Status.UNKNOWN);
             }
-            if (!TRADE_STATE_SUCCESS.equals(response.getTradeStatus()) && !"TRADE_FINISHED".equals(response.getTradeStatus())) {
-                return null;
+            // 使用渠道返回的商户订单号校验关联关系，再构造本地付款凭证。
+            if (!payOrderId.equals(response.getOutTradeNo())) {
+                return PaymentQueryResult.of(PaymentQueryResult.Status.UNKNOWN);
             }
-            log.debug("支付宝订单查询完成，成功={}", response.isSuccess());
-            PayOrderNotifyDTO result = new PayOrderNotifyDTO(payOrderId,response.getTradeNo());
-            result.setAmount(channelAmount(response.getTotalAmount()));
-            return result;
-
-        }catch (BusinessException e) {
-            throw e;
+            String status = response.getTradeStatus();
+            if ((TRADE_STATE_SUCCESS.equals(status) || "TRADE_FINISHED".equals(status))
+                    && !invalidOrderId(response.getTradeNo())) {
+                PayOrderNotifyDTO result = new PayOrderNotifyDTO(response.getOutTradeNo(), response.getTradeNo());
+                result.setAmount(channelAmount(response.getTotalAmount()));
+                result.setTradeStatus(status);
+                result.setAppId(appConfig.getAlipayAppid());
+                return PaymentQueryResult.paid(result);
+            }
+            if ("WAIT_BUYER_PAY".equals(status)) {
+                return PaymentQueryResult.of(PaymentQueryResult.Status.WAITING);
+            }
+            // TRADE_CLOSED 也可能由已付款交易全额退款产生。仅有明确的零实付证据才释放库存。
+            if ("TRADE_CLOSED".equals(status) && response.getSendPayDate() == null
+                    && response.getBuyerPayAmount() != null && new BigDecimal(response.getBuyerPayAmount()).signum() == 0
+                    && response.getReceiptAmount() != null && new BigDecimal(response.getReceiptAmount()).signum() == 0) {
+                return PaymentQueryResult.of(PaymentQueryResult.Status.CLOSED_UNPAID);
+            }
         } catch (Exception e) {
-            log.error("查询支付宝订单失败，异常类型={}", e.getClass().getSimpleName());
-            throw new BusinessException("查询支付宝订单失败");
+            log.warn("查询支付宝订单结果待确认，异常类型={}", e.getClass().getSimpleName());
         }
+        return PaymentQueryResult.of(PaymentQueryResult.Status.UNKNOWN);
     }
 
     private static boolean invalidOrderId(String value) {
@@ -212,7 +249,7 @@ public class PayChannel4Alipay implements PayChannel {
      * @param refundAmount 退款金额
      */
     @Override
-    public void refund(String sourcePayOrderId, String payOrderId, BigDecimal refundAmount) {
+    public RefundChannelResult refund(String sourcePayOrderId, String payOrderId, BigDecimal refundAmount) {
         try {
             AlipayClient alipayClient = new DefaultAlipayClient(getAlipayConfig());
 
@@ -221,28 +258,64 @@ public class PayChannel4Alipay implements PayChannel {
             AlipayTradeRefundModel model = new AlipayTradeRefundModel();
             model.setOutTradeNo(sourcePayOrderId);
             model.setOutRequestNo(payOrderId);
-            model.setRefundAmount(refundAmount.toString());
+            model.setRefundAmount(refundAmount.toPlainString());
 
             request.setBizModel(model);
 
             AlipayTradeRefundResponse response = alipayClient.certificateExecute(request);
-            if (!response.isSuccess()) {
-                throw new BusinessException("退款失败");
+            if (response.isSuccess() && "Y".equals(response.getFundChange())
+                    && sourcePayOrderId.equals(response.getOutTradeNo())) {
+                return RefundChannelResult.SUCCESS;
             }
-        }catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("查询支付宝订单失败，异常类型={}", e.getClass().getSimpleName());
-            throw new BusinessException("查询支付宝订单失败");
+            if ("40004".equals(response.getCode()) && response.getSubCode() != null
+                    && REFUND_REJECTIONS.contains(response.getSubCode())) {
+                return RefundChannelResult.REJECTED;
+            }
+            log.warn("退款结果待确认，code={}, subCode={}", safeCode(response.getCode()), safeCode(response.getSubCode()));
+        } catch (Exception unavailable) {
+            log.warn("退款调用结果待确认，异常类型={}", unavailable.getClass().getSimpleName());
         }
+        return RefundChannelResult.UNKNOWN;
     }
 
     /**
-     * 关闭订单
-     * @param payOrderId
+     * 查询退款
+     * @param sourcePayOrderId 原订单支付Id
+     * @param refundRequestNo 退款请求号
+     * @param amount 退款金额
+     * @return 退款结果
      */
     @Override
-    public void closeOrder(String payOrderId) {
+    public RefundChannelResult queryRefund(String sourcePayOrderId, String refundRequestNo, BigDecimal amount) {
+        try {
+            AlipayClient client = new DefaultAlipayClient(getAlipayConfig());
+            AlipayTradeFastpayRefundQueryModel model = new AlipayTradeFastpayRefundQueryModel();
+            model.setOutTradeNo(sourcePayOrderId);
+            model.setOutRequestNo(refundRequestNo);
+            AlipayTradeFastpayRefundQueryRequest request = new AlipayTradeFastpayRefundQueryRequest();
+            request.setBizModel(model);
+            AlipayTradeFastpayRefundQueryResponse response = client.certificateExecute(request);
+            if (!response.isSuccess() || !sourcePayOrderId.equals(response.getOutTradeNo())) {
+                return RefundChannelResult.UNKNOWN;
+            }
+            if ("REFUND_SUCCESS".equals(response.getRefundStatus()) && refundRequestNo.equals(response.getOutRequestNo())
+                    && amount.compareTo(new BigDecimal(response.getRefundAmount())) == 0) {
+                return RefundChannelResult.SUCCESS;
+            }
+            // 查到交易但没有对应退款明细时，只允许使用原渠道号继续。
+            if (response.getRefundStatus() == null && response.getRefundAmount() == null
+                    && (response.getOutRequestNo() == null || refundRequestNo.equals(response.getOutRequestNo()))) {
+                return RefundChannelResult.NOT_FOUND;
+            }
+        } catch (Exception unavailable) {
+            log.warn("退款查询结果待确认，异常类型={}", unavailable.getClass().getSimpleName());
+        }
+        return RefundChannelResult.UNKNOWN;
+    }
+
+    /** 关闭指定支付单。只有支付宝明确返回交易不存在，才能参与过期表单的补偿判断。 */
+    @Override
+    public PaymentCloseResult closeOrder(String payOrderId) {
         try {
             AlipayClient alipayClient = new DefaultAlipayClient(getAlipayConfig());
 
@@ -254,14 +327,28 @@ public class PayChannel4Alipay implements PayChannel {
             request.setBizModel(model);
 
             AlipayTradeCloseResponse response = alipayClient.certificateExecute(request);
-            if (!response.isSuccess() && !TRADE_NOT_EXIST.equalsIgnoreCase(response.getSubCode())) {
-                throw new BusinessException("关闭订单失败");
+            if (response.isSuccess() && payOrderId.equals(response.getOutTradeNo())) {
+                return PaymentCloseResult.CLOSED;
             }
-        }catch (BusinessException e) {
-            throw e;
+            if (tradeNotFound(response, payOrderId, response.getOutTradeNo())) {
+                return PaymentCloseResult.NOT_FOUND;
+            }
         } catch (Exception e) {
-            log.error("查询支付宝订单失败，异常类型={}", e.getClass().getSimpleName());
-            throw new BusinessException("查询支付宝订单失败");
+            log.warn("支付宝关单结果待确认，异常类型={}", e.getClass().getSimpleName());
         }
+        return PaymentCloseResult.UNKNOWN;
+    }
+
+    @Override
+    public boolean supportsClosingExpiredMissingTrades() {
+        // 目前在沙箱启用此补偿，真实支付仍按渠道终态收尾。
+        return paymentGatewayPolicy.isSandbox();
+    }
+
+    private static boolean tradeNotFound(AlipayResponse response, String payOrderId, String responseOrderId) {
+        // 40004 是通用业务失败码，只有子错误码明确为交易不存在，才算查无此单。
+        // 支付宝错误应答可以省略商户单号。如果回传了单号，必须与本次请求匹配。
+        return "40004".equals(response.getCode()) && TRADE_NOT_EXIST.equals(response.getSubCode())
+                && (responseOrderId == null || responseOrderId.isBlank() || payOrderId.equals(responseOrderId));
     }
 }

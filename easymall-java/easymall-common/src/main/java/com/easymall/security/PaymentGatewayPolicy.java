@@ -10,11 +10,16 @@ import java.util.Set;
 @Component
 public class PaymentGatewayPolicy {
     @Value("${payment.mode:sandbox}") private String mode = "sandbox";
+
+    public boolean isSandbox() {
+        return "sandbox".equals(mode);
+    }
+
     public void validate(String address) {
         try {
             URI uri = URI.create(address);
             String host = uri.getHost();
-            boolean allowed = "sandbox".equals(mode)
+            boolean allowed = isSandbox()
                     ? Set.of("openapi-sandbox.dl.alipaydev.com", "openapi.alipaydev.com").contains(host)
                     : "live".equals(mode) && "openapi.alipay.com".equals(host);
             if (!allowed || !"https".equals(uri.getScheme()) || uri.getUserInfo() != null

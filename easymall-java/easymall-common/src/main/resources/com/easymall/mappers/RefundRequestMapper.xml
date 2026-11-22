@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.easymall.mappers.RefundRequestMapper">
+    <sql id="columns">refund_id,user_id,request_id,order_id,order_item_id,pay_order_id,pay_scene,channel_request_no,amount,status,version</sql>
+
+    <select id="find" resultType="com.easymall.refund.RefundRequest">
+        SELECT <include refid="columns"/> FROM refund_request WHERE refund_id=#{refundId}
+    </select>
+    <select id="findByRequest" resultType="com.easymall.refund.RefundRequest">
+        SELECT <include refid="columns"/> FROM refund_request WHERE user_id=#{userId} AND request_id=#{requestId}
+    </select>
+    <select id="findActive" resultType="com.easymall.refund.RefundRequest">
+        SELECT <include refid="columns"/> FROM refund_request WHERE occupied_item_id=#{orderItemId}
+    </select>
+    <select id="findByItems" resultType="com.easymall.refund.RefundRequest">
+        SELECT <include refid="columns"/> FROM refund_request
+        WHERE user_id=#{userId} AND order_item_id IN
+        <foreach collection="itemIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY (status &lt;&gt; 'FAILED') DESC, created_at DESC, refund_id DESC
+    </select>
+    <insert id="insert">
+        INSERT INTO refund_request (<include refid="columns"/>, next_check_at, created_at, updated_at)
+        VALUES (#{refundId},#{userId},#{requestId},#{orderId},#{orderItemId},#{payOrderId},#{payScene},
+                #{channelRequestNo},#{amount},'PROCESSING',0,
+                TIMESTAMPADD(SECOND,60,UTC_TIMESTAMP(6)),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+    </insert>
+    <select id="findDue" resultType="com.easymall.refund.RefundRequest">
+        SELECT <include refid="columns"/> FROM refund_request
+        WHERE next_check_at &lt;= UTC_TIMESTAMP(6) AND status IN ('PROCESSING','UNKNOWN')
+        ORDER BY next_check_at,refund_id LIMIT #{limit}
+    </select>
+    <update id="claim">
+        UPDATE refund_request SET version=version+1, updated_at=UTC_TIMESTAMP(6),
+          next_check_at=TIMESTAMPADD(SECOND,60,UTC_TIMESTAMP(6))
+        WHERE refund_id=#{refundId} AND version=#{version}
+          AND next_check_at &lt;= UTC_TIMESTAMP(6) AND status IN ('PROCESSING','UNKNOWN')
+    </update>
+    <update id="resolve">
+        UPDATE refund_request SET status=#{status}, last_error=#{error}, version=version+1, updated_at=UTC_TIMESTAMP(6),
+          next_check_at=CASE WHEN #{status}='UNKNOWN' THEN TIMESTAMPADD(SECOND,60,UTC_TIMESTAMP(6)) ELSE NULL END
+        WHERE refund_id=#{refundId} AND version=#{version} AND status IN ('PROCESSING','UNKNOWN')
+    </update>
+</mapper>

@@ -33,11 +33,11 @@ class PaymentGatewayPolicyTest {
     }
     @Test void demoNeverPretendsToHaveReceivedOrRefundedMoney() {
         var demo = new DemoPayChannel();
-        var page = demo.getPayUrl(PayChannelEnum.ALIPAY_PC, "fixture", "<script>fixture</script>", BigDecimal.ONE);
+        var page = demo.getPayUrl(PayChannelEnum.ALIPAY_PC, "fixture", "<script>fixture</script>", BigDecimal.ONE, java.time.Instant.now());
         assertFalse(page.getPayInfo().contains("<script>"));
         assertTrue(page.getPayInfo().contains("不会扣款"));
-        assertNull(demo.queryOrder("fixture"));
+        assertEquals(com.easymall.order.PaymentQueryResult.Status.NOT_FOUND, demo.queryPayment("fixture").status());
         assertThrows(BusinessException.class, () -> demo.payNotify(Map.of(), "fixture"));
-        assertThrows(BusinessException.class, () -> demo.refund("fixture", "fixture", BigDecimal.ONE));
+        assertEquals(com.easymall.refund.RefundChannelResult.REJECTED, demo.refund("fixture", "fixture", BigDecimal.ONE));
     }
 }

@@ -1,5 +1,6 @@
 package com.easymall.task;
 
+import com.easymall.order.PaymentCloseResult;
 import com.easymall.entity.dto.*;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.po.OrderItem;
@@ -41,7 +42,7 @@ class OrderCheckoutMySqlIT {
         f.service.payOrderSuccess(confirmed); f.service.payOrderSuccess(confirmed);
         assertThat(f.db.jdbc.queryForObject("select order_status from order_info where order_id=?", Integer.class, created.getOrderId())).isEqualTo(1);
         assertThat(f.stock()).isEqualTo(4);
-        verify(f.redis, times(1)).addOrder2DelayQueue(eq(com.easymall.entity.constants.Constants.REDIS_KEY_ORDER_DELAY_QUEUE_DELIVERY), eq(1), eq(created.getPayOrderId()));
+        assertThat(f.eventCount("ORDER_PAID", created.getPayOrderId())).isEqualTo(1);
     }
 
     @Test void mismatchedProviderAmountCannotConfirmPayment() {
@@ -64,7 +65,7 @@ class OrderCheckoutMySqlIT {
         assertThat(result.getPayInfo()).contains("synthetic-no-payment");
         assertThat(f.orderCount()).isEqualTo(1); assertThat(f.stock()).isEqualTo(4);
         assertThat(f.eventCount("ORDER_CREATED", result.getPayOrderId())).isEqualTo(1);
-        verify(f.payment, times(1)).getPayUrl(any(), eq(result.getPayOrderId()), anyString(), any());
+        verify(f.payment, times(1)).getPayUrl(any(), eq(result.getPayOrderId()), anyString(), any(), any());
     }
 
     @Test void requestQueryInSameSynchronizationSeesIndependentCommit() {
@@ -189,6 +190,7 @@ class OrderCheckoutMySqlIT {
 
     @Test void concurrentCancellationRestoresStockExactlyOnce() throws Exception {
         PayInfoDTO created = f.service.postOrder(f.user, f.order(3));
+        when(f.payment.closeOrder(created.getPayOrderId())).thenReturn(PaymentCloseResult.CLOSED);
         parallel(8, index -> { f.service.cancelOrder(f.user, created.getOrderId(), OrderStatusEnum.CANCELLED); return true; });
         assertThat(f.stock()).isEqualTo(5);
         assertThat(f.db.jdbc.queryForObject("select order_status from order_info where order_id=?", Integer.class, created.getOrderId())).isEqualTo(4);
@@ -206,14 +208,14 @@ class OrderCheckoutMySqlIT {
     @Test void paymentFailureKeepsCreatedOrdersAndRetryUsesSameIdOutsideTransaction() {
         doAnswer(call -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse(); throw new IllegalStateException("synthetic-channel-offline");
-        }).when(f.payment).getPayUrl(any(), anyString(), anyString(), any());
+        }).when(f.payment).getPayUrl(any(), anyString(), anyString(), any(), any());
         PostOrderDTO request = f.order(1); PayInfoDTO unavailable = f.service.postOrder(f.user, request);
         assertThat(unavailable.getRequestStatus()).isEqualTo("CREATED"); assertThat(unavailable.getPaymentStatus()).isEqualTo("UNAVAILABLE");
         assertThat(unavailable.getPayInfo()).isNull(); assertThat(f.stock()).isEqualTo(4); assertThat(f.orderCount()).isEqualTo(1);
         doAnswer(call -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             return new PayInfoDTO("synthetic-recovered", call.getArgument(1), call.getArgument(3));
-        }).when(f.payment).getPayUrl(any(), anyString(), anyString(), any());
+        }).when(f.payment).getPayUrl(any(), anyString(), anyString(), any(), any());
         PayInfoDTO retry = f.service.postOrder(f.user, request);
         assertThat(retry.getPayOrderId()).isEqualTo(unavailable.getPayOrderId()); assertThat(retry.getPaymentStatus()).isEqualTo("READY");
         assertThat(f.stock()).isEqualTo(4); assertThat(f.orderCount()).isEqualTo(1);
@@ -247,13 +249,14 @@ class OrderCheckoutMySqlIT {
 
     @Test void failedInventoryRestorationRollsBackCancellationStateAndEvent() {
         PayInfoDTO created = f.service.postOrder(f.user, f.order(1));
+        when(f.payment.closeOrder(created.getPayOrderId())).thenReturn(PaymentCloseResult.CLOSED);
         // 仅破坏本测试的合成明细，模拟库存行已不存在，不能只改取消状态而漏退库存。
         f.db.jdbc.update("update order_item set property_value_id_hash=? where order_id=?", "NO_MATCHING_SYNTHETIC_SKU", created.getOrderId());
-        assertThatThrownBy(() -> f.service.cancelOrder(f.user, created.getOrderId(), OrderStatusEnum.CANCELLED))
-                .isInstanceOf(BusinessException.class).hasMessageContaining("回滚");
-        assertThat(f.db.jdbc.queryForObject("select order_status from order_info where order_id=?", Integer.class, created.getOrderId())).isZero();
+        assertThat(f.service.cancelOrder(f.user, created.getOrderId(), OrderStatusEnum.CANCELLED))
+                .isEqualTo(OrderStatusEnum.CANCEL_PENDING);
+        assertThat(f.db.jdbc.queryForObject("select order_status from order_info where order_id=?", Integer.class, created.getOrderId())).isEqualTo(8);
         assertThat(f.stock()).isEqualTo(4); assertThat(f.eventCount("ORDER_CANCELLED", created.getPayOrderId())).isZero();
-        verify(f.payment, never()).closeOrder(anyString());
+        verify(f.payment).closeOrder(created.getPayOrderId());
     }
 
     @Test void processingCanBeQueriedWithoutStartingAnotherOrder() throws Exception {

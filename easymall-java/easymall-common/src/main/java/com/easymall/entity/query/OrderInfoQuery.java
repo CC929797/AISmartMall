@@ -1,6 +1,7 @@
 package com.easymall.entity.query;
 
-import javax.swing.text.StyledEditorKit;
+import com.easymall.entity.enums.LogisticsStatusEnum;
+import com.easymall.entity.enums.OrderStatusEnum;
 import java.math.BigDecimal;
 import java.util.Date;
 
@@ -54,6 +55,25 @@ public class OrderInfoQuery extends BaseParam {
 	 * -1已删除 0:待付款 1:已付款,待发货  2:已发货  3:已完成 4:已取消 5:已关闭 6:已退款 7:部分退款
 	 */
 	private Integer orderStatus;
+
+	/**
+	 * 履约列表通过物流状态纳入仍有商品待发货或待收货的部分退款主单。
+	 * 这样的做的目的是：解决部分退款主订单下的未被退款的商品未发货的问题
+	 */
+	private Integer[] partialRefundLogisticsStatuses;
+
+	public Integer[] getPartialRefundLogisticsStatuses() {
+		return partialRefundLogisticsStatuses;
+	}
+
+	public void setFulfillmentOrderStatus(OrderStatusEnum status) {
+		this.orderStatus = status == null ? null : status.getStatus();
+		this.partialRefundLogisticsStatuses = switch (status) {
+			case PAID -> new Integer[]{LogisticsStatusEnum.PENDING_SHIPMENT.getStatus()};
+			case SHIPPED -> new Integer[]{LogisticsStatusEnum.IN_TRANSIT.getStatus(), LogisticsStatusEnum.DELIVERED.getStatus()};
+			case null, default -> null;
+		};
+	}
 
 	/**
 	 * 支付通道
@@ -205,6 +225,7 @@ public class OrderInfoQuery extends BaseParam {
 
 	public void setOrderStatus(Integer orderStatus){
 		this.orderStatus = orderStatus;
+		this.partialRefundLogisticsStatuses = null;
 	}
 
 	public Integer getOrderStatus(){

@@ -48,7 +48,17 @@ public class AppConfig {
     @Value("${alipay.notify-url:}")
     private String alipayNotifyUrl;
 
-    public String getAlipayNotifyUrl() { return alipayNotifyUrl; }
+    public String getAlipayNotifyUrl() {
+        return alipayNotifyUrl;
+    }
+
+    /** 回调中预期的支付宝收款方 PID，通过本机配置或环境变量提供。 */
+    @Value("${alipay.seller-id:}")
+    private String alipaySellerId;
+
+    public String getAlipaySellerId() {
+        return alipaySellerId;
+    }
 
     //订单延时
     @Value("${order.expire.minute:5}")
@@ -61,11 +71,17 @@ public class AppConfig {
     @Value("${project.auto-checkpay}")
     private Boolean autoCheckPay;
 
-    // 模拟物流只在显式选择 simulated 时运行，默认不生成虚构轨迹。
+    // 物流模式由当前环境的配置决定。显式设为 simulated 时，才会启用模拟发货、轨迹和自动确认收货。
     @Value("${logistics.mode:}")
     private String logisticsMode;
 
-    public String getLogisticsMode() { return logisticsMode; }
+    public String getLogisticsMode() {
+        return logisticsMode;
+    }
+
+    public boolean isSimulatedLogistics() {
+        return "simulated".equals(getLogisticsMode());
+    }
 
     public Integer getWsPort() {
         return wsPort;

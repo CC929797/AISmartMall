@@ -49,6 +49,11 @@
             next_run_at=TIMESTAMPADD(MICROSECOND,#{delayMillis} * 1000,UTC_TIMESTAMP(6)),last_error=#{errorCode},updated_at=UTC_TIMESTAMP(6)
         WHERE task_id=#{id} AND <include refid="owned"/>
     </update>
+    <update id="defer">
+        UPDATE business_task SET status='RETRY',attempts=attempts-1,lease_owner=NULL,lease_until=NULL,
+            next_run_at=TIMESTAMPADD(SECOND,60,UTC_TIMESTAMP(6)),last_error='BUSINESS_PENDING',updated_at=UTC_TIMESTAMP(6)
+        WHERE task_id=#{id} AND attempts > 0 AND <include refid="owned"/>
+    </update>
     <update id="retryDead">
         UPDATE business_task SET status='READY',attempts=0,next_run_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6)
         WHERE task_id=#{id} AND status='DEAD'

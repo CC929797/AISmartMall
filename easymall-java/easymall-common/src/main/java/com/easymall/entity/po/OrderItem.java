@@ -60,6 +60,17 @@ public class OrderItem implements Serializable {
 	 */
 	private Integer orderItemStatus;
 
+	/** 当前用户订单列表附带的退款进度。 */
+	private com.easymall.refund.RefundStatus refundStatus;
+
+	public com.easymall.refund.RefundStatus getRefundStatus() {
+		return refundStatus;
+	}
+
+	public void setRefundStatus(com.easymall.refund.RefundStatus refundStatus) {
+		this.refundStatus = refundStatus;
+	}
+
 	/**
 	 * 备注
 	 */

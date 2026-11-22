@@ -12,7 +12,14 @@ public enum OrderStatusEnum {
     CANCELLED(4, "交易取消"),
     CLOSED(5, "交易关闭"),
     REFUNDED(6, "已退款,交易关闭"),
-    PARTIALLY_REFUNDED(7, "部分退款");
+    PARTIALLY_REFUNDED(7, "部分退款"),
+    CANCEL_PENDING(8, "取消确认中"),
+    CLOSE_PENDING(9, "超时关单确认中");
+
+    /** 付款成功仍可从这两种未决状态确认，直到可信的关闭结果完成落库。 */
+    public static boolean isClosing(Integer status) {
+        return CANCEL_PENDING.getStatus().equals(status) || CLOSE_PENDING.getStatus().equals(status);
+    }
 
     private Integer status;
     private String desc;
@@ -33,6 +40,6 @@ public enum OrderStatusEnum {
 
     public static OrderStatusEnum getByStatus(Integer status) {
         Optional<OrderStatusEnum> typeEnum = Arrays.stream(OrderStatusEnum.values()).filter(value -> value.getStatus().equals(status)).findFirst();
-        return typeEnum == null ? null : typeEnum.get();
+        return typeEnum.orElse(null);
     }
 }

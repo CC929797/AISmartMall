@@ -13,7 +13,7 @@ public final class CheckoutCrashProbe {
         if ("before".equals(args[0])) {
             f.requestService.place(args[1], CheckoutInput.normalize(order), payId -> { Runtime.getRuntime().halt(24); return null; });
         } else {
-            when(f.payment.getPayUrl(any(), anyString(), anyString(), any())).thenAnswer(call -> { Runtime.getRuntime().halt(25); return null; });
+            when(f.payment.getPayUrl(any(), anyString(), anyString(), any(), any())).thenAnswer(call -> { Runtime.getRuntime().halt(25); return null; });
             f.service.postOrder(args[1], order);
         }
     }

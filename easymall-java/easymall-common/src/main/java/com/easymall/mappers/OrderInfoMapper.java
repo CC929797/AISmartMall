@@ -3,6 +3,7 @@ package com.easymall.mappers;
 import org.apache.ibatis.annotations.Param;
 
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -27,8 +28,25 @@ public interface OrderInfoMapper<T,P> extends BaseMapper<T,P> {
 	 */
 	 T selectByOrderId(@Param("orderId") String orderId);
 
-	 /** 按订单号顺序锁定当前用户的支付组，串行化重复取消及库存归还。 */
-	 List<T> selectPaymentGroupForUpdate(@Param("payOrderId") String payOrderId, @Param("userId") String userId);
+	 /** 退款、发货和收货都先锁主订单，再修改订单明细或物流。 */
+	 T selectOrderForUpdate(@Param("orderId") String orderId);
+
+	/** 按主单编号顺序锁定支付组；调用方校验支付组归属及状态。 */
+	List<T> selectPaymentGroupForUpdate(@Param("payOrderId") String payOrderId);
+
+	/** 按旧状态推进整组订单，同时写入渠道交易号或下次关单查证时间。 */
+	int updatePaymentGroup(@Param("payOrderId") String payOrderId, @Param("oldStatus") int oldStatus,
+			@Param("newStatus") int newStatus, @Param("channelOrderId") String channelOrderId, @Param("checkAt") Date checkAt);
+
+	/** 事务内登记付款表单已签发，锁定支付组后才能调用。 */
+	int markPaymentLinkIssued(@Param("payOrderId") String payOrderId);
+
+	List<String> selectExpiredOrderIds(@Param("now") Date now, @Param("legacyCutoff") Date legacyCutoff, @Param("limit") int limit);
+
+	List<String> selectDueCloseOrderIds(@Param("now") Date now, @Param("limit") int limit);
+
+	/** 主动查单使用按支付单号翻页的游标，同一组订单只查询一次。 */
+	List<T> selectAwaitingPaymentGroups(@Param("after") String after, @Param("limit") int limit);
 
 	/**
 	 * 批量更改订单状态

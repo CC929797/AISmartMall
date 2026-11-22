@@ -6,6 +6,7 @@ import com.easymall.entity.enums.DateTimePatternEnum;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.utils.DateUtil;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.io.Serializable;
@@ -44,6 +45,48 @@ public class OrderInfo implements Serializable {
 	 * -1已删除 0:待付款 1:已付款,待发货  2:已发货  3:已完成 4:已取消 5:已关闭 6:已退款 7:部分退款
 	 */
 	private Integer orderStatus;
+
+	/** 支付组共用的固定付款截止时间。历史订单留空，按原下单时间计算截止。 */
+	@JsonIgnore
+	private Date paymentExpiresAt;
+
+	/** 为 true 时客户端可能已经持有有效付款表单，历史数据用 null 表示未知。 */
+	@JsonIgnore
+	private Boolean paymentLinkIssued;
+
+	/** 关单待确认阶段的下次查证时间，同时用于限制并发查证频率。 */
+	@JsonIgnore
+	private Date paymentCloseCheckAt;
+
+	public Date getPaymentExpiresAt() {
+		return paymentExpiresAt;
+	}
+	public void setPaymentExpiresAt(Date paymentExpiresAt) {
+		this.paymentExpiresAt = paymentExpiresAt;
+	}
+	public Boolean getPaymentLinkIssued() {
+		return paymentLinkIssued;
+	}
+	public void setPaymentLinkIssued(Boolean paymentLinkIssued) {
+		this.paymentLinkIssued = paymentLinkIssued;
+	}
+	public Date getPaymentCloseCheckAt() {
+		return paymentCloseCheckAt;
+	}
+	public void setPaymentCloseCheckAt(Date paymentCloseCheckAt) {
+		this.paymentCloseCheckAt = paymentCloseCheckAt;
+	}
+
+	/** 查询订单明细时附带的物流状态，部分退款后仍可区分是否发货。 */
+	private Integer logisticsStatus;
+
+	public Integer getLogisticsStatus() {
+		return logisticsStatus;
+	}
+
+	public void setLogisticsStatus(Integer logisticsStatus) {
+		this.logisticsStatus = logisticsStatus;
+	}
 
 	/**
 	 * 支付通道

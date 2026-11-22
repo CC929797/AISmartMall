@@ -28,6 +28,8 @@ public interface BusinessTaskMapper {
     int owns(@Param("id") String id, @Param("owner") String owner);
     /** 当前有效租约持有者标记SUCCESS并清除租约。 */
     int succeed(@Param("id") String id, @Param("owner") String owner);
+    /** 等待业务前置条件时延后执行，只接受当前有效租约。 */
+    int defer(@Param("id") String id, @Param("owner") String owner);
     /** 当前有效租约持有者登记失败，根据次数转为RETRY或DEAD，并保存固定错误码。 */
     int fail(@Param("id") String id, @Param("owner") String owner, @Param("delayMillis") long delayMillis, @Param("errorCode") String errorCode);
     /** 只允许DEAD恢复READY并重置本轮次数，普通执行中或成功任务不能借此重跑。 */

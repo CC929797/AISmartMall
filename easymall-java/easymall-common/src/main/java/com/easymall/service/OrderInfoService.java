@@ -88,7 +88,17 @@ public interface OrderInfoService {
 	/**
 	 * 取消订单
 	 */
-    void cancelOrder(String userId, String orderId, OrderStatusEnum orderStatusEnum);
+    OrderStatusEnum cancelOrder(String userId, String orderId, OrderStatusEnum orderStatusEnum);
+
+    /**
+	 * 按数据库中持久化的截止及查证时间推进超时关单和未决取消。
+	 */
+    void reconcilePaymentClosures();
+
+    /**
+	 * 每轮处理有限个待付款支付组，返回用于下一页的游标。
+	 */
+    String pollUnpaidPayments(String afterPayOrderId);
 
 	/**
 	 * 订单支付成功

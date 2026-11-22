@@ -1,5 +1,6 @@
 package com.easymall.controller;
 
+import com.easymall.order.PaymentCloseResult;
 import com.easymall.EasyMallWebApplication;
 import com.easymall.commonent.EsSearchComponent;
 import com.easymall.commonent.RedisComponent;
@@ -180,7 +181,7 @@ class BaselineSmokeIT {
 
     @BeforeEach
     void configureExternalReplacements() {
-        when(payment.getPayUrl(any(PayChannelEnum.class), anyString(), anyString(), any(BigDecimal.class)))
+        when(payment.getPayUrl(any(PayChannelEnum.class), anyString(), anyString(), any(BigDecimal.class), any()))
                 .thenAnswer(invocation -> new PayInfoDTO("baseline-mock-payment",
                         invocation.getArgument(1), invocation.getArgument(3)));
     }
@@ -242,7 +243,7 @@ class BaselineSmokeIT {
         assertThat(paymentResult.path("payInfo").asText()).isEqualTo("baseline-mock-payment");
         assertThat(paymentResult.path("amount").decimalValue()).isEqualByComparingTo(price);
         assertThat(stock(skuHash)).isEqualTo(stockBefore - 1);
-        verify(payment).getPayUrl(eq(PayChannelEnum.ALIPAY_PC), eq(payOrderId), anyString(), eq(price));
+        verify(payment).getPayUrl(eq(PayChannelEnum.ALIPAY_PC), eq(payOrderId), anyString(), eq(price), any());
 
         String orderId = jdbc.queryForObject(
                 "select order_id from order_info where pay_order_id=? and user_id=?",
@@ -286,6 +287,7 @@ class BaselineSmokeIT {
         // 通过业务接口恢复本轮占用的库存，同时保留订单记录作为证据。
         MultiValueMap<String, String> cancelForm = new LinkedMultiValueMap<>();
         cancelForm.add("orderId", orderId);
+        when(payment.closeOrder(payOrderId)).thenReturn(PaymentCloseResult.CLOSED);
         form("/order/cancelOrder", cancelForm, token);
         assertThat(stock(skuHash)).isEqualTo(stockBefore);
         // 步骤08修正：主动取消为CANCELLED(4)，超时关闭仍为CLOSED(5)。

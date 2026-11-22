@@ -10,7 +10,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 /**
  * 【后续业务基础设施】注册任务配置、Mapper和BusinessTaskService。
  * <p>商城API进程通过此配置获得投递能力；独立Worker入口也复用这部分装配。
- * 这里不创建Worker、不查询任务表，普通商城启动不会自动消费任务。
+ * 本配置只注册投递。Web 的付款任务配置和独立入口分别声明各自的 Worker 及处理器。
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(BusinessTaskProperties.class)
