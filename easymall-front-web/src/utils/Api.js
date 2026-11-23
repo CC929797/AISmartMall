@@ -37,6 +37,7 @@ const Api = {
     deleteOrder: "/order/deleteOrder",//删除订单
     confirmOrder: "/order/confirmOrder",//确认下单
     refundOrder: "/order/refundOrder",//退款
+    getRefundStatus: "/order/getRefundStatus",
     getLogistics: "/order/getLogistics",//物流信息
     postComment: "/order/comment/postComment",//评价
     getComment: "/order/comment/getComment",//获取评价

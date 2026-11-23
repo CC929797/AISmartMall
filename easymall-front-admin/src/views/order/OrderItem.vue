@@ -19,6 +19,8 @@
         <div class="amount-info">
           <Price :price="sub.itemAmount"></Price>
           <div class="buy-count">x{{ sub.buyCount }}</div>
+          <el-tag v-if="sub.orderItemStatus == 0" type="success">已退款</el-tag>
+          <el-tag v-else-if="sub.orderItemStatus == 2" type="warning">退款待确认</el-tag>
         </div>
         <div class="total-amount">
           <template v-if="index == 0">
@@ -28,7 +30,10 @@
         </div>
         <div class="order-op-panel">
           <template v-if="index == 0">
-            <el-button type="primary" v-if="data.orderStatus == 1" class="btn" @click="delivery">确认发货</el-button>
+            <el-button type="primary"
+              v-if="data.orderStatus == 1 || (data.orderStatus == 7 && data.logisticsStatus === 0)"
+              :disabled="data.orderItemList?.some(item => item.orderItemStatus == 2)"
+              class="btn" @click="delivery">确认发货</el-button>
             <el-button type="primary" v-if="data.commentStatus != 0" @click="comment">回复买家</el-button>
           </template>
         </div>
