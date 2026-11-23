@@ -113,6 +113,9 @@ public interface OrderInfoService {
 	 */
     void confirmOrder(String userId, String orderId);
 
+    /** 自动收货重试时允许已完成的订单直接跳过。 */
+    void confirmSimulatedOrder(String orderId);
+
 	/**
 	 * 删除订单
 	 * @param orderId

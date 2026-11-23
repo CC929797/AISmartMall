@@ -3,10 +3,8 @@ package com.easymall.service.Impl;
 import java.util.Date;
 import java.util.List;
 
-import com.easymall.commonent.RedisComponent;
-import com.easymall.entity.constants.Constants;
-import com.easymall.entity.dto.RagDataDTO;
-import com.easymall.entity.enums.RagDataTypeEnum;
+import com.easymall.sync.SearchSyncService;
+import org.springframework.transaction.annotation.Transactional;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -31,7 +29,7 @@ public class RagQuestionServiceImpl implements RagQuestionService {
 	private RagQuestionMapper<RagQuestion, RagQuestionQuery> ragQuestionMapper;
 
 	@Resource
-	private RedisComponent redisComponent;
+	private SearchSyncService searchSyncService;
 	/**
 	 * 根据条件查询列表
 	 */
@@ -140,6 +138,7 @@ public class RagQuestionServiceImpl implements RagQuestionService {
 	 * @param ragQuestion
 	 */
 	@Override
+	@Transactional(rollbackFor = Exception.class)
 	public void saveRagQuestion(RagQuestion ragQuestion) {
 		//判断是新增还是修改
 		if (ragQuestion.getQuestionId() == null) {
@@ -150,7 +149,8 @@ public class RagQuestionServiceImpl implements RagQuestionService {
 			this.ragQuestionMapper.updateByQuestionId(ragQuestion,ragQuestion.getQuestionId());
 		}
 
-		redisComponent.sendMessage(Constants.REDIS_QUEUE_RAG_DATA,new RagDataDTO(ragQuestion.getQuestionId().toString(), RagDataTypeEnum.FAQ.getType()));
+		// FAQ 行和向量同步任务同时提交，后台负责补做写入失败的任务。
+		searchSyncService.questionChanged(ragQuestion.getQuestionId());
 	}
 
 	/**
@@ -158,9 +158,11 @@ public class RagQuestionServiceImpl implements RagQuestionService {
 	 * @param questionId
 	 */
 	@Override
+	@Transactional(rollbackFor = Exception.class)
 	public void delRagQuestion(Integer questionId) {
 		this.deleteRagQuestionByQuestionId(questionId);
 
-		redisComponent.sendMessage(Constants.REDIS_QUEUE_RAG_DATA,new RagDataDTO(questionId.toString(), RagDataTypeEnum.FAQ.getType()));
+		// 源数据删除后仍保留同步版本，迟到的旧任务无法重新发布这条答案。
+		searchSyncService.questionChanged(questionId);
 	}
 }

@@ -36,4 +36,7 @@ public interface BusinessTaskMapper {
     int retryDead(@Param("id") String id);
     /** 按有限批次读取DEAD任务供内部排查，不在此层提供管理员权限校验。 */
     List<BusinessTask> listDead(@Param("limit") int limit);
+    /** 供管理端按允许的类型、业务编号和状态查看最近任务。 */
+    List<BusinessTask> listManaged(@Param("types") List<String> types, @Param("type") String type,
+                                   @Param("key") String key, @Param("status") String status, @Param("limit") int limit);
 }

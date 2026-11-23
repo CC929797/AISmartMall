@@ -37,7 +37,8 @@ public final class BusinessTaskWorker implements SmartLifecycle, AutoCloseable {
 
     public BusinessTaskWorker(BusinessTaskService service, BusinessTaskProperties properties, List<BusinessTaskHandler> handlers) {
         properties.validate();
-        this.service = service; this.options = properties.getWorker();
+        this.service = service;
+        this.options = properties.getWorker();
         Map<String, BusinessTaskHandler> registry = new HashMap<>();
         for (BusinessTaskHandler handler : handlers) {
             BusinessTaskService.validateType(handler.taskType());
@@ -48,12 +49,17 @@ public final class BusinessTaskWorker implements SmartLifecycle, AutoCloseable {
     }
 
     /** 启动独立线程；若上次停机仍有线程未退出，拒绝重启以免混用两轮执行状态。 */
-    @Override public synchronized void start() {
+    @Override
+    public synchronized void start() {
         if (executor != null && (!executor.isTerminated() || !poller.isTerminated() || !heartbeats.isTerminated())) {
-            if (running.get()) return;
-            throw new IllegalStateException("Previous Worker execution has not terminated");
+            if (running.get()) {
+                return;
+            }
+            throw new IllegalStateException("之前的 Worker 执行尚未终止");
         }
-        if (!running.compareAndSet(false, true)) return;
+        if (!running.compareAndSet(false, true)) {
+            return;
+        }
         capacity = new Semaphore(options.getThreads());
         executor = new ThreadPoolExecutor(options.getThreads(), options.getThreads(), 0L, TimeUnit.MILLISECONDS,
                 // 许可已将运行中+已领取任务限制为threads；小队列只吸收线程释放许可到返回run之间的交接窗口。
@@ -61,20 +67,29 @@ public final class BusinessTaskWorker implements SmartLifecycle, AutoCloseable {
         heartbeats = Executors.newSingleThreadScheduledExecutor(threads("business-task-lease-"));
         poller = Executors.newSingleThreadScheduledExecutor(threads("business-task-poll-"));
         poller.scheduleWithFixedDelay(this::poll, 0, options.getPollIntervalMillis(), TimeUnit.MILLISECONDS);
-        log.info("Business task Worker started; handlers={}, concurrency={}", handlers.size(), options.getThreads());
+        log.info("业务任务 Worker 已启动; handlers={}, concurrency={}", handlers.size(), options.getThreads());
     }
 
     /** 每轮最多领取“批次上限”和“空闲许可数”中的较小值，领取提交后再分派。 */
     private void poll() {
         int reserved = 0;
         try {
-            if (!running.get()) return;
-            while (reserved < options.getBatchSize() && capacity.tryAcquire()) reserved++;
-            if (reserved == 0) return;
+            if (!running.get()) {
+                return;
+            }
+            while (reserved < options.getBatchSize() && capacity.tryAcquire()) {
+                reserved++;
+            }
+            if (reserved == 0) {
+                return;
+            }
+            // 领取任务
             List<BusinessTask> claimed = service.claimBatch(handlers.keySet(), reserved, options.getLeaseSeconds());
             for (BusinessTask task : claimed) {
                 Run run = new Run(task);
-                if (!running.get()) break;
+                if (!running.get()) {
+                    break;
+                }
                 inFlight.add(run);
                 try {
                     executor.execute(() -> execute(run));
@@ -85,7 +100,7 @@ public final class BusinessTaskWorker implements SmartLifecycle, AutoCloseable {
                 }
             }
         } catch (Exception failure) {
-            log.warn("Task poll failed; code=POLL_FAILED, exceptionType={}", failure.getClass().getSimpleName());
+            log.warn("任务拉取失败; code=POLL_FAILED, exceptionType={}", failure.getClass().getSimpleName());
         } finally {
             // 没领到或没成功分派的许可立即归还；已分派任务的许可由execute归还。
             if (reserved > 0) capacity.release(reserved);
@@ -100,19 +115,31 @@ public final class BusinessTaskWorker implements SmartLifecycle, AutoCloseable {
         ScheduledFuture<?> heartbeat = null;
         try {
             heartbeat = heartbeats.scheduleAtFixedRate(() -> {
-                if (run.lost.get()) return;
-                try { if (!service.renew(run.task, options.getLeaseSeconds())) run.lost.set(true); }
+                if (run.lost.get()) {
+                    return;
+                }
+                try {
+                    if (!service.renew(run.task, options.getLeaseSeconds())) {
+                        run.lost.set(true);
+                    }
+                }
                 // 无法确认租约时先停止本地结果写入，等待数据库租约恢复机制处理。
-                catch (Exception failure) { run.lost.set(true); }
+                catch (Exception failure) {
+                    run.lost.set(true);
+                }
             }, options.getHeartbeatMillis(), options.getHeartbeatMillis(), TimeUnit.MILLISECONDS);
+            // 同一个任务被重新领取时会拿到新令牌，搜索同步 SQL 依此区分旧执行者和接管者。
             TaskExecution task = new TaskExecution(run.task.getTaskId(), run.task.getTaskType(), run.task.getBizKey(),
                     run.task.getBizVersion(), run.task.getPayload(), run.task.getAttempts(),
-                    () -> !run.lost.get() && service.ownsLease(run.task));
+                    () -> !run.lost.get() && service.ownsLease(run.task), run.task.getLeaseOwner());
+            // 确保任务租约有效
             task.requireActiveLease();
             // 此时没有持有领取事务的行锁；处理器自行负责业务事务、幂等和外部版本保护。
+            // 按照任务的类型调用处理器
             handlers.get(task.taskType()).handle(task);
+            // 如果任务成功，记录完成
             if (!run.lost.get() && service.succeed(run.task)) {
-                log.info("Task completed; taskId={}, type={}, attempt={}", task.taskId(), task.taskType(), task.attempt());
+                log.info("任务完成; taskId={}, type={}, attempt={}", task.taskId(), task.taskType(), task.attempt());
             }
         } catch (TaskDeferredException pending) {
             try {
@@ -121,44 +148,68 @@ public final class BusinessTaskWorker implements SmartLifecycle, AutoCloseable {
                 }
             } catch (RuntimeException storageFailure) {
                 // 暂时无法写入延后结果时，原租约到期后仍可恢复任务。
-                log.warn("Task deferral failed; taskId={}", run.task.getTaskId());
+                log.warn("任务延后失败; taskId={}", run.task.getTaskId());
             }
         } catch (Exception failure) {
             try {
                 if (!run.lost.get()) service.fail(run.task, "HANDLER_FAILED");
             } catch (Exception storageFailure) {
-                log.warn("Task result persistence failed; taskId={}, code=RESULT_WRITE_FAILED", run.task.getTaskId());
+                log.warn("任务结果持久化失败; taskId={}, code=RESULT_WRITE_FAILED", run.task.getTaskId());
             }
-            log.warn("Task failed; taskId={}, type={}, attempt={}, code=HANDLER_FAILED, exceptionType={}",
+            log.warn("任务失败; taskId={}, type={}, attempt={}, code=HANDLER_FAILED, exceptionType={}",
                     run.task.getTaskId(), run.task.getTaskType(), run.task.getAttempts(), failure.getClass().getSimpleName());
         } finally {
-            if (heartbeat != null) heartbeat.cancel(false);
+            if (heartbeat != null) {
+                heartbeat.cancel(false);
+            }
             inFlight.remove(run);
             capacity.release();
         }
     }
 
     /** 停止新领取，等待宽限期；超时任务保留数据库记录，由租约到期恢复。 */
-    @Override public synchronized void stop() {
+    @Override
+    public synchronized void stop() {
         if (!running.getAndSet(false)) return;
         poller.shutdownNow();
         executor.shutdown();
-        try { executor.awaitTermination(options.getShutdownGraceMillis(), TimeUnit.MILLISECONDS); }
+        try {
+            executor.awaitTermination(options.getShutdownGraceMillis(), TimeUnit.MILLISECONDS);
+        }
         catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
         // 超过停机宽限的在途任务不能再写结果。外部在途副作用仍需处理器自己的幂等/版本保护。
         inFlight.forEach(run -> run.lost.set(true));
         executor.shutdownNow();
         heartbeats.shutdownNow();
-        log.info("Business task Worker stopped; remaining={}", inFlight.size());
+        log.info("业务任务 Worker 已停止; remaining={}", inFlight.size());
     }
 
-    @Override public void stop(Runnable callback) { try { stop(); } finally { callback.run(); } }
-    @Override public boolean isRunning() { return running.get(); }
+    @Override
+    public void stop(Runnable callback) {
+        try {
+            stop();
+        }
+        finally {
+        callback.run();
+        }
+    }
+    @Override
+    public boolean isRunning() {
+        return running.get();
+    }
     /** Spring停机时较早停止Worker，让其在数据库等资源关闭前完成收尾。 */
-    @Override public int getPhase() { return Integer.MAX_VALUE - 100; }
-    @Override public void close() { stop(); }
+    @Override
+    public int getPhase() {
+        return Integer.MAX_VALUE - 100;
+    }
+    @Override
+    public void close() {
+        stop();
+    }
     /** 当前进程在途任务数，可用于观察运行状态，也用于并发边界测试。 */
-    public int inFlightCount() { return inFlight.size(); }
+    public int inFlightCount() {
+        return inFlight.size();
+    }
 
     /** 使用具名的非守护线程，保证无HTTP的独立Worker在空闲时也继续存活。 */
     private static ThreadFactory threads(String prefix) {
@@ -169,6 +220,8 @@ public final class BusinessTaskWorker implements SmartLifecycle, AutoCloseable {
     private static final class Run {
         final BusinessTask task;
         final AtomicBoolean lost = new AtomicBoolean();
-        Run(BusinessTask task) { this.task = task; }
+        Run(BusinessTask task) {
+            this.task = task;
+        }
     }
 }

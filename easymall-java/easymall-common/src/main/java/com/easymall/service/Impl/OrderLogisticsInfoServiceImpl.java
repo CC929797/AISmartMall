@@ -4,9 +4,7 @@ import java.util.Date;
 import java.util.IllegalFormatCodePointException;
 import java.util.List;
 
-import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.config.AppConfig;
-import com.easymall.entity.constants.Constants;
 import com.easymall.entity.enums.LogisticsStatusEnum;
 import com.easymall.entity.enums.OrderStatusEnum;
 import com.easymall.entity.enums.OrderItemStatusEnum;
@@ -21,6 +19,8 @@ import com.easymall.mappers.OrderItemMapper;
 import com.easymall.entity.po.OrderItem;
 import com.easymall.mappers.OrderLogisticsInfoRecordMapper;
 import com.easymall.refund.RefundPendingException;
+import com.easymall.task.FulfillmentTasks;
+import java.time.Duration;
 import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
@@ -49,7 +49,7 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 	@Resource
 	private OrderItemMapper<OrderItem, OrderItemQuery> orderItemMapper;
 	@Resource
-	private RedisComponent redisComponent;
+	private FulfillmentTasks fulfillmentTasks;
 	@Resource
 	private OrderLogisticsInfoRecordMapper<OrderLogisticsInfoRecord, OrderLogisticsInfoRecordQuery> orderLogisticsInfoRecordMapper;
 	@Resource
@@ -196,11 +196,6 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 		orderLogisticsInfo.setLogisticsStatus(LogisticsStatusEnum.IN_TRANSIT.getStatus());
 		orderLogisticsInfoMapper.updateByOrderId(orderLogisticsInfo,orderLogisticsInfo.getOrderId());
 
-		//加入队列，模拟物流
-		if (appConfig.isSimulatedLogistics()) {
-			redisComponent.addOrder2LogisticsQueue(10,orderLogisticsInfo.getOrderId());
-		}
-
 		//获取到物流信息当中的发货地址
 		OrderLogisticsInfo dbInfo = this.getOrderLogisticsInfoByOrderId(orderInfo.getOrderId());
 
@@ -211,20 +206,23 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 		record.setOrderId(orderLogisticsInfo.getOrderId());
 		orderLogisticsInfoRecordMapper.insert(record);
 
-		// 自动确认只服务于演示物流，普通环境由买家或可信履约流程推进。
+		// 发货、起始物流记录和两个到期任务一起落库，重启后 Worker 会按原计划恢复。
 		if (appConfig.isSimulatedLogistics()) {
-			redisComponent.addOrder2DelayQueue(Constants.REDIS_KEY_ORDER_DELAY_QUEUE_CONFIRM,
-					appConfig.getOrderConfirmMinute(), orderLogisticsInfo.getOrderId());
+			// 上面已写入第 1 条发货轨迹，约 10 秒后允许写下一条。自动收货另外从发货时间计时。
+			fulfillmentTasks.logisticsStep(orderInfo.getOrderId(), 1, Duration.ofSeconds(10));
+			fulfillmentTasks.autoConfirm(orderInfo.getOrderId(), Duration.ofMinutes(appConfig.getOrderConfirmMinute()));
 		}
 
 	}
 
 	/**
-	 * 模拟订单物流
-	 * @param orderId
+	 * 推进一条模拟物流轨迹，本次轨迹和后续任务随同一个事务提交。
+	 * @param orderId 主订单号
+	 * @param expectedRecords 任务登记时已经存在的轨迹数
 	 */
 	@Override
-	public void mockOrderLogistics(String orderId) {
+	@Transactional(rollbackFor = Exception.class)
+	public void mockOrderLogistics(String orderId, long expectedRecords) {
 		if (!appConfig.isSimulatedLogistics()) {
 			return;
 		}
@@ -282,7 +280,8 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 				"漳州市龙海市角美镇漳州台商投资区物流园"
 		};
 
-		OrderInfo orderInfo = orderInfoMapper.selectByOrderId(orderId);
+		// 按主单加锁，重复领取同一路段时只有第一次执行能追加记录。
+		OrderInfo orderInfo = orderInfoMapper.selectOrderForUpdate(orderId);
 		if (orderInfo == null) {
 			return;
 		}
@@ -294,18 +293,30 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 			return;
 		}
 
+		OrderLogisticsInfo shipment = this.orderLogisticsInfoMapper.selectByOrderId(orderId);
+		if (shipment == null || !LogisticsStatusEnum.IN_TRANSIT.getStatus().equals(shipment.getLogisticsStatus())) {
+			return;
+		}
+
 		OrderLogisticsInfoRecordQuery query = new OrderLogisticsInfoRecordQuery();
 		query.setOrderId(orderId);
 		Integer recordCount = this.orderLogisticsInfoRecordMapper.selectCount(query);
+		// 例如任务要求已有 2 条，数据库已经有 3 条，说明这一步执行过，直接结束。
+		if (recordCount > expectedRecords) {
+			return;
+		}
+		if (recordCount < expectedRecords) {
+			// 实际记录少于预期时先报错，避免中间轨迹缺失时直接写下一跳。
+			throw new IllegalStateException("物流任务与已记录进度不一致");
+		}
 
 		String address = null;
 		if (recordCount >= 5) {
-			OrderLogisticsInfo orderLogisticsInfo = this.orderLogisticsInfoMapper.selectByOrderId(orderId);
-			address = orderLogisticsInfo.getReceiverAddress();
+			// 已有发货与中转轨迹，下一条写收货地址，并将物流标为已送达。
+			address = shipment.getReceiverAddress();
 		} else {
-			Integer randomIndex = StringTools.getRandomNumberRange(0,logisticsCenters.length);
+			Integer randomIndex = StringTools.getRandomNumberRange(0, logisticsCenters.length - 1);
 			address = logisticsCenters[randomIndex];
-			redisComponent.addOrder2LogisticsQueue(StringTools.getRandomNumberRange(1,5),orderId);
 		}
 		OrderLogisticsInfoRecord record = new OrderLogisticsInfoRecord();
 		record.setRecordAddress(address);
@@ -317,6 +328,9 @@ public class OrderLogisticsInfoServiceImpl implements OrderLogisticsInfoService 
 			OrderLogisticsInfo logisticsInfo = new OrderLogisticsInfo();
 			logisticsInfo.setLogisticsStatus(LogisticsStatusEnum.DELIVERED.getStatus());
 			this.orderLogisticsInfoMapper.updateByOrderId(logisticsInfo, orderId);
+		} else {
+			// 入队和本路段同事务。若本事务回滚，两者都留给本路段的重试。
+			fulfillmentTasks.logisticsStep(orderId, recordCount + 1L, Duration.ofSeconds(StringTools.getRandomNumberRange(1, 5)));
 		}
 	}
 

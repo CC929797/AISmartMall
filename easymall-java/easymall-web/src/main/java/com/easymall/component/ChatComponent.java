@@ -16,6 +16,7 @@ import com.easymall.entity.query.SimplePage;
 import com.easymall.service.AgentMessageService;
 import com.easymall.service.OrderInfoService;
 import com.easymall.service.ProductInfoService;
+import com.easymall.task.RagDataTask;
 import com.easymall.utils.DateUtil;
 import com.easymall.utils.JsonUtils;
 import com.easymall.utils.StringTools;
@@ -32,6 +33,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -54,8 +56,11 @@ public class ChatComponent {
     private MessageHandler messageHandler;
     @Resource
     private ChatClient chatClient;
+    @Lazy
     @Resource
     private VectorStore vectorStore;
+    @Resource
+    private RagDataTask ragDataTask;
     @Resource
     private ProductInfoService productInfoService;
     @Resource
@@ -190,25 +195,30 @@ public class ChatComponent {
                 similarityThreshold(0.45).topK(30).
                 build();
 
-        //查询向量数据库当中所有的商品信息
-        List<Document> doc = vectorStore.similaritySearch(request);
+        // 检索相似商品，并先过滤已下架或向量版本过期的文档，再把候选交给模型。
+        List<Document> doc = ragDataTask.visibleDocuments(vectorStore.similaritySearch(request), RagDataTypeEnum.PRODUCT);
+        java.util.Set<Object> allowedProducts = doc.stream().map(item -> item.getMetadata().get("productId"))
+                .collect(Collectors.toSet());
         String prompt = String.format(getPromptTemplate(PromptTypeEnum.PRODUCT_SEARCH), JsonUtils.convertObj2Json(doc), keyword);
         //AI根据提示的关键词去检索查询到的商品信息中更符合的商品
         List<ProductInfo> productInfos = getChatClientRequestSpec().user(prompt).call().entity(new ParameterizedTypeReference<>() {
         });
-        //根据符合条件的商品id查询商品信息
-        List<String> productIds = productInfos.stream().map(ProductInfo::getProductId).collect(Collectors.toList());
+        // 模型给出的商品 ID 必须在本次候选里，回查 MySQL 时再确认商品仍处于上架状态。
+        List<String> productIds = productInfos.stream().map(ProductInfo::getProductId)
+                .filter(allowedProducts::contains).distinct().toList();
         List<ProductInfo> productInfoList = new ArrayList<>();
-        if (!productInfos.isEmpty()) {
+        if (!productIds.isEmpty()) {
             ProductInfoQuery productInfoQuery = new ProductInfoQuery();
             productInfoQuery.setProductIdList(productIds);
+            productInfoQuery.setStatus(com.easymall.entity.enums.ProductStatusEnum.ON_SALE.getStatus());
             productInfoQuery.setOrderBy("create_time desc");
             productInfoList = productInfoService.findListByParam(productInfoQuery);
         }
         //把查询到的商品信息转化为JSON字符串，设置到消息当中
         String assistantData = JsonUtils.convertObj2Json(productInfoList);
         agentMessage.setBizType(UserIntentEnum.PRODUCT_SEARCH.getKey());
-        agentMessage.setBizData(productIds.isEmpty() ? null : JsonUtils.convertObj2Json(productIds));
+        agentMessage.setBizData(productInfoList.isEmpty() ? null
+                : JsonUtils.convertObj2Json(productInfoList.stream().map(ProductInfo::getProductId).toList()));
         agentMessage.setAssistantMessage(assistantData);
 
         MessageSendDTO messageSendDTO = new MessageSendDTO();
@@ -280,7 +290,9 @@ public class ChatComponent {
             SearchRequest request = SearchRequest.builder()
                     .query(agentMessage.getUserMessage()).filterExpression(buildTypeFilter(RagDataTypeEnum.FAQ.getType()))
                     .similarityThreshold(0.5).topK(15).build();
-            String ragData = vectorStore.similaritySearch(request).stream().distinct().map(Document::getText).collect(Collectors.joining("\n\n"));
+            // FAQ 从向量库命中后，先核对当前版本和业务记录，再拼接给模型参考。
+            String ragData = ragDataTask.visibleDocuments(vectorStore.similaritySearch(request), RagDataTypeEnum.FAQ)
+                    .stream().map(Document::getText).distinct().collect(Collectors.joining("\n\n"));
             if (StringTools.isEmpty(ragData)) {
                 ragData = "知识库当中暂无相关内容";
             }

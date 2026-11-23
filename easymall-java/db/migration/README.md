@@ -14,6 +14,8 @@
 
 步骤10新增 [V20261115_01__payment_close.sql](V20261115_01__payment_close.sql)。启动新版前执行一次，更新 `order_info` 字段注释并新增支付截止、表单签发、关单查证时间和配套索引。付款成功事件复用 11A 的 `business_task`。 [步骤10迁移及沙箱用例](../../docs/verification/10-payment-close.md)
 
+步骤11B新增 [V20261122_01__search_sync_state.sql](V20261122_01__search_sync_state.sql)，按同步目标和业务编号保存搜索索引版本。目标库应先具备 11A 的 `business_task`。已在隔离库执行验证，开发库启动 11B 前需单独执行一次。 [11B 切换与验收](../../docs/verification/11b-reliable-sync.md)
+
 1. 使用只读账号，在明确选中的测试库运行 `../inspection/schema-baseline.sql`，记录实际字段、长度、索引和约束。
 2. 对照当前实体、Mapper 和业务规则说明需要修改的原因。源码不能代替实际 DDL；未检查的约束标记为未知。
 3. 为一项独立改动编写迁移，建议命名为 `VYYYYMMDD_NN__description.sql`。命名约定不代表已经有自动迁移器。

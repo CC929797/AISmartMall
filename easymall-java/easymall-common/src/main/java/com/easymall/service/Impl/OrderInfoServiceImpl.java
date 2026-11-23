@@ -26,6 +26,7 @@ import com.easymall.refund.RefundService;
 import com.easymall.refund.RefundStatus;
 import com.easymall.task.BusinessTaskService;
 import com.easymall.task.TaskSubmission;
+import com.easymall.sync.SearchSyncService;
 import com.easymall.utils.JsonUtils;
 import java.time.Duration;
 import java.time.Instant;
@@ -58,6 +59,8 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 	private RefundService refundService;
 	@Resource
 	private BusinessTaskService businessTaskService;
+	@Resource
+	private SearchSyncService searchSyncService;
 	@Resource
 	private OrderInfoMapper<OrderInfo, OrderInfoQuery> orderInfoMapper;
 	@Resource
@@ -877,7 +880,39 @@ public class OrderInfoServiceImpl implements OrderInfoService {
 		orderItemQuery.setOrderItemStatus(OrderItemStatusEnum.NORMAL.getStatus());
 		List<OrderItem> orderItemList = this.orderItemMapper.selectList(orderItemQuery);
 		Integer buyCount = orderItemList.stream().mapToInt(OrderItem::getBuyCount).sum();
-		this.productInfoMapper.updateProductTotalSale(orderItemList.get(0).getProductId(), buyCount);
+		if (buyCount > 0) {
+			String productId = orderItemList.getFirst().getProductId();
+			this.productInfoMapper.updateProductTotalSale(productId, buyCount);
+			// 同一事务登记关键词索引的销量更新，使搜索排序最终与 MySQL 销量一致。
+			searchSyncService.salesChanged(productId);
+		}
+	}
+
+	/**
+	 * 模拟模式的自动收货入口。任务到期后锁住主单，重新检查订单和物流是否仍允许收货。
+	 * 用户已经手动收货时会跳过，复用的确认收货逻辑会统一校验未决退款并更新有效销量。
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void confirmSimulatedOrder(String orderId) {
+		if (!appConfig.isSimulatedLogistics()) {
+			return;
+		}
+		OrderInfo current = orderInfoMapper.selectOrderForUpdate(orderId);
+		if (current == null) {
+			return;
+		}
+		OrderStatusEnum status = OrderStatusEnum.getByStatus(current.getOrderStatus());
+		if (status != OrderStatusEnum.SHIPPED && status != OrderStatusEnum.PARTIALLY_REFUNDED) {
+			return;
+		}
+		OrderLogisticsInfo shipment = orderLogisticsInfoMapper.selectByOrderId(orderId);
+		if (shipment == null || (!LogisticsStatusEnum.IN_TRANSIT.getStatus().equals(shipment.getLogisticsStatus())
+				&& !LogisticsStatusEnum.DELIVERED.getStatus().equals(shipment.getLogisticsStatus()))) {
+			return;
+		}
+		// 商城手动收货与此任务竞争同一主单行锁，销量只由先完成的那一方更新。
+		confirmOrder(null, orderId);
 	}
 
 	/**

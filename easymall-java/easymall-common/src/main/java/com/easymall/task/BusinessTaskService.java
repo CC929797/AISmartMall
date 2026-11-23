@@ -53,7 +53,9 @@ public class BusinessTaskService {
         if (request.bizKey() == null || request.bizKey().isBlank() || !request.bizKey().equals(request.bizKey().strip())
                 || request.bizKey().length() > 128 || request.bizVersion() < 0
                 || request.delay() == null || request.delay().isNegative() || request.delay().compareTo(Duration.ofDays(365)) > 0
-                || request.delay().getNano() != 0) throw new IllegalArgumentException("无效的任务事件标识或延迟");
+                || request.delay().getNano() != 0) {
+            throw new IllegalArgumentException("无效的任务事件标识或延迟");
+        }
         String payload = TaskPayload.canonical(request.payload());
         return mandatory.execute(status -> {
             if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
@@ -90,9 +92,14 @@ public class BusinessTaskService {
      * @return 已在独立事务中提交的任务快照，可能少于limit条
      */
     public List<BusinessTask> claimBatch(Set<String> supportedTypes, int limit, int leaseSeconds) {
-        if (supportedTypes == null || supportedTypes.isEmpty()) return List.of();
-        if (supportedTypes.size() > 64 || limit < 1 || limit > 64) throw new IllegalArgumentException("无效的任务认领批次");
+        if (supportedTypes == null || supportedTypes.isEmpty()) {
+            return List.of();
+        }
+        if (supportedTypes.size() > 64 || limit < 1 || limit > 64) {
+            throw new IllegalArgumentException("无效的任务认领批次");
+        }
         supportedTypes.forEach(BusinessTaskService::validateType);
+        // 验证租约时间
         validateLease(leaseSeconds);
         return independent.execute(status -> {
             List<BusinessTask> claimed = new ArrayList<>();
@@ -101,6 +108,7 @@ public class BusinessTaskService {
                     // 最后一次执行也可能崩溃；租约到期后仍要转DEAD，不能永久停在RUNNING。
                     mapper.exhaust(task.getTaskId());
                 } else if (mapper.claim(task.getTaskId(), id(), leaseSeconds) == 1) {
+                    // 领取成功，把任务状态改为RUNNING
                     // 每次领取产生新标识，旧执行者不能再以旧标识写入结果。
                     claimed.add(mapper.findById(task.getTaskId()));
                 }

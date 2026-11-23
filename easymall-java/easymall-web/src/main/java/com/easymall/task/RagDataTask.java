@@ -1,8 +1,8 @@
 package com.easymall.task;
 
-import com.easymall.entity.constants.Constants;
-import com.easymall.entity.dto.RagDataDTO;
-import com.easymall.entity.enums.ExecutorServiceSignletionEnum;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.json.JsonData;
 import com.easymall.entity.enums.ProductStatusEnum;
 import com.easymall.entity.enums.RagDataTypeEnum;
 import com.easymall.entity.po.ProductInfo;
@@ -15,183 +15,198 @@ import com.easymall.entity.query.ProductSkuQuery;
 import com.easymall.mappers.ProductInfoMapper;
 import com.easymall.mappers.ProductPropertyValueMapper;
 import com.easymall.mappers.ProductSkuMapper;
-import com.easymall.service.ProductInfoService;
-import com.easymall.service.RagQuestionService;
-import com.easymall.utils.StringTools;
-import jakarta.annotation.PostConstruct;
+import com.easymall.mappers.RagQuestionMapper;
+import com.easymall.entity.query.RagQuestionQuery;
+import com.easymall.mappers.SearchSyncMapper;
+import com.easymall.sync.SearchSyncService;
+import com.easymall.sync.SearchSyncState;
 import jakarta.annotation.Resource;
-import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RBlockingQueue;
-import org.redisson.api.RedissonClient;
-import org.redisson.codec.JsonJacksonCodec;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * 商品和 FAQ 的向量同步处理器。搜索 Worker 调用写入方法，AI 导购调用读取过滤方法。
+ * 向量文档按版本保存。同步中断或新旧任务交错时，导购仍只使用 MySQL 已发布的当前版本。
+ */
 @Component
-@Slf4j
 public class RagDataTask {
-    @Resource
-    private RedissonClient redissonClient;
+    private static final int EMBEDDING_BATCH = 10;
+    private static final String SYNC_VERSION = "syncVersion";
 
-    @Resource
-    private RagQuestionService ragQuestionService;
-
+    @Lazy
     @Resource
     private VectorStore vectorStore;
-
+    @Value("${spring.ai.vectorstore.elasticsearch.index-name:easymall-index-vectorstore}")
+    private String vectorIndex;
+    @Resource
+    private SearchSyncService searchSyncService;
     @Resource
     private ProductInfoMapper<ProductInfo, ProductInfoQuery> productInfoMapper;
-
     @Resource
     private ProductPropertyValueMapper<ProductPropertyValue, ProductPropertyValueQuery> productPropertyValueMapper;
-
     @Resource
-    private ProductSkuMapper<ProductSku,ProductSkuQuery> productSkuMapper;
+    private ProductSkuMapper<ProductSku, ProductSkuQuery> productSkuMapper;
+    @Resource
+    private RagQuestionMapper<RagQuestion, RagQuestionQuery> ragQuestionMapper;
+    @Resource
+    private SearchSyncMapper searchSyncMapper;
 
     /**
-     * 自动化订阅消息，把消息保存到向量数据库
+     * 上架商品生成商品和 SKU 向量，已下架或不存在的商品只清理旧文档。
      */
-    @PostConstruct
-    public void subscribe() {
-        ExecutorServiceSignletionEnum.INSTANCE.getExecutorService().execute(() -> {
-            RBlockingQueue<RagDataDTO> queue = redissonClient.getBlockingQueue(Constants.REDIS_QUEUE_RAG_DATA, JsonJacksonCodec.INSTANCE);
-            while (!Thread.currentThread().isInterrupted()) {
-                try {
-                    RagDataDTO ragDataDTO = queue.take();
-                    RagDataTypeEnum ragDataTypeEnum = RagDataTypeEnum.getByType(ragDataDTO.getType());
-                    switch (ragDataTypeEnum) {
-                        case FAQ :
-                            saveData2VectorStore4FAQ(ragDataDTO.getDataId());
-                            break;
-                        case PRODUCT :
-                            log.info("收到商品信息 {}", ragDataDTO.getDataId());
-                            saveData2VectorStore4Product(ragDataDTO.getDataId());
-                            break;
-                        default:
-                            break;
-                    }
-
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    log.info("消息消费被中断");
-                    break;
-                } catch (Exception e) {
-                    log.error("处理消息失败，异常类型={}", e.getClass().getSimpleName());
-                }
+    public void syncProduct(TaskExecution task) {
+        searchSyncService.synchronize(task, () -> {
+            ProductInfo product = productInfoMapper.selectByProductId(task.bizKey());
+            if (product != null && ProductStatusEnum.ON_SALE.getStatus().equals(product.getStatus())) {
+                addBatches(task, productDocuments(product, task.bizVersion()));
             }
+            removeOlder(task, RagDataTypeEnum.PRODUCT, "productId");
         });
     }
 
     /**
-     * 将商品数据保存到向量数据库
-     * @param productId 商品ID
+     * 将问题、相似问法和答案一起向量化。FAQ 被删除时，只保留清理步骤。
      */
-    private void saveData2VectorStore4Product(String productId) {
-        ProductInfo productInfo = this.productInfoMapper.selectByProductId(productId);
-        if (!ProductStatusEnum.ON_SALE.getStatus().equals(productInfo.getStatus())) {
-            vectorStore.delete(RagDataTypeEnum.PRODUCT.getType() + productId);
-            return;
-        }
-        ProductPropertyValueQuery productPropertyValueQuery = new ProductPropertyValueQuery();
-        productPropertyValueQuery.setProductId(productId);
-        productPropertyValueQuery.setOrderBy("property_sort asc");
-        List<ProductPropertyValue> productPropertyValueList = this.productPropertyValueMapper.selectList(productPropertyValueQuery);
+    public void syncQuestion(TaskExecution task) {
+        searchSyncService.synchronize(task, () -> {
+            RagQuestion question = ragQuestionMapper.selectByQuestionId(Integer.valueOf(task.bizKey()));
+            if (question != null) {
+                String similar = question.getSimilarQuestion() == null ? "" : question.getSimilarQuestion();
+                String text = question.getQuestion() + "\n相似问题：" + similar + "\n答案：" + question.getAnswer();
+                addBatches(task, List.of(new Document(
+                        "faq:" + task.bizKey() + ":" + task.bizVersion(), text,
+                        Map.of("dataType", "faq", "questionId", task.bizKey(), SYNC_VERSION, task.bizVersion()))));
+            }
+            removeOlder(task, RagDataTypeEnum.FAQ, "questionId");
+        });
+    }
 
-        Map<String, ProductPropertyValue> propertyValueMap =
-                productPropertyValueList.stream().collect(Collectors.toMap(item -> item.getPropertyValueId(),
-                propertyValue -> propertyValue));
-
-        ProductSkuQuery productSkuQuery = new ProductSkuQuery();
-        productSkuQuery.setProductId(productId);
-        List<ProductSku> allProductSkuList = this.productSkuMapper.selectList(productSkuQuery);
-        List<Document> list = new ArrayList<>();
-        Map<String , Object> metaData = new HashMap<>();
-        metaData.put("dataType", RagDataTypeEnum.PRODUCT.getType());
-        metaData.put("productId", productId);
-        metaData.put("productName", productInfo.getProductName());
-        Document doc = new Document(productId,productInfo.getProductName(),metaData);
-        list.add(doc);
-
-        List<Map<String,Object>> skuList = new ArrayList<>();
-        for (ProductSku sku : allProductSkuList) {
-            metaData = new HashMap<>();
-            metaData.put("dataType", RagDataTypeEnum.PRODUCT.getType());
-            metaData.put("productId", sku.getProductId());
-            metaData.put("productName",productInfo.getProductName());
-            StringBuilder content = new StringBuilder();
-            content.append(productInfo.getProductName()).append(" ");
-            Map<String,Object> skuProperty = new HashMap<>();
-            String[] propertyValueIds = sku.getPropertyValueIds().split("-");
-            StringBuilder skuContent = new StringBuilder();
-            Integer index = 0;
-            for (String propertyValueId : propertyValueIds) {
-                index++;
-                ProductPropertyValue propertyValue = propertyValueMap.get(propertyValueId);
-                skuContent = skuContent.append(propertyValue.getPropertyName()).append("：").append(propertyValue.getPropertyValue());
-                if (index < propertyValueIds.length) {
-                    skuContent.append("，");
+    /**
+     * 把一件商品整理成 AI 导购可以检索的文本
+     * 一条商品名称文档和每个 SKU 一条文档，让检索既能匹配品名，也能匹配颜色、尺码等属性。
+     */
+    private List<Document> productDocuments(ProductInfo product, long version) {
+        String productId = product.getProductId();
+        String name = product.getProductName();
+        var properties = new ProductPropertyValueQuery();
+        properties.setProductId(productId);
+        Map<String, String> labels = productPropertyValueMapper.selectList(properties).stream()
+                .collect(Collectors.toMap(ProductPropertyValue::getPropertyValueId,
+                        p -> p.getPropertyName() + "：" + p.getPropertyValue(), (first, next) -> first));
+        var skuQuery = new ProductSkuQuery();
+        skuQuery.setProductId(productId);
+        List<Document> documents = new ArrayList<>();
+        // ID 包含商品编号、版本和 SKU 标识。同版本重试写同一 ID，新旧版本各自独立。
+        String prefix = "product:" + productId + ":" + version;
+        var meta = Map.<String, Object>of("dataType", "product", "productId", productId,
+                "productName", name, SYNC_VERSION, version);
+        documents.add(new Document(prefix, name, meta));
+        for (ProductSku sku : productSkuMapper.selectList(skuQuery)) {
+            var skuLabels = new ArrayList<String>();
+            if (sku.getPropertyValueIds() != null && !sku.getPropertyValueIds().isBlank()) {
+                for (String id : sku.getPropertyValueIds().split("-")) {
+                    String label = labels.get(id);
+                    if (label != null) {
+                        skuLabels.add(label);
+                    }
                 }
             }
-            content.append(skuContent);
-            skuProperty.put("property",skuContent);
-            skuList.add(skuProperty);
-            metaData.put("skuList",skuList);
-            doc = new Document(sku.getProductId() + "_" + sku.getPropertyValueIdHash(),content.toString(),metaData);
-            list.add(doc);
-            if (list.size() >= 10) {
-                //阿里百炼如果一次性往向量数据库添加超过10条数据会报错
-                vectorStore.add(list);
-                list.clear();
-            }
+            var skuMeta = new java.util.HashMap<>(meta);
+            skuMeta.put("skuList", skuLabels.stream().map(label -> Map.of("property", label)).toList());
+            documents.add(new Document(prefix + ":" + sku.getPropertyValueIdHash(),
+                    name + " " + String.join("，", skuLabels), skuMeta));
         }
+        return documents;
+    }
 
-        if (!list.isEmpty()) {
-            vectorStore.add(list);
+    private void addBatches(TaskExecution task, List<Document> documents) {
+        // 一些向量模型每次最多嵌入 10 条。任一批失败就不发布整版，重试复用相同的文档 ID。
+        for (int offset = 0; offset < documents.size(); offset += EMBEDDING_BATCH) {
+            task.requireActiveLease();
+            vectorStore.add(List.copyOf(documents.subList(offset, Math.min(offset + EMBEDDING_BATCH, documents.size()))));
         }
     }
 
+    private void removeOlder(TaskExecution task, RagDataTypeEnum type, String keyField) {
+        task.requireActiveLease();
+        // 按类型、对象和版本精确清理。旧任务晚到时，其清理范围仍不会包含任何更新版本。
+        // 直接检查 ES 的执行结果，避免把部分删除或超时当成一次完整同步。
+        ElasticsearchClient client = vectorStore.<ElasticsearchClient>getNativeClient().orElseThrow();
+        String versionField = "metadata." + SYNC_VERSION;
+        Query missingVersion = Query.of(q -> q.bool(b -> b.mustNot(qry -> qry.exists(e -> e.field(versionField)))));
+        Query olderVersion = Query.of(q -> q.range(r -> r.untyped(v -> v.field(versionField)
+                .lt(JsonData.of(task.bizVersion())))));
+        Query obsolete = Query.of(q -> q.bool(b -> b.minimumShouldMatch("1").should(olderVersion, missingVersion)));
+        Query matchingObject = Query.of(q -> q.bool(b -> b
+                .filter(item -> item.term(term -> term.field("metadata.dataType.keyword").value(type.getType())))
+                .filter(item -> item.term(term -> term.field("metadata." + keyField + ".keyword").value(task.bizKey())))
+                .filter(obsolete)));
+        try {
+            var result = client.deleteByQuery(request -> request.index(vectorIndex).refresh(true).query(matchingObject));
+            if (Boolean.TRUE.equals(result.timedOut()) || !result.failures().isEmpty()) {
+                throw new IllegalStateException("向量旧版本清理未完成");
+            }
+        } catch (IOException failure) {
+            throw new UncheckedIOException(failure);
+        }
+    }
 
     /**
-     * 将FAQ数据(知识库问题)保存到向量数据库
-     * @param questionId 问题ID
+     * 相似度查询只提供候选。进入提示词之前，要确认商品仍在售或 FAQ 仍存在，再检查文档版本。
+     * 已有同步状态的对象仅接受 requestedVersion 与 publishedVersion 一致的版本。
      */
-    private void saveData2VectorStore4FAQ(String questionId) {
-        //查询数据
-        RagQuestion ragQuestion = ragQuestionService.getRagQuestionByQuestionId(Integer.parseInt(questionId));
-        if (ragQuestion == null) {
-            vectorStore.delete(RagDataTypeEnum.FAQ.getType() + questionId);
-            return;
+    public List<Document> visibleDocuments(List<Document> candidates, RagDataTypeEnum type) {
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+        boolean products = type == RagDataTypeEnum.PRODUCT;
+        String keyField = products ? "productId" : "questionId";
+        List<String> keys = candidates.stream().map(doc -> key(doc, keyField))
+                .filter(id -> id != null && (products || id.matches("[1-9][0-9]{0,9}")))
+                .distinct().toList();
+        if (keys.isEmpty()) {
+            return List.of();
         }
 
-        //构建Document
-        List<Document> list = new ArrayList<>();
-        //构建metaData设置问题的元数据信息
-        Map<String , Object> metaData = new HashMap<>();
-        metaData.put("dataType", RagDataTypeEnum.FAQ.getType());
-        metaData.put("questionId", questionId);
-        metaData.put("question", ragQuestion.getQuestion());
-        metaData.put("answer", ragQuestion.getAnswer());
-        if (!StringTools.isEmpty(ragQuestion.getSimilarQuestion())) {
-            metaData.put("similarQuestion", ragQuestion.getSimilarQuestion());
+        Set<String> current;
+        if (products) {
+            var query = new ProductInfoQuery();
+            query.setProductIdList(keys);
+            query.setStatus(ProductStatusEnum.ON_SALE.getStatus());
+            current = productInfoMapper.selectList(query).stream().map(ProductInfo::getProductId).collect(Collectors.toSet());
         } else {
-            metaData.put("similarQuestion", "暂无相似问题");
+            current = Set.copyOf(searchSyncMapper.existingQuestions(keys));
         }
+        String taskType = products ? SearchSyncService.PRODUCT_VECTOR : SearchSyncService.FAQ_VECTOR;
+        Map<String, SearchSyncState> states = searchSyncService.states(taskType, keys);
+        return candidates.stream().filter(doc -> {
+            String objectKey = key(doc, keyField);
+            if (objectKey == null || !current.contains(objectKey)
+                    || !type.getType().equals(doc.getMetadata().get("dataType"))) {
+                return false;
+            }
+            SearchSyncState state = states.get(objectKey);
+            Object version = doc.getMetadata().get(SYNC_VERSION);
+            // 首次切换时保留尚未重同步且业务仍可见的旧文档。有同步版本后只接受完整发布的新版本。
+            return state == null ? version == null
+                    : version instanceof Number number && number.longValue() == state.requestedVersion()
+                    && state.publishedVersion() == state.requestedVersion();
+        }).toList();
+    }
 
-        StringBuilder content = new StringBuilder();
-        content.append(ragQuestion.getQuestion()).append(" ");
-        if (!StringTools.isEmpty(ragQuestion.getSimilarQuestion())) {
-            content.append("相似问题：").append(ragQuestion.getSimilarQuestion()).append(" ");
-        }
-        content.append("答案：").append(ragQuestion.getAnswer()).append(" ");
-
-        //构建Document对象,添加到list中
-        Document document = new Document(questionId,content.toString(),metaData);
-        list.add(document);
-        //添加数据到向量数据库
-        vectorStore.add(list);
+    private static String key(Document doc, String field) {
+        Object key = doc.getMetadata().get(field);
+        return key instanceof String value && !value.isBlank() ? value : null;
     }
 }

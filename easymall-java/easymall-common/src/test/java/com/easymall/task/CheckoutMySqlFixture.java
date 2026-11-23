@@ -73,6 +73,7 @@ final class CheckoutMySqlFixture implements AutoCloseable {
         }
         ReflectionTestUtils.setField(service, "orderRequestService", requestService); ReflectionTestUtils.setField(service, "businessTaskService", db.service);
         ReflectionTestUtils.setField(service, "redisComponent", redis);
+        ReflectionTestUtils.setField(service, "searchSyncService", mock(com.easymall.sync.SearchSyncService.class));
         AppConfig app = mock(AppConfig.class); when(app.getOrderExpireMinute()).thenReturn(30); ReflectionTestUtils.setField(service, "appConfig", app);
         when(payment.getPayUrl(any(), anyString(), anyString(), any(), any())).thenAnswer(call -> new PayInfoDTO("<html>synthetic-no-payment</html>", call.getArgument(1), call.getArgument(3)));
         previousContext = ReflectionTestUtils.getField(SpringContext.class, "applicationContext");

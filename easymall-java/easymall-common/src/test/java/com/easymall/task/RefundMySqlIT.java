@@ -190,7 +190,6 @@ class RefundMySqlIT {
             ReflectionTestUtils.setField(deliveryService, Character.toLowerCase(name.charAt(0)) + name.substring(1), fixture.session.getMapper(mapper));
         }
         ReflectionTestUtils.setField(deliveryService, "orderItemMapper", fixture.items);
-        ReflectionTestUtils.setField(deliveryService, "redisComponent", fixture.redis);
         var app = mock(com.easymall.entity.config.AppConfig.class);
         when(app.getOrderConfirmMinute()).thenReturn(15);
         ReflectionTestUtils.setField(deliveryService, "appConfig", app);

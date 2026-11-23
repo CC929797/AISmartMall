@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.easymall.mappers.SearchSyncMapper">
+    <resultMap id="state" type="com.easymall.sync.SearchSyncState">
+        <constructor>
+            <arg column="biz_key" javaType="string"/>
+            <arg column="requested_version" javaType="_long"/>
+            <arg column="published_version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+    <!-- 以任务类型和业务编号唯一标识状态行，在当前业务事务内登记最新版本。 -->
+    <insert id="request">
+        INSERT INTO search_sync_state (task_type, biz_key, requested_version, updated_at)
+        VALUES (#{type}, #{key}, 1, UTC_TIMESTAMP(6))
+        ON DUPLICATE KEY UPDATE requested_version = requested_version + 1, updated_at = UTC_TIMESTAMP(6)
+    </insert>
+    <select id="find" resultMap="state">
+        SELECT biz_key, requested_version, published_version FROM search_sync_state
+        WHERE task_type=#{type} AND biz_key=#{key}
+    </select>
+    <select id="findBatch" resultMap="state">
+        SELECT biz_key, requested_version, published_version FROM search_sync_state WHERE task_type=#{type}
+        AND biz_key IN <foreach collection="keys" item="key" open="(" separator="," close=")">#{key}</foreach>
+    </select>
+    <!-- 用数据库时间确认 11A 的租约仍有效。Worker 在远程调用前完成短暂的数据库更新。 -->
+    <sql id="currentLease">
+        EXISTS (SELECT 1 FROM business_task t WHERE t.task_id=#{taskId}
+                AND t.lease_owner=#{owner} AND t.status='RUNNING' AND t.lease_until &gt; UTC_TIMESTAMP(6))
+    </sql>
+    <!-- 上一个令牌已失效时允许接管。仅允许领取当前尚未发布的版本。 -->
+    <update id="acquire">
+        UPDATE search_sync_state s SET running_task_id=#{taskId}, running_lease_owner=#{owner}
+        WHERE s.task_type=#{type} AND s.biz_key=#{key} AND s.requested_version=#{version}
+          AND s.published_version &lt; #{version} AND <include refid="currentLease"/>
+          AND NOT EXISTS (SELECT 1 FROM business_task previous
+                        WHERE previous.task_id=s.running_task_id AND previous.lease_owner=s.running_lease_owner
+                          AND previous.status='RUNNING' AND previous.lease_until &gt; UTC_TIMESTAMP(6))
+    </update>
+    <!-- 远程写入后再校验一遍。业务已产生更新版本或租约失效时，旧任务无法更新发布版本。 -->
+    <update id="publish">
+        UPDATE search_sync_state SET published_version=#{version}, updated_at=UTC_TIMESTAMP(6)
+        WHERE task_type=#{type} AND biz_key=#{key} AND requested_version=#{version}
+          AND running_task_id=#{taskId} AND running_lease_owner=#{owner}
+          AND <include refid="currentLease"/>
+    </update>
+    <!-- 清理本次占用时匹配任务和令牌，防止执行慢的旧 Worker 清掉接管者的占用。 -->
+    <update id="release">
+        UPDATE search_sync_state SET running_task_id=NULL, running_lease_owner=NULL
+        WHERE task_type=#{type} AND biz_key=#{key} AND running_task_id=#{taskId} AND running_lease_owner=#{owner}
+    </update>
+    <!-- 按主键游标逐批登记存量数据，下一批从上一批最后一个编号之后开始。 -->
+    <select id="productsAfter" resultType="string">
+        SELECT product_id FROM product_info WHERE product_id &gt; #{cursor} ORDER BY product_id LIMIT #{limit}
+    </select>
+    <select id="questionsAfter" resultType="int">
+        SELECT question_id FROM rag_question WHERE question_id &gt; #{cursor} ORDER BY question_id LIMIT #{limit}
+    </select>
+    <select id="existingQuestions" resultType="string">
+        SELECT CAST(question_id AS CHAR) FROM rag_question WHERE question_id IN
+        <foreach collection="keys" item="key" open="(" separator="," close=")">#{key}</foreach>
+    </select>
+</mapper>

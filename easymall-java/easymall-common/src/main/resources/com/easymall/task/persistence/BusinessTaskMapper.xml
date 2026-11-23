@@ -61,4 +61,14 @@
     <select id="listDead" resultMap="task">
         SELECT * FROM business_task WHERE status='DEAD' ORDER BY updated_at,task_id LIMIT #{limit}
     </select>
+    <!-- 后台列表只查询展示所需字段，避免读入任务载荷和租约令牌。 -->
+    <select id="listManaged" resultMap="task">
+        SELECT task_id, task_type, biz_key, biz_version, status, attempts, max_attempts, next_run_at, last_error, updated_at
+        FROM business_task WHERE task_type IN
+        <foreach collection="types" item="allowed" open="(" separator="," close=")">#{allowed}</foreach>
+        <if test="type != null">AND task_type=#{type}</if>
+        <if test="key != null">AND biz_key=#{key}</if>
+        <if test="status != null">AND status=#{status}</if>
+        ORDER BY updated_at DESC, task_id LIMIT #{limit}
+    </select>
 </mapper>

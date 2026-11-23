@@ -75,10 +75,11 @@ public interface OrderLogisticsInfoService {
 	void delivery(OrderLogisticsInfo orderLogisticsInfo);
 
 	/**
-	 * 模拟订单物流
-	 * @param orderId
+	 * 按任务登记的进度模拟下一条物流轨迹。
+	 * @param orderId 主订单号
+	 * @param expectedRecords 执行前应已有的轨迹数，用来识别同一段任务的重复执行
 	 */
-    void mockOrderLogistics(String orderId);
+    void mockOrderLogistics(String orderId, long expectedRecords);
 
 	/**
 	 * 获取订单物流信息

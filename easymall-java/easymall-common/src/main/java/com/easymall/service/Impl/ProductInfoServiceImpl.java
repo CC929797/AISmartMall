@@ -3,13 +3,9 @@ package com.easymall.service.Impl;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import com.easymall.commonent.EsSearchComponent;
-import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.constants.Constants;
 import com.easymall.entity.dto.ProductSaveDTO;
-import com.easymall.entity.dto.RagDataDTO;
 import com.easymall.entity.enums.ProductStatusEnum;
-import com.easymall.entity.enums.RagDataTypeEnum;
 import com.easymall.entity.enums.ResponseCodeEnum;
 import com.easymall.entity.po.ProductPropertyValue;
 import com.easymall.entity.po.ProductSku;
@@ -32,10 +28,7 @@ import com.easymall.mappers.ProductInfoMapper;
 import com.easymall.service.ProductInfoService;
 import com.easymall.utils.StringTools;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.reactive.TransactionContextManager;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationAdapter;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.easymall.sync.SearchSyncService;
 
 
 /**
@@ -53,9 +46,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 	@Resource
 	private SysCategoryService sysCategoryService;
 	@Resource
-	private EsSearchComponent esSearchComponent;
-	@Resource
-	private RedisComponent redisComponent;
+	private SearchSyncService searchSyncService;
 
 
 	/**
@@ -313,7 +304,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 				productSkuMapper.deleteBatch(productInfo.getProductId(),productSkuDiffResult.deleteList);
 			}
 		}
-		//1. 将数据库信息写进es 2.将商品数据向量化
+		// 商品资料、属性与 SKU 保存后，在同一事务登记两种索引同步任务。
 		saveProductInfoExtend(productInfo.getProductId());
 	}
 
@@ -487,7 +478,7 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 		productInfo.setStatus(status);
 		this.updateProductInfoByProductId(productInfo,productId);
 
-		//1.将数据库信息写入 es 2.将商品数据向量化
+		// 上架时后台补写当前版本，下架时后台让文档退出搜索和导购结果。
 		saveProductInfoExtend(productId);
 
 	}
@@ -503,19 +494,13 @@ public class ProductInfoServiceImpl implements ProductInfoService {
 		productInfo.setStatus(ProductStatusEnum.DELETE.getStatus());
 		this.updateProductInfoByProductId(productInfo,productId);
 
-		// 1.将数据库信息写入 es 2.将商品数据向量化
+		// 逻辑删除也需要递增同步版本，让旧索引文档失效。
 		saveProductInfoExtend(productId);
 	}
 
-	private void saveProductInfoExtend(String productId){
-		esSearchComponent.saveProduct(productId);
-		//2.将商品数据向量化
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override
-			public void afterCommit() {
-				redisComponent.sendMessage(Constants.REDIS_QUEUE_RAG_DATA, new RagDataDTO(productId, RagDataTypeEnum.PRODUCT.getType()));
-			}
-		});
+	private void saveProductInfoExtend(String productId) {
+		// 商品和同步任务一起提交，随后由 Worker 调用 ES 与向量服务。
+		searchSyncService.productChanged(productId);
 	}
 
 

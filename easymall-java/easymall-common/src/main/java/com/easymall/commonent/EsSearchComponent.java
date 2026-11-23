@@ -9,9 +9,9 @@ import com.easymall.entity.po.ProductInfo;
 import com.easymall.entity.query.ProductInfoQuery;
 import com.easymall.entity.vo.PaginationResultVO;
 import com.easymall.entity.vo.ProductInfoDTO;
-import com.easymall.exception.BusinessException;
 import com.easymall.mappers.ProductInfoMapper;
-import com.easymall.utils.CopyTools;
+import com.easymall.sync.SearchSyncService;
+import com.easymall.sync.SearchSyncState;
 import com.easymall.utils.JsonUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
@@ -26,12 +26,17 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.document.Document;
 import org.springframework.data.elasticsearch.core.query.Criteria;
 import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
+import org.springframework.data.elasticsearch.core.query.ScriptType;
+import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -40,6 +45,8 @@ public class EsSearchComponent {
     private ElasticsearchOperations elasticsearchOperations;
     @Resource
     private ProductInfoMapper<ProductInfo,ProductInfoQuery> productInfoMapper;
+    @Resource
+    private SearchSyncService searchSyncService;
 
     @PostConstruct
     public void createIndexWithIK() {
@@ -70,22 +77,53 @@ public class EsSearchComponent {
             log.info("创建索引成功");
         }catch (Exception e) {
             log.error("创建索引失败，异常类型={}", e.getClass().getSimpleName());
-            throw new BusinessException("创建索引失败");
         }
     }
 
     /**
-     * 在ElasticSearch中保存/删除商品
-     * @param productId 商品ID
+     * 同一商品用固定文档 ID，由 ES 脚本在一次更新中比较版本和写入。
+     * 下架或删除时留下商品 ID 和版本号，迟到的旧任务比较版本时会直接跳过。
      */
-    public void saveProduct(String productId) {
-        ProductInfo productInfo = productInfoMapper.selectByProductId(productId);
-        ProductInfoDTO productInfoDTO = CopyTools.copy(productInfo, ProductInfoDTO.class);
-        if (ProductStatusEnum.ON_SALE.getStatus().equals(productInfo.getStatus())) {
-            elasticsearchOperations.save(productInfoDTO);
-        } else {
-            elasticsearchOperations.delete(productId, ProductInfoDTO.class);
+    public void writeProductVersion(String productId, long version) {
+        ProductInfo product = productInfoMapper.selectByProductId(productId);
+        Map<String, Object> document = new HashMap<>();
+        document.put("productId", productId);
+        document.put("syncVersion", version);
+        if (product != null && ProductStatusEnum.ON_SALE.getStatus().equals(product.getStatus())) {
+            document.put("productName", product.getProductName());
+            document.put("cover", product.getCover());
+            // ES 价格字段原本就是 double。脚本参数使用 JSON 数值，商城实际金额仍从 MySQL 读取。
+            if (product.getMinPrice() != null) {
+                document.put("minPrice", product.getMinPrice().doubleValue());
+            }
+            if (product.getMaxPrice() != null) {
+                document.put("maxPrice", product.getMaxPrice().doubleValue());
+            }
+            document.put("totalSale", product.getTotalSale());
         }
+
+        IndexOperations index = elasticsearchOperations.indexOps(ProductInfoDTO.class);
+        if (!index.exists()) {
+            createIndexWithIK();
+            if (!index.exists()) {
+                throw new IllegalStateException("商品索引不可用");
+            }
+        }
+        // 同版本重试无副作用。旧文档无 syncVersion，由第一份新投影接管。
+        UpdateQuery update = UpdateQuery.builder(productId)
+                .withLang("painless")
+                .withScriptType(ScriptType.INLINE)
+                .withScript("""
+                        if (ctx._source.syncVersion != null && ctx._source.syncVersion >= params.version) {
+                          ctx.op = 'noop';
+                        } else {
+                          ctx._source.clear();
+                          ctx._source.putAll(params.document);
+                        }
+                        """)
+                .withParams(Map.of("version", version, "document", document))
+                .withScriptedUpsert(true).withUpsert(Document.create()).withRetryOnConflict(3).build();
+        elasticsearchOperations.update(update, index.getIndexCoordinates());
     }
 
     /**
@@ -160,8 +198,9 @@ public class EsSearchComponent {
             query.setPageable(pageable);
             SearchHits<ProductInfoDTO> searchHits = elasticsearchOperations.search(query, ProductInfoDTO.class);
 
-            //从获取到的searchHit获取到List<ProductInfoDTO>集合
-            List<ProductInfoDTO> productInfoDTO = searchHits.getSearchHits().stream().map(hit -> hit.getContent()).toList();
+            // ES 的命中只是候选。返回页面前，用 MySQL 核对是否仍在售、文档版本是否有效。
+            List<ProductInfoDTO> productInfoDTO = visibleProducts(searchHits.getSearchHits().stream()
+                    .map(SearchHit::getContent).toList());
 
             long totalHits = searchHits.getTotalHits();
             int totalPage = (int) Math.ceil((double) totalHits / pageSize);
@@ -173,5 +212,27 @@ public class EsSearchComponent {
         }
     }
 
-
+    /** 仅返回 MySQL 当前可售且版本已发布的商品。索引更新期间，本页可能暂时不足一页。 */
+    private List<ProductInfoDTO> visibleProducts(List<ProductInfoDTO> hits) {
+        if (hits.isEmpty()) {
+            return hits;
+        }
+        List<String> keys = hits.stream().map(ProductInfoDTO::getProductId).filter(java.util.Objects::nonNull).distinct().toList();
+        if (keys.isEmpty()) {
+            return List.of();
+        }
+        ProductInfoQuery active = new ProductInfoQuery();
+        active.setProductIdList(keys);
+        active.setStatus(ProductStatusEnum.ON_SALE.getStatus());
+        Set<String> visible = productInfoMapper.selectList(active).stream()
+                .map(ProductInfo::getProductId).collect(Collectors.toSet());
+        Map<String, SearchSyncState> states = searchSyncService.states(SearchSyncService.PRODUCT_SEARCH, keys);
+        return hits.stream().filter(hit -> {
+            SearchSyncState state = states.get(hit.getProductId());
+            // 兼容未迁移的在售旧文档。进入版本化同步后，只放行当前已完整发布的新文档。
+            return visible.contains(hit.getProductId()) && (state == null ? hit.getSyncVersion() == null
+                    : hit.getSyncVersion() != null && hit.getSyncVersion() == state.requestedVersion()
+                    && state.requestedVersion() == state.publishedVersion());
+        }).toList();
+    }
 }

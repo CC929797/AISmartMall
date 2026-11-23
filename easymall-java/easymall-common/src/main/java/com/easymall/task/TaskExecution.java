@@ -12,15 +12,23 @@ import java.util.function.BooleanSupplier;
  * @param payload 已规范化的JSON内容
  * @param attempt 本轮第几次执行，从1开始
  * @param leaseActive 检查当前执行是否仍持有有效租约的回调，由Worker提供
+ * @param leaseOwner Worker 本次领取的唯一令牌，同一任务重新领取后该令牌会变化
  */
 public record TaskExecution(String taskId, String taskType, String bizKey, long bizVersion,
-                            String payload, int attempt, BooleanSupplier leaseActive) {
+                            String payload, int attempt, BooleanSupplier leaseActive, String leaseOwner) {
+    /** 兼容只需要租约检查回调的旧调用方，正式 Worker 使用包含令牌的构造方法。 */
+    public TaskExecution(String taskId, String taskType, String bizKey, long bizVersion,
+                         String payload, int attempt, BooleanSupplier leaseActive) {
+        this(taskId, taskType, bizKey, bizVersion, payload, attempt, leaseActive, null);
+    }
     /**
      * 租约已丢失时中止当前处理路径。处理器可在关键操作前调用。
      * 此检查不能撤销已经发出的外部请求，业务副作用仍需幂等和版本保护。
      */
     public void requireActiveLease() {
-        if (!leaseActive.getAsBoolean()) throw new LeaseLostException();
+        if (!leaseActive.getAsBoolean()) {
+            throw new LeaseLostException();
+        }
     }
     /** 避免日志包含业务编号、JSON内容或回调对象。 */
     @Override public String toString() {

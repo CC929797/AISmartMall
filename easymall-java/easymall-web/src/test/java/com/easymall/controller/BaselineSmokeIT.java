@@ -2,7 +2,8 @@ package com.easymall.controller;
 
 import com.easymall.order.PaymentCloseResult;
 import com.easymall.EasyMallWebApplication;
-import com.easymall.commonent.EsSearchComponent;
+import com.easymall.sync.SearchSyncService;
+import com.easymall.mappers.SearchSyncMapper;
 import com.easymall.commonent.RedisComponent;
 import com.easymall.entity.config.AppConfig;
 import com.easymall.entity.constants.Constants;
@@ -112,7 +113,10 @@ class BaselineSmokeIT {
     private MessageHandler messageHandler;
 
     @Autowired
-    private EsSearchComponent esSearchComponent;
+    private SearchSyncService searchSyncService;
+
+    @Autowired
+    private SearchSyncMapper searchSyncMapper;
 
     @Autowired
     private ElasticsearchOperations elasticsearchOperations;
@@ -213,7 +217,12 @@ class BaselineSmokeIT {
         assertThat(token).isNotBlank();
         assertThat(redisComponent.getCheckCode(checkCodeKey)).isNull();
 
-        esSearchComponent.saveProduct(PRODUCT_ID);
+        searchSyncService.resyncProduct(PRODUCT_ID);
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
+            var state = searchSyncMapper.find(SearchSyncService.PRODUCT_SEARCH, PRODUCT_ID);
+            assertThat(state).isNotNull();
+            assertThat(state.publishedVersion()).isEqualTo(state.requestedVersion());
+        });
         elasticsearchOperations.indexOps(ProductInfoDTO.class).refresh();
         ProductInfoDTO indexedProduct = elasticsearchOperations.get(PRODUCT_ID, ProductInfoDTO.class);
         assertThat(indexedProduct).as("The synthetic ES document must be indexed").isNotNull();
